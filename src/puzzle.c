@@ -1,0 +1,444 @@
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+#include <time.h>
+#include "puzzle.h"
+#include "db.h"
+#include "util.h"
+#include "sqlite3.h"
+
+/* Before 09:00 UTC, show yesterday's puzzle */
+static void get_puzzle_date(char *out, size_t out_size) {
+    time_t now = (time_t)get_current_time();
+    struct tm *tm = gmtime(&now);
+
+    if (tm->tm_hour < 9)
+        now -= 86400;
+
+    tm = gmtime(&now);
+    strftime(out, out_size, "%Y-%m-%d", tm);
+}
+
+static int populate_puzzle(sqlite3_stmt *stmt, Puzzle *p) {
+    memset(p, 0, sizeof(Puzzle));
+
+    p->id = sqlite3_column_int64(stmt, 0);
+
+    const char *date = (const char *)sqlite3_column_text(stmt, 1);
+    if (date) strncpy(p->puzzle_date, date, sizeof(p->puzzle_date) - 1);
+
+    const char *type = (const char *)sqlite3_column_text(stmt, 2);
+    if (type) strncpy(p->puzzle_type, type, sizeof(p->puzzle_type) - 1);
+
+    const char *question = (const char *)sqlite3_column_text(stmt, 3);
+    if (question) strncpy(p->question, question, sizeof(p->question) - 1);
+
+    const char *answer = (const char *)sqlite3_column_text(stmt, 4);
+    if (answer) strncpy(p->answer, answer, sizeof(p->answer) - 1);
+
+    const char *hint = (const char *)sqlite3_column_text(stmt, 5);
+    if (hint && hint[0] != '\0') {
+        strncpy(p->hint, hint, sizeof(p->hint) - 1);
+        p->has_hint = 1;
+    }
+
+    return 0;
+}
+
+static const char *PUZZLE_SELECT =
+    "SELECT id, puzzle_date, puzzle_type, question, answer, hint FROM puzzles ";
+
+int puzzle_get_today(Puzzle *puzzle_out) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+
+    if (db == NULL || puzzle_out == NULL)
+        return -1;
+
+    char today[16];
+    get_puzzle_date(today, sizeof(today));
+
+    char sql[512];
+    snprintf(sql, sizeof(sql), "%s WHERE puzzle_date = ?", PUZZLE_SELECT);
+
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_text(stmt, 1, today, -1, SQLITE_STATIC);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
+    populate_puzzle(stmt, puzzle_out);
+    sqlite3_finalize(stmt);
+    return 0;
+}
+
+int puzzle_get_by_id(int64_t puzzle_id, Puzzle *puzzle_out) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+
+    if (db == NULL || puzzle_out == NULL)
+        return -1;
+
+    char sql[512];
+    snprintf(sql, sizeof(sql), "%s WHERE id = ?", PUZZLE_SELECT);
+
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, puzzle_id);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
+    populate_puzzle(stmt, puzzle_out);
+    sqlite3_finalize(stmt);
+    return 0;
+}
+
+int puzzle_get_archive(Puzzle *puzzles, int max, int *count) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+
+    if (db == NULL || puzzles == NULL || count == NULL)
+        return -1;
+
+    char today[16];
+    get_puzzle_date(today, sizeof(today));
+
+    char sql[512];
+    snprintf(sql, sizeof(sql),
+        "%s WHERE puzzle_date < ? ORDER BY puzzle_date DESC LIMIT ?",
+        PUZZLE_SELECT);
+
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_text(stmt, 1, today, -1, SQLITE_STATIC);
+    sqlite3_bind_int(stmt, 2, max);
+
+    *count = 0;
+    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && *count < max) {
+        populate_puzzle(stmt, &puzzles[*count]);
+        (*count)++;
+    }
+
+    sqlite3_finalize(stmt);
+    return 0;
+}
+
+int puzzle_get_attempt(int64_t user_id, int64_t puzzle_id, Attempt *attempt_out) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+
+    if (db == NULL || attempt_out == NULL)
+        return -1;
+
+    int rc = sqlite3_prepare_v2(db,
+        "SELECT id, user_id, puzzle_id, incorrect_guesses, hint_used, "
+        "       solved, score, completed_at "
+        "FROM attempts WHERE user_id = ? AND puzzle_id = ?",
+        -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, user_id);
+    sqlite3_bind_int64(stmt, 2, puzzle_id);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
+    memset(attempt_out, 0, sizeof(Attempt));
+    attempt_out->id = sqlite3_column_int64(stmt, 0);
+    attempt_out->user_id = sqlite3_column_int64(stmt, 1);
+    attempt_out->puzzle_id = sqlite3_column_int64(stmt, 2);
+    attempt_out->incorrect_guesses = sqlite3_column_int(stmt, 3);
+    attempt_out->hint_used = sqlite3_column_int(stmt, 4);
+    attempt_out->solved = sqlite3_column_int(stmt, 5);
+    attempt_out->score = sqlite3_column_int(stmt, 6);
+
+    const char *completed = (const char *)sqlite3_column_text(stmt, 7);
+    if (completed)
+        strncpy(attempt_out->completed_at, completed, sizeof(attempt_out->completed_at) - 1);
+
+    sqlite3_finalize(stmt);
+    return 0;
+}
+
+/* Creates attempt record if one doesn't exist, returns attempt ID */
+static int64_t ensure_attempt_exists(int64_t user_id, int64_t puzzle_id) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+
+    Attempt existing;
+    if (puzzle_get_attempt(user_id, puzzle_id, &existing) == 0)
+        return existing.id;
+
+    int rc = sqlite3_prepare_v2(db,
+        "INSERT INTO attempts (user_id, puzzle_id, incorrect_guesses, hint_used, solved) "
+        "VALUES (?, ?, 0, 0, 0)",
+        -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, user_id);
+    sqlite3_bind_int64(stmt, 2, puzzle_id);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE)
+        return -1;
+
+    return sqlite3_last_insert_rowid(db);
+}
+
+char *puzzle_normalize_answer(char *str) {
+    if (str == NULL || str[0] == '\0')
+        return str;
+
+    char *read = str;
+    char *write = str;
+
+    while (*read && isspace((unsigned char)*read))
+        read++;
+
+    int last_was_space = 0;
+    while (*read) {
+        if (isspace((unsigned char)*read)) {
+            if (!last_was_space) {
+                *write++ = ' ';
+                last_was_space = 1;
+            }
+        } else if (*read == ',' || *read == '-' || *read == '>') {
+            /* Treat separators as spaces for flexible answer matching */
+            if (!last_was_space) {
+                *write++ = ' ';
+                last_was_space = 1;
+            }
+        } else {
+            *write++ = tolower((unsigned char)*read);
+            last_was_space = 0;
+        }
+        read++;
+    }
+
+    if (write > str && *(write - 1) == ' ')
+        write--;
+
+    *write = '\0';
+    return str;
+}
+
+static int check_answer(const char *guess, const char *answer) {
+    /* Copies needed — normalize modifies in place */
+    char guess_norm[256];
+    char answer_norm[256];
+
+    strncpy(guess_norm, guess, sizeof(guess_norm) - 1);
+    guess_norm[sizeof(guess_norm) - 1] = '\0';
+
+    strncpy(answer_norm, answer, sizeof(answer_norm) - 1);
+    answer_norm[sizeof(answer_norm) - 1] = '\0';
+
+    puzzle_normalize_answer(guess_norm);
+    puzzle_normalize_answer(answer_norm);
+
+    return strcmp(guess_norm, answer_norm) == 0;
+}
+
+int puzzle_calculate_score(time_t solve_time, const char *puzzle_date,
+                           int incorrect_guesses, int hint_used) {
+    struct tm release_tm = {0};
+    int year, month, day;
+
+    if (sscanf(puzzle_date, "%d-%d-%d", &year, &month, &day) != 3)
+        return 10;
+
+    release_tm.tm_year = year - 1900;
+    release_tm.tm_mon = month - 1;
+    release_tm.tm_mday = day;
+    release_tm.tm_hour = 9;  /* 09:00 UTC release */
+
+    /* timegm is not standard C but available on macOS/Linux */
+    time_t release_time = timegm(&release_tm);
+
+    double diff_seconds = difftime(solve_time, release_time);
+    if (diff_seconds < 0)
+        diff_seconds = 0;
+
+    int minutes = (int)(diff_seconds / 60);
+
+    int base_score;
+    if (minutes <= 10)
+        base_score = 100;
+    else if (minutes <= 30)
+        base_score = 90;
+    else if (minutes <= 60)
+        base_score = 80;
+    else if (minutes <= 120)
+        base_score = 75;
+    else if (minutes <= 180)
+        base_score = 70;
+    else {
+        int extra_hours = (minutes - 180) / 60;
+        base_score = 70 - (5 * extra_hours);
+    }
+
+    int score = base_score;
+    score -= incorrect_guesses * 5;
+    if (hint_used)
+        score -= 10;
+
+    if (score < 10)
+        score = 10;
+
+    return score;
+}
+
+int puzzle_submit_guess(int64_t user_id, int64_t puzzle_id,
+                        const char *guess, int *score_out) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+
+    if (db == NULL || guess == NULL)
+        return -1;
+
+    int rc = sqlite3_prepare_v2(db,
+        "SELECT answer, puzzle_date FROM puzzles WHERE id = ?",
+        -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, puzzle_id);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
+    char answer[256] = {0};
+    char puzzle_date[16] = {0};
+
+    const char *ans = (const char *)sqlite3_column_text(stmt, 0);
+    if (ans) strncpy(answer, ans, sizeof(answer) - 1);
+
+    const char *pdate = (const char *)sqlite3_column_text(stmt, 1);
+    if (pdate) strncpy(puzzle_date, pdate, sizeof(puzzle_date) - 1);
+
+    sqlite3_finalize(stmt);
+
+    int64_t attempt_id = ensure_attempt_exists(user_id, puzzle_id);
+    if (attempt_id < 0)
+        return -1;
+
+    Attempt attempt;
+    if (puzzle_get_attempt(user_id, puzzle_id, &attempt) != 0)
+        return -1;
+
+    if (attempt.solved) {
+        if (score_out) *score_out = attempt.score;
+        return 1;
+    }
+
+    if (check_answer(guess, answer)) {
+        time_t now = (time_t)get_current_time();
+        int score = puzzle_calculate_score(now, puzzle_date,
+                                           attempt.incorrect_guesses,
+                                           attempt.hint_used);
+
+        char completed_at[32];
+        format_datetime(completed_at, sizeof(completed_at), (long)now);
+
+        rc = sqlite3_prepare_v2(db,
+            "UPDATE attempts SET solved = 1, score = ?, completed_at = ? "
+            "WHERE id = ?",
+            -1, &stmt, NULL);
+        if (rc != SQLITE_OK)
+            return -1;
+
+        sqlite3_bind_int(stmt, 1, score);
+        sqlite3_bind_text(stmt, 2, completed_at, -1, SQLITE_STATIC);
+        sqlite3_bind_int64(stmt, 3, attempt_id);
+
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+
+        if (score_out) *score_out = score;
+        return 1;
+    } else {
+        rc = sqlite3_prepare_v2(db,
+            "UPDATE attempts SET incorrect_guesses = incorrect_guesses + 1 "
+            "WHERE id = ?",
+            -1, &stmt, NULL);
+        if (rc == SQLITE_OK) {
+            sqlite3_bind_int64(stmt, 1, attempt_id);
+            sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
+        }
+
+        return 0;
+    }
+}
+
+int puzzle_reveal_hint(int64_t user_id, int64_t puzzle_id,
+                       char *hint_out, size_t hint_size) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+
+    if (db == NULL || hint_out == NULL || hint_size == 0)
+        return -1;
+
+    int rc = sqlite3_prepare_v2(db,
+        "SELECT hint FROM puzzles WHERE id = ?",
+        -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, puzzle_id);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
+    const char *hint = (const char *)sqlite3_column_text(stmt, 0);
+    if (hint == NULL || hint[0] == '\0') {
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
+    strncpy(hint_out, hint, hint_size - 1);
+    hint_out[hint_size - 1] = '\0';
+    sqlite3_finalize(stmt);
+
+    int64_t attempt_id = ensure_attempt_exists(user_id, puzzle_id);
+    if (attempt_id < 0)
+        return -1;
+
+    rc = sqlite3_prepare_v2(db,
+        "UPDATE attempts SET hint_used = 1 WHERE id = ?",
+        -1, &stmt, NULL);
+    if (rc == SQLITE_OK) {
+        sqlite3_bind_int64(stmt, 1, attempt_id);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+
+    return 0;
+}

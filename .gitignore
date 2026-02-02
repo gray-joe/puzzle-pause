@@ -1,0 +1,45 @@
+# Build artifacts
+puzzle_server
+test_db
+test_auth
+test_puzzle
+test_league
+*.dSYM/
+*.o
+
+# Third-party libraries (downloaded during setup)
+src/mongoose.h
+src/mongoose.c
+src/sqlite3.h
+src/sqlite3.c
+
+# Database files
+*.db
+*.sqlite
+
+# Puzzle seed data (contains answers)
+data/seed_puzzles.sql
+
+# Environment/secrets
+.env
+.env.*
+
+# Logs
+*.log
+
+# Editor/IDE/Dev
+.vscode/
+.idea/
+*.swp
+*~
+.claude/
+CLAUDE.md
+SPEC.md
+docs/
+
+# macOS
+.DS_Store
+
+# Core dumps
+core
+core.*

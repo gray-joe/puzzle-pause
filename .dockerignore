@@ -1,0 +1,22 @@
+# Build artifacts
+puzzle_server
+test_db
+test_auth
+test_puzzle
+test_league
+*.db
+
+# Development files
+data/dev.db
+*.log
+
+# Git
+.git
+.gitignore
+
+# Documentation
+docs/
+*.md
+
+# Test files
+test_http.sh
