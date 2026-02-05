@@ -343,9 +343,27 @@ static int send_email(const char *to, const char *subject, const char *html) {
     return 0;
 }
 
+static void get_client_ip(struct mg_connection *c, struct mg_http_message *hm,
+                          char *ip, size_t ip_size) {
+    struct mg_str *xff = mg_http_get_header(hm, "X-Forwarded-For");
+    if (xff && xff->len > 0) {
+        size_t len = xff->len;
+        const char *comma = memchr(xff->buf, ',', xff->len);
+        if (comma) len = (size_t)(comma - xff->buf);
+        while (len > 0 && xff->buf[len - 1] == ' ') len--;
+        const char *start = xff->buf;
+        while (len > 0 && *start == ' ') { start++; len--; }
+        if (len >= ip_size) len = ip_size - 1;
+        memcpy(ip, start, len);
+        ip[len] = '\0';
+        return;
+    }
+    mg_snprintf(ip, ip_size, "%M", mg_print_ip, &c->rem);
+}
+
 static void handle_login_submit(struct mg_connection *c, struct mg_http_message *hm) {
     char ip[64] = {0};
-    mg_snprintf(ip, sizeof(ip), "%M", mg_print_ip, &c->rem);
+    get_client_ip(c, hm, ip, sizeof(ip));
 
     if (!rate_limit_check(ip)) {
         mg_http_reply(c, 429, "Content-Type: text/html\r\n",
@@ -464,7 +482,7 @@ static void handle_login_submit(struct mg_connection *c, struct mg_http_message 
 static void set_session_and_redirect(struct mg_connection *c, const char *session_token) {
     char headers[512];
     snprintf(headers, sizeof(headers),
-        "Set-Cookie: session=%s; HttpOnly; SameSite=Strict; Path=/; Max-Age=%d\r\n"
+        "Set-Cookie: session=%s; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=%d\r\n"
         "Location: /\r\n"
         "Content-Type: text/html\r\n",
         session_token, SESSION_EXPIRY_SECS);
@@ -566,7 +584,7 @@ static void handle_logout(struct mg_connection *c, struct mg_http_message *hm) {
 
     /* Max-Age=0 tells browser to delete the cookie */
     mg_http_reply(c, 302,
-        "Set-Cookie: session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0\r\n"
+        "Set-Cookie: session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0\r\n"
         "Location: /\r\n"
         "Content-Type: text/html\r\n",
         "<!DOCTYPE html>\n"

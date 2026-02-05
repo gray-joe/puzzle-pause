@@ -73,6 +73,8 @@ static const char *SCHEMA =
     "CREATE INDEX IF NOT EXISTS idx_puzzles_date ON puzzles(puzzle_date);"
     "CREATE INDEX IF NOT EXISTS idx_attempts_user_puzzle ON attempts(user_id, puzzle_id);"
     "CREATE INDEX IF NOT EXISTS idx_leagues_invite_code ON leagues(invite_code);"
+    "CREATE INDEX IF NOT EXISTS idx_league_members_league ON league_members(league_id);"
+    "CREATE INDEX IF NOT EXISTS idx_league_members_user ON league_members(user_id);"
 ;
 
 int db_init(const char *db_path) {
