@@ -80,15 +80,18 @@ TEST(test_token_buffer_too_small) {
  * Test: Create magic link stores token in database
  */
 TEST(test_create_magic_link) {
-    char token[65];
+    char token[65], code[AUTH_CODE_LEN + 1];
     sqlite3 *db = db_get();
     sqlite3_stmt *stmt;
 
     /* Create magic link */
-    ASSERT_INT_EQ(0, auth_create_magic_link("test@example.com", token));
+    ASSERT_INT_EQ(0, auth_create_magic_link("test@example.com", token, code));
 
     /* Verify token is 64 hex chars */
     ASSERT_INT_EQ(64, (int)strlen(token));
+
+    /* Verify code is AUTH_CODE_LEN alphanumeric chars */
+    ASSERT_INT_EQ(AUTH_CODE_LEN, (int)strlen(code));
 
     /* Verify token exists in database */
     int rc = sqlite3_prepare_v2(db,
@@ -121,11 +124,11 @@ TEST(test_create_magic_link) {
  * Test: Validate magic link creates session
  */
 TEST(test_validate_magic_link) {
-    char token[65], session[65];
+    char token[65], code[AUTH_CODE_LEN + 1], session[65];
     int64_t user_id;
 
     /* Create magic link */
-    ASSERT_INT_EQ(0, auth_create_magic_link("validate@example.com", token));
+    ASSERT_INT_EQ(0, auth_create_magic_link("validate@example.com", token, code));
 
     /* Validate it */
     ASSERT_INT_EQ(0, auth_validate_magic_link(token, session, &user_id));
@@ -153,11 +156,11 @@ TEST(test_validate_magic_link) {
  * Test: Magic link can only be used once
  */
 TEST(test_magic_link_single_use) {
-    char token[65], session1[65], session2[65];
+    char token[65], code[AUTH_CODE_LEN + 1], session1[65], session2[65];
     int64_t user_id;
 
     /* Create and use magic link */
-    ASSERT_INT_EQ(0, auth_create_magic_link("single@example.com", token));
+    ASSERT_INT_EQ(0, auth_create_magic_link("single@example.com", token, code));
     ASSERT_INT_EQ(0, auth_validate_magic_link(token, session1, &user_id));
 
     /* Second use should fail */
@@ -193,12 +196,12 @@ TEST(test_invalid_token_rejected) {
  * Test: Get user from valid session
  */
 TEST(test_get_user_from_session) {
-    char token[65], session[65];
+    char token[65], code[AUTH_CODE_LEN + 1], session[65];
     int64_t user_id;
     User user;
 
     /* Create user and session */
-    ASSERT_INT_EQ(0, auth_create_magic_link("session@example.com", token));
+    ASSERT_INT_EQ(0, auth_create_magic_link("session@example.com", token, code));
     ASSERT_INT_EQ(0, auth_validate_magic_link(token, session, &user_id));
 
     /* Get user from session */
@@ -237,12 +240,12 @@ TEST(test_invalid_session_rejected) {
  * Test: Logout destroys session
  */
 TEST(test_logout) {
-    char token[65], session[65];
+    char token[65], code[AUTH_CODE_LEN + 1], session[65];
     int64_t user_id;
     User user;
 
     /* Create user and session */
-    ASSERT_INT_EQ(0, auth_create_magic_link("logout@example.com", token));
+    ASSERT_INT_EQ(0, auth_create_magic_link("logout@example.com", token, code));
     ASSERT_INT_EQ(0, auth_validate_magic_link(token, session, &user_id));
 
     /* Verify session works */
@@ -268,15 +271,15 @@ TEST(test_logout) {
  * Test: Existing user gets same ID on re-login
  */
 TEST(test_existing_user_login) {
-    char token1[65], token2[65], session1[65], session2[65];
+    char token1[65], token2[65], code[AUTH_CODE_LEN + 1], session1[65], session2[65];
     int64_t user_id1, user_id2;
 
     /* First login creates user */
-    ASSERT_INT_EQ(0, auth_create_magic_link("repeat@example.com", token1));
+    ASSERT_INT_EQ(0, auth_create_magic_link("repeat@example.com", token1, code));
     ASSERT_INT_EQ(0, auth_validate_magic_link(token1, session1, &user_id1));
 
     /* Second login for same email */
-    ASSERT_INT_EQ(0, auth_create_magic_link("repeat@example.com", token2));
+    ASSERT_INT_EQ(0, auth_create_magic_link("repeat@example.com", token2, code));
     ASSERT_INT_EQ(0, auth_validate_magic_link(token2, session2, &user_id2));
 
     /* Should be same user ID */
@@ -295,6 +298,116 @@ TEST(test_existing_user_login) {
     sqlite3_exec(db, "DELETE FROM users WHERE email = 'repeat@example.com'",
                  NULL, NULL, NULL);
 
+    return 1;
+}
+
+TEST(test_validate_code_success) {
+    char token[65], code[AUTH_CODE_LEN + 1], session[65];
+    int64_t user_id;
+
+    ASSERT_INT_EQ(0, auth_create_magic_link("code@example.com", token, code));
+    ASSERT_INT_EQ(0, auth_validate_code("code@example.com", code, session, &user_id));
+    ASSERT(user_id > 0);
+    ASSERT_INT_EQ(64, (int)strlen(session));
+
+    sqlite3 *db = db_get();
+    sqlite3_exec(db, "DELETE FROM sessions WHERE user_id IN "
+                     "(SELECT id FROM users WHERE email = 'code@example.com')",
+                 NULL, NULL, NULL);
+    sqlite3_exec(db, "DELETE FROM auth_tokens WHERE email = 'code@example.com'",
+                 NULL, NULL, NULL);
+    sqlite3_exec(db, "DELETE FROM users WHERE email = 'code@example.com'",
+                 NULL, NULL, NULL);
+    return 1;
+}
+
+TEST(test_validate_code_case_insensitive) {
+    char token[65], code[AUTH_CODE_LEN + 1], session[65];
+    char lower_code[AUTH_CODE_LEN + 1];
+    int64_t user_id;
+
+    ASSERT_INT_EQ(0, auth_create_magic_link("casei@example.com", token, code));
+
+    /* Convert code to lowercase */
+    for (int i = 0; i < AUTH_CODE_LEN; i++)
+        lower_code[i] = (code[i] >= 'A' && code[i] <= 'Z') ? code[i] + 32 : code[i];
+    lower_code[AUTH_CODE_LEN] = '\0';
+
+    ASSERT_INT_EQ(0, auth_validate_code("casei@example.com", lower_code, session, &user_id));
+    ASSERT(user_id > 0);
+
+    sqlite3 *db = db_get();
+    sqlite3_exec(db, "DELETE FROM sessions WHERE user_id IN "
+                     "(SELECT id FROM users WHERE email = 'casei@example.com')",
+                 NULL, NULL, NULL);
+    sqlite3_exec(db, "DELETE FROM auth_tokens WHERE email = 'casei@example.com'",
+                 NULL, NULL, NULL);
+    sqlite3_exec(db, "DELETE FROM users WHERE email = 'casei@example.com'",
+                 NULL, NULL, NULL);
+    return 1;
+}
+
+TEST(test_validate_code_wrong_code) {
+    char token[65], code[AUTH_CODE_LEN + 1], session[65];
+    int64_t user_id;
+
+    ASSERT_INT_EQ(0, auth_create_magic_link("wrong@example.com", token, code));
+    ASSERT_INT_EQ(-1, auth_validate_code("wrong@example.com", "ZZZZZZ", session, &user_id));
+
+    sqlite3 *db = db_get();
+    sqlite3_exec(db, "DELETE FROM auth_tokens WHERE email = 'wrong@example.com'",
+                 NULL, NULL, NULL);
+    return 1;
+}
+
+TEST(test_validate_code_wrong_email) {
+    char token[65], code[AUTH_CODE_LEN + 1], session[65];
+    int64_t user_id;
+
+    ASSERT_INT_EQ(0, auth_create_magic_link("right@example.com", token, code));
+    ASSERT_INT_EQ(-1, auth_validate_code("other@example.com", code, session, &user_id));
+
+    sqlite3 *db = db_get();
+    sqlite3_exec(db, "DELETE FROM auth_tokens WHERE email = 'right@example.com'",
+                 NULL, NULL, NULL);
+    return 1;
+}
+
+TEST(test_validate_code_single_use) {
+    char token[65], code[AUTH_CODE_LEN + 1], session1[65], session2[65];
+    int64_t user_id;
+
+    ASSERT_INT_EQ(0, auth_create_magic_link("once@example.com", token, code));
+    ASSERT_INT_EQ(0, auth_validate_code("once@example.com", code, session1, &user_id));
+    ASSERT_INT_EQ(-1, auth_validate_code("once@example.com", code, session2, &user_id));
+
+    sqlite3 *db = db_get();
+    sqlite3_exec(db, "DELETE FROM sessions WHERE user_id IN "
+                     "(SELECT id FROM users WHERE email = 'once@example.com')",
+                 NULL, NULL, NULL);
+    sqlite3_exec(db, "DELETE FROM auth_tokens WHERE email = 'once@example.com'",
+                 NULL, NULL, NULL);
+    sqlite3_exec(db, "DELETE FROM users WHERE email = 'once@example.com'",
+                 NULL, NULL, NULL);
+    return 1;
+}
+
+TEST(test_validate_code_max_attempts) {
+    char token[65], code[AUTH_CODE_LEN + 1], session[65];
+    int64_t user_id;
+
+    ASSERT_INT_EQ(0, auth_create_magic_link("brute@example.com", token, code));
+
+    /* Exhaust all attempts with wrong codes */
+    for (int i = 0; i < AUTH_MAX_CODE_ATTEMPTS; i++)
+        auth_validate_code("brute@example.com", "ZZZZZZ", session, &user_id);
+
+    /* Correct code should now fail (token invalidated) */
+    ASSERT_INT_EQ(-1, auth_validate_code("brute@example.com", code, session, &user_id));
+
+    sqlite3 *db = db_get();
+    sqlite3_exec(db, "DELETE FROM auth_tokens WHERE email = 'brute@example.com'",
+                 NULL, NULL, NULL);
     return 1;
 }
 
@@ -325,6 +438,14 @@ int main(void) {
     RUN_TEST(test_validate_magic_link);
     RUN_TEST(test_magic_link_single_use);
     RUN_TEST(test_invalid_token_rejected);
+
+    /* OTAC tests */
+    RUN_TEST(test_validate_code_success);
+    RUN_TEST(test_validate_code_case_insensitive);
+    RUN_TEST(test_validate_code_wrong_code);
+    RUN_TEST(test_validate_code_wrong_email);
+    RUN_TEST(test_validate_code_single_use);
+    RUN_TEST(test_validate_code_max_attempts);
 
     /* Session tests */
     RUN_TEST(test_get_user_from_session);

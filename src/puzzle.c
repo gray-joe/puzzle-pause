@@ -7,6 +7,105 @@
 #include "util.h"
 #include "sqlite3.h"
 
+int puzzle_parse_ladder(const char *question, LadderStep *steps, int max_steps) {
+    if (!question || !steps || max_steps <= 0)
+        return 0;
+
+    int count = 0;
+    const char *p = question;
+
+    while (*p && count < max_steps) {
+        while (*p == ' ') p++;
+        if (*p == '\0') break;
+
+        const char *end = strstr(p, ", ");
+        size_t len;
+        if (end)
+            len = end - p;
+        else
+            len = strlen(p);
+
+        /* Trim trailing spaces */
+        while (len > 0 && p[len - 1] == ' ') len--;
+
+        if (len == 0) {
+            if (end)
+                p = end + 2;
+            else
+                break;
+            continue;
+        }
+
+        memset(&steps[count], 0, sizeof(LadderStep));
+
+        if (len == 4 && memcmp(p, "____", 4) == 0) {
+            steps[count].is_blank = 1;
+        } else {
+            if (len >= sizeof(steps[count].word))
+                len = sizeof(steps[count].word) - 1;
+            memcpy(steps[count].word, p, len);
+            steps[count].word[len] = '\0';
+        }
+
+        count++;
+
+        if (end)
+            p = end + 2;
+        else
+            break;
+    }
+
+    return count;
+}
+
+int puzzle_parse_choice(const char *question, ChoicePuzzle *out) {
+    if (!question || !out)
+        return -1;
+
+    memset(out, 0, sizeof(ChoicePuzzle));
+
+    const char *delim = strchr(question, '|');
+    if (!delim)
+        return -1;
+
+    size_t prompt_len = delim - question;
+    if (prompt_len >= sizeof(out->prompt))
+        prompt_len = sizeof(out->prompt) - 1;
+    memcpy(out->prompt, question, prompt_len);
+    out->prompt[prompt_len] = '\0';
+
+    const char *p = delim + 1;
+    while (*p && out->num_options < MAX_CHOICE_OPTIONS) {
+        const char *next = strchr(p, '|');
+        size_t len;
+        if (next)
+            len = next - p;
+        else
+            len = strlen(p);
+
+        if (len == 0) {
+            if (next) { p = next + 1; continue; }
+            break;
+        }
+
+        if (len >= sizeof(out->options[0]))
+            len = sizeof(out->options[0]) - 1;
+        memcpy(out->options[out->num_options], p, len);
+        out->options[out->num_options][len] = '\0';
+        out->num_options++;
+
+        if (next)
+            p = next + 1;
+        else
+            break;
+    }
+
+    if (out->num_options < 2)
+        return -1;
+
+    return 0;
+}
+
 /* Before 09:00 UTC, show yesterday's puzzle */
 static void get_puzzle_date(char *out, size_t out_size) {
     time_t now = (time_t)get_current_time();
@@ -30,13 +129,16 @@ static int populate_puzzle(sqlite3_stmt *stmt, Puzzle *p) {
     const char *type = (const char *)sqlite3_column_text(stmt, 2);
     if (type) strncpy(p->puzzle_type, type, sizeof(p->puzzle_type) - 1);
 
-    const char *question = (const char *)sqlite3_column_text(stmt, 3);
+    const char *name = (const char *)sqlite3_column_text(stmt, 3);
+    if (name) strncpy(p->puzzle_name, name, sizeof(p->puzzle_name) - 1);
+
+    const char *question = (const char *)sqlite3_column_text(stmt, 4);
     if (question) strncpy(p->question, question, sizeof(p->question) - 1);
 
-    const char *answer = (const char *)sqlite3_column_text(stmt, 4);
+    const char *answer = (const char *)sqlite3_column_text(stmt, 5);
     if (answer) strncpy(p->answer, answer, sizeof(p->answer) - 1);
 
-    const char *hint = (const char *)sqlite3_column_text(stmt, 5);
+    const char *hint = (const char *)sqlite3_column_text(stmt, 6);
     if (hint && hint[0] != '\0') {
         strncpy(p->hint, hint, sizeof(p->hint) - 1);
         p->has_hint = 1;
@@ -46,7 +148,7 @@ static int populate_puzzle(sqlite3_stmt *stmt, Puzzle *p) {
 }
 
 static const char *PUZZLE_SELECT =
-    "SELECT id, puzzle_date, puzzle_type, question, answer, hint FROM puzzles ";
+    "SELECT id, puzzle_date, puzzle_type, puzzle_name, question, answer, hint FROM puzzles ";
 
 int puzzle_get_today(Puzzle *puzzle_out) {
     sqlite3 *db = db_get();
@@ -105,7 +207,7 @@ int puzzle_get_by_id(int64_t puzzle_id, Puzzle *puzzle_out) {
     return 0;
 }
 
-int puzzle_get_archive(Puzzle *puzzles, int max, int *count) {
+int puzzle_get_archive(Puzzle *puzzles, int max, int *count, int include_future) {
     sqlite3 *db = db_get();
     sqlite3_stmt *stmt = NULL;
 
@@ -116,16 +218,26 @@ int puzzle_get_archive(Puzzle *puzzles, int max, int *count) {
     get_puzzle_date(today, sizeof(today));
 
     char sql[512];
-    snprintf(sql, sizeof(sql),
-        "%s WHERE puzzle_date < ? ORDER BY puzzle_date DESC LIMIT ?",
-        PUZZLE_SELECT);
+    if (include_future) {
+        snprintf(sql, sizeof(sql),
+            "%s ORDER BY puzzle_date ASC LIMIT ?",
+            PUZZLE_SELECT);
+    } else {
+        snprintf(sql, sizeof(sql),
+            "%s WHERE puzzle_date < ? ORDER BY puzzle_date DESC LIMIT ?",
+            PUZZLE_SELECT);
+    }
 
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK)
         return -1;
 
-    sqlite3_bind_text(stmt, 1, today, -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 2, max);
+    if (include_future) {
+        sqlite3_bind_int(stmt, 1, max);
+    } else {
+        sqlite3_bind_text(stmt, 1, today, -1, SQLITE_STATIC);
+        sqlite3_bind_int(stmt, 2, max);
+    }
 
     *count = 0;
     while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && *count < max) {

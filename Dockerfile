@@ -17,6 +17,7 @@ WORKDIR /app
 COPY --from=builder /app/puzzle_server .
 
 COPY data/seed_puzzles.sql data/
+COPY static/ static/
 
 # The data directory will be mounted as a persistent volume
 # fly.toml mounts puzzle_data volume to /app/data

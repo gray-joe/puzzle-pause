@@ -268,8 +268,8 @@ TEST(test_get_puzzle_exists) {
     strftime(today, sizeof(today), "%Y-%m-%d", tm);
 
     const char *sql = "INSERT OR REPLACE INTO puzzles "
-                      "(puzzle_date, puzzle_type, question, answer, hint) "
-                      "VALUES (?, 'word', 'Test question?', 'answer', 'hint')";
+                      "(puzzle_date, puzzle_type, puzzle_name, question, answer, hint) "
+                      "VALUES (?, 'word', 'Test Puzzle', 'Test question?', 'answer', 'hint')";
     sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
     sqlite3_bind_text(stmt, 1, today, -1, SQLITE_STATIC);
     sqlite3_step(stmt);
@@ -310,8 +310,8 @@ TEST(test_submit_correct_guess) {
 
     /* Insert puzzle if not exists */
     const char *ins_sql = "INSERT OR REPLACE INTO puzzles "
-                          "(puzzle_date, puzzle_type, question, answer, hint) "
-                          "VALUES (?, 'word', 'Test?', 'testanswer', 'hint')";
+                          "(puzzle_date, puzzle_type, puzzle_name, question, answer, hint) "
+                          "VALUES (?, 'word', 'Test Puzzle', 'Test?', 'testanswer', 'hint')";
     sqlite3_prepare_v2(db, ins_sql, -1, &stmt, NULL);
     sqlite3_bind_text(stmt, 1, today, -1, SQLITE_STATIC);
     sqlite3_step(stmt);
@@ -439,6 +439,78 @@ TEST(test_reveal_hint) {
     return 1;
 }
 
+TEST(test_parse_ladder_basic) {
+    LadderStep steps[MAX_LADDER_STEPS];
+    int count = puzzle_parse_ladder("Dawn, ____, Dark, ____, Dusk", steps, MAX_LADDER_STEPS);
+
+    ASSERT_INT_EQ(5, count);
+
+    ASSERT_STR_EQ("Dawn", steps[0].word);
+    ASSERT_INT_EQ(0, steps[0].is_blank);
+
+    ASSERT_INT_EQ(1, steps[1].is_blank);
+
+    ASSERT_STR_EQ("Dark", steps[2].word);
+    ASSERT_INT_EQ(0, steps[2].is_blank);
+
+    ASSERT_INT_EQ(1, steps[3].is_blank);
+
+    ASSERT_STR_EQ("Dusk", steps[4].word);
+    ASSERT_INT_EQ(0, steps[4].is_blank);
+
+    return 1;
+}
+
+TEST(test_parse_ladder_all_blanks) {
+    LadderStep steps[MAX_LADDER_STEPS];
+    int count = puzzle_parse_ladder("____, ____, ____", steps, MAX_LADDER_STEPS);
+
+    ASSERT_INT_EQ(3, count);
+    ASSERT_INT_EQ(1, steps[0].is_blank);
+    ASSERT_INT_EQ(1, steps[1].is_blank);
+    ASSERT_INT_EQ(1, steps[2].is_blank);
+
+    return 1;
+}
+
+TEST(test_parse_ladder_empty) {
+    LadderStep steps[MAX_LADDER_STEPS];
+    int count = puzzle_parse_ladder("", steps, MAX_LADDER_STEPS);
+    ASSERT_INT_EQ(0, count);
+    return 1;
+}
+
+TEST(test_parse_choice_basic) {
+    ChoicePuzzle cp;
+    int rc = puzzle_parse_choice("What is 2+2?|3|4|5|6", &cp);
+    ASSERT_INT_EQ(0, rc);
+    ASSERT_STR_EQ("What is 2+2?", cp.prompt);
+    ASSERT_INT_EQ(4, cp.num_options);
+    ASSERT_STR_EQ("3", cp.options[0]);
+    ASSERT_STR_EQ("4", cp.options[1]);
+    ASSERT_STR_EQ("5", cp.options[2]);
+    ASSERT_STR_EQ("6", cp.options[3]);
+    return 1;
+}
+
+TEST(test_parse_choice_two_options) {
+    ChoicePuzzle cp;
+    int rc = puzzle_parse_choice("True or false: the sky is blue|True|False", &cp);
+    ASSERT_INT_EQ(0, rc);
+    ASSERT_STR_EQ("True or false: the sky is blue", cp.prompt);
+    ASSERT_INT_EQ(2, cp.num_options);
+    ASSERT_STR_EQ("True", cp.options[0]);
+    ASSERT_STR_EQ("False", cp.options[1]);
+    return 1;
+}
+
+TEST(test_parse_choice_no_options) {
+    ChoicePuzzle cp;
+    int rc = puzzle_parse_choice("Just a prompt with no pipe", &cp);
+    ASSERT_INT_EQ(-1, rc);
+    return 1;
+}
+
 int main(void) {
     /* Initialize database with test file */
     if (db_init("test_puzzle.db") != 0) {
@@ -466,6 +538,16 @@ int main(void) {
     RUN_TEST(test_score_hint_used);
     RUN_TEST(test_score_combined_penalties);
     RUN_TEST(test_score_minimum);
+
+    /* Ladder parsing tests */
+    RUN_TEST(test_parse_ladder_basic);
+    RUN_TEST(test_parse_ladder_all_blanks);
+    RUN_TEST(test_parse_ladder_empty);
+
+    /* Choice parsing tests */
+    RUN_TEST(test_parse_choice_basic);
+    RUN_TEST(test_parse_choice_two_options);
+    RUN_TEST(test_parse_choice_no_options);
 
     /* Database integration tests */
     RUN_TEST(test_get_puzzle_exists);
