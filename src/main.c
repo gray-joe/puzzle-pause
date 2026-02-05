@@ -9,6 +9,7 @@
 #include "auth.h"
 #include "puzzle.h"
 #include "league.h"
+#include "util.h"
 
 /* Rate limiting: 5 login attempts per minute per IP */
 #define RATE_LIMIT_WINDOW_SECS 60
@@ -309,10 +310,16 @@ static int send_email(const char *to, const char *subject, const char *html) {
     if (!api_key || !from)
         return -1;
 
-    char json[2048];
+    char safe_from[512], safe_to[512], safe_subject[512], safe_html[4096];
+    json_escape(from, safe_from, sizeof(safe_from));
+    json_escape(to, safe_to, sizeof(safe_to));
+    json_escape(subject, safe_subject, sizeof(safe_subject));
+    json_escape(html, safe_html, sizeof(safe_html));
+
+    char json[6144];
     snprintf(json, sizeof(json),
         "{\"from\":\"%s\",\"to\":[\"%s\"],\"subject\":\"%s\",\"html\":\"%s\"}",
-        from, to, subject, html);
+        safe_from, safe_to, safe_subject, safe_html);
 
     pid_t pid = fork();
     if (pid < 0)
@@ -360,6 +367,7 @@ static void handle_login_submit(struct mg_connection *c, struct mg_http_message 
     }
 
     char email[256] = {0};
+    char safe_email[1536] = {0};
 
     if (get_form_var(hm, "email", email, sizeof(email)) <= 0) {
         mg_http_reply(c, 400, "Content-Type: text/html\r\n",
@@ -380,6 +388,8 @@ static void handle_login_submit(struct mg_connection *c, struct mg_http_message 
             TERMINAL_CSS);
         return;
     }
+
+    html_escape(email, safe_email, sizeof(safe_email));
 
     const char *resend_key = getenv("RESEND_API_KEY");
     int is_prod = (resend_key != NULL && resend_key[0] != '\0');
@@ -446,9 +456,9 @@ static void handle_login_submit(struct mg_connection *c, struct mg_http_message 
         "  <span class=\"gt\">&gt;</span>Back to login\n"
         "</a>\n"
         "</body></html>\n",
-        TERMINAL_CSS, email,
+        TERMINAL_CSS, safe_email,
         is_prod ? "" : "<div class=\"content-meta\">(Dev mode: check the server console for the code)</div>\n",
-        email);
+        safe_email);
 }
 
 static void set_session_and_redirect(struct mg_connection *c, const char *session_token) {
@@ -497,6 +507,7 @@ static void handle_auth(struct mg_connection *c, struct mg_http_message *hm) {
 static void handle_auth_code(struct mg_connection *c, struct mg_http_message *hm) {
     char email[256] = {0};
     char code[16] = {0};
+    char safe_email[1536] = {0};
     char session_token[65];
     int64_t user_id;
 
@@ -509,6 +520,8 @@ static void handle_auth_code(struct mg_connection *c, struct mg_http_message *hm
             TERMINAL_CSS);
         return;
     }
+
+    html_escape(email, safe_email, sizeof(safe_email));
 
     if (auth_validate_code(email, code, session_token, &user_id) != 0) {
         mg_http_reply(c, 200, "Content-Type: text/html\r\n",
@@ -538,7 +551,7 @@ static void handle_auth_code(struct mg_connection *c, struct mg_http_message *hm
             "  <span class=\"gt\">&gt;</span>Back to login\n"
             "</a>\n"
             "</body></html>\n",
-            TERMINAL_CSS, email);
+            TERMINAL_CSS, safe_email);
         return;
     }
 
@@ -600,6 +613,11 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
     int hint_shown = (puzzle_get_attempt(user->id, puzzle.id, &attempt) == 0)
                      ? attempt.hint_used : 0;
 
+    char safe_question[2048] = {0};
+    char safe_hint[2048] = {0};
+    html_escape(puzzle.question, safe_question, sizeof(safe_question));
+    html_escape(puzzle.hint, safe_hint, sizeof(safe_hint));
+
     mg_printf(c,
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n"
@@ -638,27 +656,32 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
             "<div class=\"puzzle-box\" style=\"text-align:left;display:block;\">\n"
             "  <div>\n");
         for (int i = 0; i < step_count; i++) {
-            if (steps[i].is_blank)
+            if (steps[i].is_blank) {
                 mg_http_printf_chunk(c, "    <div>%d. ____</div>\n", i + 1);
-            else
-                mg_http_printf_chunk(c, "    <div>%d. %s</div>\n", i + 1, steps[i].word);
+            } else {
+                char safe_word[256] = {0};
+                html_escape(steps[i].word, safe_word, sizeof(safe_word));
+                mg_http_printf_chunk(c, "    <div>%d. %s</div>\n", i + 1, safe_word);
+            }
         }
         mg_http_printf_chunk(c, "  </div>\n</div>\n");
     } else if (strcmp(puzzle.puzzle_type, "choice") == 0) {
         ChoicePuzzle cp;
         if (puzzle_parse_choice(puzzle.question, &cp) == 0) {
+            char safe_prompt[2048] = {0};
+            html_escape(cp.prompt, safe_prompt, sizeof(safe_prompt));
             mg_http_printf_chunk(c,
                 "<div class=\"puzzle-box\">\n"
                 "  <div>%s</div>\n"
                 "</div>\n",
-                cp.prompt);
+                safe_prompt);
         }
     } else {
         mg_http_printf_chunk(c,
             "<div class=\"puzzle-box\">\n"
             "  <div>%s</div>\n"
             "</div>\n",
-            puzzle.question);
+            safe_question);
     }
 
     mg_http_printf_chunk(c,
@@ -667,7 +690,7 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
         (puzzle.has_hint && hint_shown)
             ? "<div class=\"action-btn secondary\"><span class=\"gt\">&gt;</span>Hint: "
             : "",
-        (puzzle.has_hint && hint_shown) ? puzzle.hint : "",
+        (puzzle.has_hint && hint_shown) ? safe_hint : "",
         (puzzle.has_hint && hint_shown) ? "</div>" : "",
         (puzzle.has_hint && !hint_shown)
             ? "<form action=\"/puzzle/hint\" method=\"POST\" hx-post=\"/puzzle/hint\" hx-target=\"#hint-area\" hx-swap=\"innerHTML\">\n"
@@ -703,13 +726,15 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
         ChoicePuzzle cp;
         if (puzzle_parse_choice(puzzle.question, &cp) == 0) {
             for (int i = 0; i < cp.num_options; i++) {
+                char safe_opt[512] = {0};
+                html_escape(cp.options[i], safe_opt, sizeof(safe_opt));
                 mg_http_printf_chunk(c,
                     "  <label class=\"action-btn\">\n"
                     "    <span class=\"gt\">&gt;</span>\n"
                     "    <input type=\"radio\" name=\"guess\" value=\"%c\" required "
                     "style=\"margin-right:10px;\"> %c. %s\n"
                     "  </label>\n",
-                    'a' + i, 'A' + i, cp.options[i]);
+                    'a' + i, 'A' + i, safe_opt);
             }
         }
     } else if (strcmp(puzzle.puzzle_type, "math") == 0) {
@@ -907,9 +932,11 @@ static void handle_puzzle_hint(struct mg_connection *c, struct mg_http_message *
     }
 
     if (is_htmx) {
+        char safe_hint[2048] = {0};
+        html_escape(hint, safe_hint, sizeof(safe_hint));
         mg_http_reply(c, 200, "Content-Type: text/html\r\n",
             "<div class=\"action-btn secondary\">"
-            "<span class=\"gt\">&gt;</span>Hint: %s</div>\n", hint);
+            "<span class=\"gt\">&gt;</span>Hint: %s</div>\n", safe_hint);
     } else {
         mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
     }
@@ -932,6 +959,9 @@ static void handle_puzzle_result(struct mg_connection *c, User *user) {
     int guess_penalty = attempt.incorrect_guesses * 5;
     int hint_penalty = attempt.hint_used ? 10 : 0;
     int base_score = attempt.score + guess_penalty + hint_penalty;
+
+    char safe_answer[1024] = {0};
+    html_escape(puzzle.answer, safe_answer, sizeof(safe_answer));
 
     const char *time_desc;
     if (base_score >= 100) time_desc = "within 10 min";
@@ -980,7 +1010,7 @@ static void handle_puzzle_result(struct mg_connection *c, User *user) {
         guess_penalty,
         attempt.hint_used ? "-10 pts" : "0 pts",
         attempt.score,
-        puzzle.answer);
+        safe_answer);
 }
 
 static void handle_leagues_list(struct mg_connection *c, User *user) {
@@ -1041,6 +1071,8 @@ static void handle_leagues_list(struct mg_connection *c, User *user) {
                 }
             }
 
+            char safe_name[1536] = {0};
+            html_escape(leagues[i].name, safe_name, sizeof(safe_name));
             mg_http_printf_chunk(c,
                 "<tr>\n"
                 "  <td><a href=\"/leagues/%lld\"><span class=\"gt\">&gt;</span> %s</a></td>\n"
@@ -1048,7 +1080,7 @@ static void handle_leagues_list(struct mg_connection *c, User *user) {
                 "  <td style=\"text-align:right;\">%d</td>\n"
                 "</tr>\n",
                 (long long)leagues[i].id,
-                leagues[i].name,
+                safe_name,
                 user_pos,
                 user_pts);
         }
@@ -1158,6 +1190,9 @@ static void handle_league_view(struct mg_connection *c, struct mg_http_message *
     int entry_count;
     league_get_leaderboard_weekly(league_id, entries, 100, &entry_count);
 
+    char safe_name[1536] = {0};
+    html_escape(league.name, safe_name, sizeof(safe_name));
+
     mg_printf(c,
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n"
@@ -1178,9 +1213,9 @@ static void handle_league_view(struct mg_connection *c, struct mg_http_message *
         "  </nav>\n"
         "  <hr class=\"nav-line\">\n"
         "</div>\n",
-        league.name,
+        safe_name,
         TERMINAL_CSS,
-        league.name);
+        safe_name);
 
     mg_http_printf_chunk(c,
         "<a href=\"/leagues\" class=\"back-link\"><span class=\"gt\">&gt;</span>Back to leagues</a>\n");
@@ -1190,6 +1225,8 @@ static void handle_league_view(struct mg_connection *c, struct mg_http_message *
         "<tr><th style=\"width:50px;\">Pos</th><th>Name</th><th style=\"width:80px; text-align:right;\">Pts</th></tr>\n");
 
     for (int i = 0; i < entry_count; i++) {
+        char safe_display[1536] = {0};
+        html_escape(entries[i].display_name, safe_display, sizeof(safe_display));
         mg_http_printf_chunk(c,
             "<tr>\n"
             "  <td>%d</td>\n"
@@ -1197,7 +1234,7 @@ static void handle_league_view(struct mg_connection *c, struct mg_http_message *
             "  <td style=\"text-align:right;\">%d</td>\n"
             "</tr>\n",
             entries[i].rank,
-            entries[i].display_name,
+            safe_display,
             entries[i].score);
     }
 
@@ -1276,6 +1313,9 @@ static void handle_league_join_link(struct mg_connection *c, struct mg_http_mess
         return;
     }
 
+    char safe_name[1536] = {0};
+    html_escape(league.name, safe_name, sizeof(safe_name));
+
     mg_http_reply(c, 200, "Content-Type: text/html\r\n",
         "<!DOCTYPE html><html><head>\n"
         "<title>Join League - Daily Puzzle</title>\n"
@@ -1291,7 +1331,7 @@ static void handle_league_join_link(struct mg_connection *c, struct mg_http_mess
         "</form>\n"
         "<p><a href=\"/leagues\">&lt; Back to leagues</a></p>\n"
         "</body></html>\n",
-        TERMINAL_CSS, league.name, league.invite_code);
+        TERMINAL_CSS, safe_name, league.invite_code);
 }
 
 static void handle_league_join(struct mg_connection *c, struct mg_http_message *hm,
@@ -1308,6 +1348,9 @@ static void handle_league_join(struct mg_connection *c, struct mg_http_message *
         return;
     }
 
+    char safe_code[96] = {0};
+    html_escape(code, safe_code, sizeof(safe_code));
+
     League league;
     if (league_get_by_code(code, &league) != 0) {
         mg_http_reply(c, 404, "Content-Type: text/html\r\n",
@@ -1316,7 +1359,7 @@ static void handle_league_join(struct mg_connection *c, struct mg_http_message *
             "<p class=\"error\">No league found with invite code: %s</p>\n"
             "<p><a href=\"/leagues\">&lt; Back to leagues</a></p>\n"
             "</body></html>\n",
-            TERMINAL_CSS, code);
+            TERMINAL_CSS, safe_code);
         return;
     }
 
@@ -1402,6 +1445,10 @@ static void handle_account_page(struct mg_connection *c, struct mg_http_message 
     int show_saved = (saved_param[0] == '1');
 
     const char *display = user->display_name[0] ? user->display_name : "";
+    char safe_display[1536] = {0};
+    char safe_email[1536] = {0};
+    html_escape(display, safe_display, sizeof(safe_display));
+    html_escape(user->email, safe_email, sizeof(safe_email));
 
     mg_http_reply(c, 200, "Content-Type: text/html\r\n",
         "<!DOCTYPE html>\n"
@@ -1437,8 +1484,8 @@ static void handle_account_page(struct mg_connection *c, struct mg_http_message 
         "</body></html>\n",
         TERMINAL_CSS,
         show_saved ? "<div style=\"color:#4ecca3;margin-bottom:15px;\">Display name updated.</div>\n" : "",
-        display,
-        user->email);
+        safe_display,
+        safe_email);
 }
 
 static void handle_account_update(struct mg_connection *c, struct mg_http_message *hm,
@@ -1491,6 +1538,8 @@ static void handle_archive_list(struct mg_connection *c, User *user) {
 
             const char *gt_color = solved ? "#4ecca3" : "#ff9f43";
 
+            char safe_pname[1024] = {0};
+            html_escape(p->puzzle_name, safe_pname, sizeof(safe_pname));
             mg_http_printf_chunk(c,
                 "<p style=\"display:flex;justify-content:space-between;\">"
                 "<a href=\"/archive/%lld\" style=\"text-decoration:none;\">"
@@ -1498,7 +1547,7 @@ static void handle_archive_list(struct mg_connection *c, User *user) {
                 "</a>"
                 "<span style=\"color:#808080;\">%02d/%02d/%02d</span>"
                 "</p>\n",
-                (long long)p->id, gt_color, (long long)p->id, p->puzzle_name,
+                (long long)p->id, gt_color, (long long)p->id, safe_pname,
                 day, month, year % 100);
         }
     }
@@ -1540,6 +1589,15 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
     int year, month, day;
     sscanf(puzzle.puzzle_date, "%d-%d-%d", &year, &month, &day);
 
+    char safe_pname[1024] = {0};
+    char safe_question[2048] = {0};
+    char safe_answer[1024] = {0};
+    char safe_hint[2048] = {0};
+    html_escape(puzzle.puzzle_name, safe_pname, sizeof(safe_pname));
+    html_escape(puzzle.question, safe_question, sizeof(safe_question));
+    html_escape(puzzle.answer, safe_answer, sizeof(safe_answer));
+    html_escape(puzzle.hint, safe_hint, sizeof(safe_hint));
+
     mg_printf(c,
         "HTTP/1.1 200 OK\r\n"
         "Content-Type: text/html\r\n"
@@ -1561,8 +1619,8 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
         "<p><a href=\"/archive\" class=\"back-link\"><span class=\"gt\">&gt;</span>Back to archive</a></p>\n"
         "<p style=\"color:#808080;\">%02d/%02d/%02d</p>\n"
         "<p style=\"color:#808080;\">Archived puzzles are for practice only. No points awarded.</p>\n",
-        (long long)puzzle_id, puzzle.puzzle_name, TERMINAL_CSS,
-        (long long)puzzle_id, puzzle.puzzle_name,
+        (long long)puzzle_id, safe_pname, TERMINAL_CSS,
+        (long long)puzzle_id, safe_pname,
         day, month, year % 100);
 
     if (strcmp(puzzle.puzzle_type, "ladder") == 0) {
@@ -1573,23 +1631,28 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
             "<div class=\"puzzle-box\" style=\"text-align:left;display:block;\">\n"
             "  <div>\n");
         for (int i = 0; i < step_count; i++) {
-            if (steps[i].is_blank)
+            if (steps[i].is_blank) {
                 mg_http_printf_chunk(c, "    <div>%d. ____</div>\n", i + 1);
-            else
-                mg_http_printf_chunk(c, "    <div>%d. %s</div>\n", i + 1, steps[i].word);
+            } else {
+                char safe_word[256] = {0};
+                html_escape(steps[i].word, safe_word, sizeof(safe_word));
+                mg_http_printf_chunk(c, "    <div>%d. %s</div>\n", i + 1, safe_word);
+            }
         }
         mg_http_printf_chunk(c, "  </div>\n</div>\n");
     } else if (strcmp(puzzle.puzzle_type, "choice") == 0) {
         ChoicePuzzle cp;
         if (puzzle_parse_choice(puzzle.question, &cp) == 0) {
+            char safe_prompt[2048] = {0};
+            html_escape(cp.prompt, safe_prompt, sizeof(safe_prompt));
             mg_http_printf_chunk(c,
                 "<div class=\"puzzle-box\">\n"
                 "  <div>%s</div>\n"
                 "</div>\n",
-                cp.prompt);
+                safe_prompt);
         }
     } else {
-        mg_http_printf_chunk(c, "<div class=\"puzzle-box\">%s</div>\n", puzzle.question);
+        mg_http_printf_chunk(c, "<div class=\"puzzle-box\">%s</div>\n", safe_question);
     }
 
     if (solved) {
@@ -1597,7 +1660,7 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
             "<div class=\"action-btn\" style=\"text-align:center;color:#4ecca3;\">"
             "Solved! Answer: %s"
             "</div>\n",
-            puzzle.answer);
+            safe_answer);
     } else {
         if (puzzle.has_hint) {
             if (has_attempt && attempt.hint_used) {
@@ -1605,7 +1668,7 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
                     "<div class=\"action-btn\">"
                     "<span class=\"gt\">&gt;</span>Hint: %s"
                     "</div>\n",
-                    puzzle.hint);
+                    safe_hint);
             } else {
                 mg_http_printf_chunk(c,
                     "<form action=\"/archive/%lld/hint\" method=\"POST\">\n"
@@ -1641,13 +1704,15 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
             ChoicePuzzle cp;
             if (puzzle_parse_choice(puzzle.question, &cp) == 0) {
                 for (int i = 0; i < cp.num_options; i++) {
+                    char safe_opt[512] = {0};
+                    html_escape(cp.options[i], safe_opt, sizeof(safe_opt));
                     mg_http_printf_chunk(c,
                         "<label class=\"action-btn\">\n"
                         "  <span class=\"gt\">&gt;</span>\n"
                         "  <input type=\"radio\" name=\"answer\" value=\"%c\" required "
                         "style=\"margin-right:10px;\"> %c. %s\n"
                         "</label>\n",
-                        'a' + i, 'A' + i, cp.options[i]);
+                        'a' + i, 'A' + i, safe_opt);
                 }
             }
         } else if (strcmp(puzzle.puzzle_type, "math") == 0) {
