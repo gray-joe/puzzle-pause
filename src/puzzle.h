@@ -60,6 +60,9 @@ int puzzle_reveal_hint(int64_t user_id, int64_t puzzle_id,
 int puzzle_calculate_score(time_t solve_time, const char *puzzle_date,
                            int incorrect_guesses, int hint_used);
 
+/* Returns 1 if correct, 0 if incorrect, -1 on error. No DB writes. */
+int puzzle_check_answer(int64_t puzzle_id, const char *guess);
+
 char *puzzle_normalize_answer(char *str);
 
 typedef struct {

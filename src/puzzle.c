@@ -380,6 +380,17 @@ static int check_answer(const char *guess, const char *answer) {
     return 0;
 }
 
+int puzzle_check_answer(int64_t puzzle_id, const char *guess) {
+    if (guess == NULL)
+        return -1;
+
+    Puzzle puzzle;
+    if (puzzle_get_by_id(puzzle_id, &puzzle) != 0)
+        return -1;
+
+    return check_answer(guess, puzzle.answer) ? 1 : 0;
+}
+
 int puzzle_calculate_score(time_t solve_time, const char *puzzle_date,
                            int incorrect_guesses, int hint_used) {
     struct tm release_tm = {0};

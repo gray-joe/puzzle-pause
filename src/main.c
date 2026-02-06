@@ -616,6 +616,12 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
     mg_http_get_var(&query, "wrong", wrong_param, sizeof(wrong_param));
     int show_wrong_feedback = (wrong_param[0] == '1');
 
+    const char *nav = user
+        ? "    <a href=\"/leagues\"><span class=\"gt\">&gt;</span>Leagues</a>\n"
+          "    <a href=\"/archive\"><span class=\"gt\">&gt;</span>Archive</a>\n"
+          "    <a href=\"/account\"><span class=\"gt\">&gt;</span>Account</a>\n"
+        : "    <a href=\"/login\"><span class=\"gt\">&gt;</span>Login</a>\n";
+
     if (puzzle_get_today(&puzzle) != 0) {
         mg_http_reply(c, 200, "Content-Type: text/html\r\n",
             "<!DOCTYPE html>\n"
@@ -624,9 +630,7 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
             "<div class=\"page-header\">\n"
             "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>Daily Puzzle</div>\n"
             "  <nav class=\"nav\">\n"
-            "    <a href=\"/leagues\"><span class=\"gt\">&gt;</span>Leagues</a>\n"
-            "    <a href=\"/archive\"><span class=\"gt\">&gt;</span>Archive</a>\n"
-            "    <a href=\"/account\"><span class=\"gt\">&gt;</span>Account</a>\n"
+            "%s"
             "  </nav>\n"
             "  <hr class=\"nav-line\">\n"
             "</div>\n"
@@ -634,19 +638,22 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
             "  <div>No puzzle available yet.<br>Check back after 09:00 UTC!</div>\n"
             "</div>\n"
             "</body></html>\n",
-            TERMINAL_CSS);
+            TERMINAL_CSS, nav);
         return;
     }
 
-    Attempt attempt;
-    if (puzzle_get_attempt(user->id, puzzle.id, &attempt) == 0 && attempt.solved) {
-        mg_http_reply(c, 302, "Location: /puzzle/result\r\n", "");
-        return;
-    }
-
-    int hint_shown = (puzzle_get_attempt(user->id, puzzle.id, &attempt) == 0)
+    int hint_shown = 0;
+    if (user) {
+        Attempt attempt;
+        if (puzzle_get_attempt(user->id, puzzle.id, &attempt) == 0 && attempt.solved) {
+            mg_http_reply(c, 302, "Location: /puzzle/result\r\n", "");
+            return;
+        }
+        hint_shown = (puzzle_get_attempt(user->id, puzzle.id, &attempt) == 0)
                      ? attempt.hint_used : 0;
+    }
 
+    int show_hint_button = user && puzzle.has_hint && !hint_shown;
 
     mg_printf(c,
         "HTTP/1.1 200 OK\r\n"
@@ -664,19 +671,20 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
         "<div class=\"page-header\">\n"
         "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>Daily Puzzle</div>\n"
         "  <nav class=\"nav\">\n"
-        "    <a href=\"/leagues\"><span class=\"gt\">&gt;</span>Leagues</a>\n"
-        "    <a href=\"/archive\"><span class=\"gt\">&gt;</span>Archive</a>\n"
-        "    <a href=\"/account\"><span class=\"gt\">&gt;</span>Account</a>\n"
+        "%s"
         "  </nav>\n"
         "  <hr class=\"nav-line\">\n"
         "</div>\n"
         "<div class=\"content-meta\">\n"
         "  %s<br>\n"
         "  Score: 100 pts base, -5 per wrong guess%s\n"
+        "%s"
         "</div>\n",
         TERMINAL_CSS,
+        nav,
         puzzle.puzzle_date,
-        puzzle.has_hint ? ", -10 for hint" : "");
+        puzzle.has_hint ? ", -10 for hint" : "",
+        user ? "" : "  <br><a href=\"/login\">Log in</a> to save your score and compete in leagues.\n");
 
     if (strcmp(puzzle.puzzle_type, "ladder") == 0) {
         LadderStep steps[MAX_LADDER_STEPS];
@@ -722,7 +730,7 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
             : "",
         (puzzle.has_hint && hint_shown) ? puzzle.hint : "",
         (puzzle.has_hint && hint_shown) ? "</div>" : "",
-        (puzzle.has_hint && !hint_shown)
+        show_hint_button
             ? "<form action=\"/puzzle/hint\" method=\"POST\" hx-post=\"/puzzle/hint\" hx-target=\"#hint-area\" hx-swap=\"innerHTML\">\n"
               "  <input type=\"hidden\" name=\"puzzle_id\" value=\"0\">\n"
               "  <button type=\"submit\" class=\"action-btn secondary\">\n"
@@ -904,35 +912,74 @@ static void handle_puzzle_attempt(struct mg_connection *c, struct mg_http_messag
         }
         return;
     }
-    int score = 0;
-    int result = puzzle_submit_guess(user->id, puzzle_id, guess, &score);
+    if (user) {
+        int score = 0;
+        int result = puzzle_submit_guess(user->id, puzzle_id, guess, &score);
 
-    if (result == 1) {
-        if (is_htmx) {
-            mg_http_reply(c, 200, "Content-Type: text/html\r\n",
-                "<div style=\"color:#4ecca3;\">Correct! Redirecting...</div>\n"
-                "<script>setTimeout(function() { window.location.href = '/puzzle/result'; }, 500);</script>\n");
+        if (result == 1) {
+            if (is_htmx) {
+                mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+                    "<div style=\"color:#4ecca3;\">Correct! Redirecting...</div>\n"
+                    "<script>setTimeout(function() { window.location.href = '/puzzle/result'; }, 500);</script>\n");
+            } else {
+                mg_http_reply(c, 302, "Location: /puzzle/result\r\n", "");
+            }
+        } else if (result == 0) {
+            if (is_htmx) {
+                mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+                    "<div style=\"color:#ff6b6b;\">Incorrect. Try again!</div>\n");
+            } else {
+                mg_http_reply(c, 302, "Location: /puzzle?wrong=1\r\n", "");
+            }
         } else {
-            mg_http_reply(c, 302, "Location: /puzzle/result\r\n", "");
-        }
-    } else if (result == 0) {
-        if (is_htmx) {
-            mg_http_reply(c, 200, "Content-Type: text/html\r\n",
-                "<div style=\"color:#ff6b6b;\">Incorrect. Try again!</div>\n");
-        } else {
-            mg_http_reply(c, 302, "Location: /puzzle?wrong=1\r\n", "");
+            if (is_htmx) {
+                mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+                    "<div style=\"color:#ff6b6b;\">Something went wrong. Please try again.</div>\n");
+            } else {
+                mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
+            }
         }
     } else {
-        if (is_htmx) {
-            mg_http_reply(c, 200, "Content-Type: text/html\r\n",
-                "<div style=\"color:#ff6b6b;\">Something went wrong. Please try again.</div>\n");
+        int result = puzzle_check_answer(puzzle_id, guess);
+
+        if (result == 1) {
+            time_t now = time(NULL);
+            int score = puzzle_calculate_score(now, puzzle.puzzle_date, 0, 0);
+            char location[64];
+            snprintf(location, sizeof(location), "Location: /puzzle/result?score=%d\r\n", score);
+
+            if (is_htmx) {
+                mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+                    "<div style=\"color:#4ecca3;\">Correct! Redirecting...</div>\n"
+                    "<script>setTimeout(function() { window.location.href = '/puzzle/result?score=%d'; }, 500);</script>\n",
+                    score);
+            } else {
+                mg_http_reply(c, 302, location, "");
+            }
+        } else if (result == 0) {
+            if (is_htmx) {
+                mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+                    "<div style=\"color:#ff6b6b;\">Incorrect. Try again!</div>\n");
+            } else {
+                mg_http_reply(c, 302, "Location: /puzzle?wrong=1\r\n", "");
+            }
         } else {
-            mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
+            if (is_htmx) {
+                mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+                    "<div style=\"color:#ff6b6b;\">Something went wrong. Please try again.</div>\n");
+            } else {
+                mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
+            }
         }
     }
 }
 
 static void handle_puzzle_hint(struct mg_connection *c, struct mg_http_message *hm, User *user) {
+    if (!user) {
+        mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
+        return;
+    }
+
     struct mg_str *hx_request = mg_http_get_header(hm, "HX-Request");
     int is_htmx = (hx_request != NULL && hx_request->len > 0);
 
@@ -970,23 +1017,14 @@ static void handle_puzzle_hint(struct mg_connection *c, struct mg_http_message *
     }
 }
 
-static void handle_puzzle_result(struct mg_connection *c, User *user) {
+static void handle_puzzle_result(struct mg_connection *c, struct mg_http_message *hm,
+                                  User *user) {
     Puzzle puzzle;
 
     if (puzzle_get_today(&puzzle) != 0) {
         mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
         return;
     }
-
-    Attempt attempt;
-    if (puzzle_get_attempt(user->id, puzzle.id, &attempt) != 0 || !attempt.solved) {
-        mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
-        return;
-    }
-
-    int guess_penalty = attempt.incorrect_guesses * 5;
-    int hint_penalty = attempt.hint_used ? 10 : 0;
-    int base_score = attempt.score + guess_penalty + hint_penalty;
 
     char display_answer[256] = {0};
     strncpy(display_answer, puzzle.answer, sizeof(display_answer) - 1);
@@ -995,54 +1033,108 @@ static void handle_puzzle_result(struct mg_connection *c, User *user) {
     char safe_answer[1024] = {0};
     html_escape(display_answer, safe_answer, sizeof(safe_answer));
 
-    const char *time_desc;
-    if (base_score >= 100) time_desc = "within 10 min";
-    else if (base_score >= 90) time_desc = "10-30 min";
-    else if (base_score >= 80) time_desc = "30-60 min";
-    else if (base_score >= 75) time_desc = "1-2 hours";
-    else if (base_score >= 70) time_desc = "2-3 hours";
-    else time_desc = "3+ hours";
+    if (user) {
+        Attempt attempt;
+        if (puzzle_get_attempt(user->id, puzzle.id, &attempt) != 0 || !attempt.solved) {
+            mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
+            return;
+        }
 
-    mg_http_reply(c, 200, "Content-Type: text/html\r\n",
-        "<!DOCTYPE html>\n"
-        "<html><head><title>Puzzle Complete!</title>%s</head>\n"
-        "<body>\n"
-        "<div class=\"page-header\">\n"
-        "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>Puzzle Complete!</div>\n"
-        "  <nav class=\"nav\">\n"
-        "    <a href=\"/puzzle\"><span class=\"gt\">&gt;</span>Daily Puzzle</a>\n"
-        "    <a href=\"/leagues\"><span class=\"gt\">&gt;</span>Leagues</a>\n"
-        "    <a href=\"/archive\"><span class=\"gt\">&gt;</span>Archive</a>\n"
-        "    <a href=\"/account\"><span class=\"gt\">&gt;</span>Account</a>\n"
-        "  </nav>\n"
-        "  <hr class=\"nav-line\">\n"
-        "</div>\n"
-        "<div class=\"puzzle-box\" style=\"text-align:center;\">\n"
-        "  <div>\n"
-        "    <p style=\"color:#4ecca3;font-size:2.5em;margin:0;\">%d</p>\n"
-        "    <p style=\"color:#808080;margin:5px 0 0 0;\">points</p>\n"
-        "  </div>\n"
-        "</div>\n"
-        "<p style=\"color:#808080;\">Completed: %s</p>\n"
-        "<p style=\"color:#808080;margin-top:15px;\">Time bonus: %d pts (%s)</p>\n"
-        "<p style=\"color:#808080;\">Wrong guesses: %s%d pts</p>\n"
-        "<p style=\"color:#808080;\">Hint: %s</p>\n"
-        "<hr class=\"nav-line\">\n"
-        "<p style=\"color:#4ecca3;\">Final score: %d pts</p>\n"
-        "<p style=\"margin-top:20px;\">The answer was: <span style=\"color:#4ecca3;\">%s</span></p>\n"
-        "<a href=\"/leagues\" class=\"action-btn\">\n"
-        "  <span class=\"gt\">&gt;</span>View Leagues\n"
-        "</a>\n"
-        "</body></html>\n",
-        TERMINAL_CSS,
-        attempt.score,
-        attempt.completed_at,
-        base_score, time_desc,
-        guess_penalty > 0 ? "-" : "",
-        guess_penalty,
-        attempt.hint_used ? "-10 pts" : "0 pts",
-        attempt.score,
-        safe_answer);
+        int guess_penalty = attempt.incorrect_guesses * 5;
+        int hint_penalty = attempt.hint_used ? 10 : 0;
+        int base_score = attempt.score + guess_penalty + hint_penalty;
+
+        const char *time_desc;
+        if (base_score >= 100) time_desc = "within 10 min";
+        else if (base_score >= 90) time_desc = "10-30 min";
+        else if (base_score >= 80) time_desc = "30-60 min";
+        else if (base_score >= 75) time_desc = "1-2 hours";
+        else if (base_score >= 70) time_desc = "2-3 hours";
+        else time_desc = "3+ hours";
+
+        mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+            "<!DOCTYPE html>\n"
+            "<html><head><title>Puzzle Complete!</title>%s</head>\n"
+            "<body>\n"
+            "<div class=\"page-header\">\n"
+            "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>Puzzle Complete!</div>\n"
+            "  <nav class=\"nav\">\n"
+            "    <a href=\"/puzzle\"><span class=\"gt\">&gt;</span>Daily Puzzle</a>\n"
+            "    <a href=\"/leagues\"><span class=\"gt\">&gt;</span>Leagues</a>\n"
+            "    <a href=\"/archive\"><span class=\"gt\">&gt;</span>Archive</a>\n"
+            "    <a href=\"/account\"><span class=\"gt\">&gt;</span>Account</a>\n"
+            "  </nav>\n"
+            "  <hr class=\"nav-line\">\n"
+            "</div>\n"
+            "<div class=\"puzzle-box\" style=\"text-align:center;\">\n"
+            "  <div>\n"
+            "    <p style=\"color:#4ecca3;font-size:2.5em;margin:0;\">%d</p>\n"
+            "    <p style=\"color:#808080;margin:5px 0 0 0;\">points</p>\n"
+            "  </div>\n"
+            "</div>\n"
+            "<p style=\"color:#808080;\">Completed: %s</p>\n"
+            "<p style=\"color:#808080;margin-top:15px;\">Time bonus: %d pts (%s)</p>\n"
+            "<p style=\"color:#808080;\">Wrong guesses: %s%d pts</p>\n"
+            "<p style=\"color:#808080;\">Hint: %s</p>\n"
+            "<hr class=\"nav-line\">\n"
+            "<p style=\"color:#4ecca3;\">Final score: %d pts</p>\n"
+            "<p style=\"margin-top:20px;\">The answer was: <span style=\"color:#4ecca3;\">%s</span></p>\n"
+            "<a href=\"/leagues\" class=\"action-btn\">\n"
+            "  <span class=\"gt\">&gt;</span>View Leagues\n"
+            "</a>\n"
+            "</body></html>\n",
+            TERMINAL_CSS,
+            attempt.score,
+            attempt.completed_at,
+            base_score, time_desc,
+            guess_penalty > 0 ? "-" : "",
+            guess_penalty,
+            attempt.hint_used ? "-10 pts" : "0 pts",
+            attempt.score,
+            safe_answer);
+    } else {
+        char score_str[16] = {0};
+        struct mg_str query = hm->query;
+        mg_http_get_var(&query, "score", score_str, sizeof(score_str));
+
+        if (score_str[0] == '\0') {
+            mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
+            return;
+        }
+
+        int score = atoi(score_str);
+        if (score < 10) score = 10;
+        if (score > 100) score = 100;
+
+        mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+            "<!DOCTYPE html>\n"
+            "<html><head><title>Puzzle Complete!</title>%s</head>\n"
+            "<body>\n"
+            "<div class=\"page-header\">\n"
+            "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>Puzzle Complete!</div>\n"
+            "  <nav class=\"nav\">\n"
+            "    <a href=\"/puzzle\"><span class=\"gt\">&gt;</span>Daily Puzzle</a>\n"
+            "    <a href=\"/login\"><span class=\"gt\">&gt;</span>Login</a>\n"
+            "  </nav>\n"
+            "  <hr class=\"nav-line\">\n"
+            "</div>\n"
+            "<div class=\"puzzle-box\" style=\"text-align:center;\">\n"
+            "  <div>\n"
+            "    <p style=\"color:#4ecca3;font-size:2.5em;margin:0;\">%d</p>\n"
+            "    <p style=\"color:#808080;margin:5px 0 0 0;\">points</p>\n"
+            "  </div>\n"
+            "</div>\n"
+            "<p style=\"margin-top:20px;\">The answer was: <span style=\"color:#4ecca3;\">%s</span></p>\n"
+            "<p style=\"color:#808080;margin-top:15px;\">"
+            "<a href=\"/login\">Log in</a> to save your scores and compete in leagues.</p>\n"
+            "<a href=\"/login\" class=\"action-btn\">\n"
+            "  <span class=\"gt\">&gt;</span>Login\n"
+            "</a>\n"
+            "</body></html>\n",
+            TERMINAL_CSS,
+            score,
+            safe_answer);
+    }
 }
 
 static void handle_leagues_list(struct mg_connection *c, User *user) {
@@ -1961,36 +2053,24 @@ static void event_handler(struct mg_connection *c, int ev, void *ev_data) {
         }
 
     } else if (mg_match(hm->uri, mg_str("/puzzle"), NULL)) {
-        if (!logged_in) {
-            mg_http_reply(c, 302, "Location: /login\r\n", "");
-        } else {
-            handle_puzzle_page(c, hm, &user);
-        }
+        handle_puzzle_page(c, hm, logged_in ? &user : NULL);
 
     } else if (mg_match(hm->uri, mg_str("/puzzle/attempt"), NULL)) {
-        if (!logged_in) {
-            mg_http_reply(c, 401, "Content-Type: text/plain\r\n", "Unauthorized\n");
-        } else if (method_is(hm, "POST")) {
-            handle_puzzle_attempt(c, hm, &user);
+        if (method_is(hm, "POST")) {
+            handle_puzzle_attempt(c, hm, logged_in ? &user : NULL);
         } else {
             mg_http_reply(c, 405, "Content-Type: text/plain\r\n", "Method Not Allowed\n");
         }
 
     } else if (mg_match(hm->uri, mg_str("/puzzle/hint"), NULL)) {
-        if (!logged_in) {
-            mg_http_reply(c, 401, "Content-Type: text/plain\r\n", "Unauthorized\n");
-        } else if (method_is(hm, "POST")) {
-            handle_puzzle_hint(c, hm, &user);
+        if (method_is(hm, "POST")) {
+            handle_puzzle_hint(c, hm, logged_in ? &user : NULL);
         } else {
             mg_http_reply(c, 405, "Content-Type: text/plain\r\n", "Method Not Allowed\n");
         }
 
     } else if (mg_match(hm->uri, mg_str("/puzzle/result"), NULL)) {
-        if (!logged_in) {
-            mg_http_reply(c, 302, "Location: /login\r\n", "");
-        } else {
-            handle_puzzle_result(c, &user);
-        }
+        handle_puzzle_result(c, hm, logged_in ? &user : NULL);
 
     } else if (mg_match(hm->uri, mg_str("/leagues/join"), NULL)) {
         if (!logged_in) {
@@ -2095,8 +2175,11 @@ static void event_handler(struct mg_connection *c, int ev, void *ev_data) {
                 "    Compete with friends<br>in mini leagues!\n"
                 "  </div>\n"
                 "</div>\n"
+                "<a href=\"/puzzle\" class=\"action-btn\">\n"
+                "  <span class=\"gt\">&gt;</span>Today's puzzle\n"
+                "</a>\n"
                 "<a href=\"/login\" class=\"action-btn\">\n"
-                "  <span class=\"gt\">&gt;</span>Login to start playing\n"
+                "  <span class=\"gt\">&gt;</span>Login\n"
                 "</a>\n"
                 "</body></html>\n",
                 TERMINAL_CSS);
