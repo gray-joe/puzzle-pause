@@ -62,4 +62,15 @@ int puzzle_calculate_score(time_t solve_time, const char *puzzle_date,
 
 char *puzzle_normalize_answer(char *str);
 
+typedef struct {
+    int daily_score;    /* -1 if not solved today */
+    int weekly_total;
+    int alltime_total;
+    int average_score;
+    int puzzles_solved;
+    int percentile;     /* 1-100, "top X%" */
+} UserStats;
+
+int puzzle_get_user_stats(int64_t user_id, UserStats *out);
+
 #endif /* PUZZLE_H */

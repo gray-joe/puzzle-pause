@@ -562,3 +562,87 @@ int puzzle_reveal_hint(int64_t user_id, int64_t puzzle_id,
 
     return 0;
 }
+
+int puzzle_get_user_stats(int64_t user_id, UserStats *out) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+
+    if (db == NULL || out == NULL)
+        return -1;
+
+    memset(out, 0, sizeof(UserStats));
+    out->daily_score = -1;
+
+    /* All-time total + average + puzzles solved */
+    int rc = sqlite3_prepare_v2(db,
+        "SELECT COALESCE(SUM(score), 0), COUNT(*), COALESCE(AVG(score), 0) "
+        "FROM attempts WHERE user_id = ? AND solved = 1",
+        -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, user_id);
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        out->alltime_total = sqlite3_column_int(stmt, 0);
+        out->puzzles_solved = sqlite3_column_int(stmt, 1);
+        out->average_score = sqlite3_column_int(stmt, 2);
+    }
+    sqlite3_finalize(stmt);
+
+    /* Weekly total */
+    rc = sqlite3_prepare_v2(db,
+        "SELECT COALESCE(SUM(a.score), 0) "
+        "FROM attempts a JOIN puzzles p ON a.puzzle_id = p.id "
+        "WHERE a.user_id = ? AND a.solved = 1 "
+        "AND p.puzzle_date >= date('now', 'weekday 0', '-6 days') "
+        "AND p.puzzle_date <= date('now')",
+        -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, user_id);
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+        out->weekly_total = sqlite3_column_int(stmt, 0);
+    sqlite3_finalize(stmt);
+
+    /* Daily score */
+    rc = sqlite3_prepare_v2(db,
+        "SELECT a.score FROM attempts a JOIN puzzles p ON a.puzzle_id = p.id "
+        "WHERE a.user_id = ? AND a.solved = 1 AND p.puzzle_date = date('now')",
+        -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, user_id);
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+        out->daily_score = sqlite3_column_int(stmt, 0);
+    sqlite3_finalize(stmt);
+
+    /* Global percentile */
+    if (out->puzzles_solved > 0) {
+        rc = sqlite3_prepare_v2(db,
+            "WITH user_totals AS ("
+            "  SELECT user_id, SUM(score) as total "
+            "  FROM attempts WHERE solved = 1 GROUP BY user_id"
+            ") SELECT "
+            "  COUNT(CASE WHEN total >= (SELECT total FROM user_totals WHERE user_id = ?) THEN 1 END),"
+            "  COUNT(*) "
+            "FROM user_totals",
+            -1, &stmt, NULL);
+        if (rc != SQLITE_OK)
+            return -1;
+
+        sqlite3_bind_int64(stmt, 1, user_id);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            int at_or_above = sqlite3_column_int(stmt, 0);
+            int total_users = sqlite3_column_int(stmt, 1);
+            if (total_users > 0)
+                out->percentile = (at_or_above * 100) / total_users;
+            else
+                out->percentile = 100;
+        }
+        sqlite3_finalize(stmt);
+    }
+
+    return 0;
+}

@@ -1218,9 +1218,22 @@ static void handle_league_view(struct mg_connection *c, struct mg_http_message *
         return;
     }
 
+    char view_param[16] = {0};
+    get_query_var(hm, "view", view_param, sizeof(view_param));
+    if (view_param[0] == '\0')
+        strncpy(view_param, "weekly", sizeof(view_param) - 1);
+
+    int is_daily = (strcmp(view_param, "daily") == 0);
+    int is_alltime = (strcmp(view_param, "alltime") == 0);
+
     LeaderboardEntry entries[100];
     int entry_count;
-    league_get_leaderboard_weekly(league_id, entries, 100, &entry_count);
+    if (is_daily)
+        league_get_leaderboard_today(league_id, entries, 100, &entry_count);
+    else if (is_alltime)
+        league_get_leaderboard_alltime(league_id, entries, 100, &entry_count);
+    else
+        league_get_leaderboard_weekly(league_id, entries, 100, &entry_count);
 
     char safe_name[1536] = {0};
     html_escape(league.name, safe_name, sizeof(safe_name));
@@ -1253,21 +1266,36 @@ static void handle_league_view(struct mg_connection *c, struct mg_http_message *
         "<a href=\"/leagues\" class=\"back-link\"><span class=\"gt\">&gt;</span>Back to leagues</a>\n");
 
     mg_http_printf_chunk(c,
+        "<div style=\"margin:15px 0;\">\n"
+        "  <a href=\"/leagues/%lld?view=daily\" style=\"color:%s;margin-right:15px;\">Daily</a>\n"
+        "  <a href=\"/leagues/%lld?view=weekly\" style=\"color:%s;margin-right:15px;\">Weekly</a>\n"
+        "  <a href=\"/leagues/%lld?view=alltime\" style=\"color:%s;\">All Time</a>\n"
+        "</div>\n",
+        (long long)league_id, is_daily ? "#4ecca3" : "#808080",
+        (long long)league_id, (!is_daily && !is_alltime) ? "#4ecca3" : "#808080",
+        (long long)league_id, is_alltime ? "#4ecca3" : "#808080");
+
+    mg_http_printf_chunk(c,
         "<table>\n"
         "<tr><th style=\"width:50px;\">Pos</th><th>Name</th><th style=\"width:80px; text-align:right;\">Pts</th></tr>\n");
 
     for (int i = 0; i < entry_count; i++) {
         char safe_display[1536] = {0};
         html_escape(entries[i].display_name, safe_display, sizeof(safe_display));
+        char score_str[16];
+        if (is_daily && entries[i].score < 0)
+            snprintf(score_str, sizeof(score_str), "-");
+        else
+            snprintf(score_str, sizeof(score_str), "%d", entries[i].score);
         mg_http_printf_chunk(c,
             "<tr>\n"
             "  <td>%d</td>\n"
             "  <td>%s</td>\n"
-            "  <td style=\"text-align:right;\">%d</td>\n"
+            "  <td style=\"text-align:right;\">%s</td>\n"
             "</tr>\n",
             entries[i].rank,
             safe_display,
-            entries[i].score);
+            score_str);
     }
 
     mg_http_printf_chunk(c, "</table>\n");
@@ -1482,7 +1510,21 @@ static void handle_account_page(struct mg_connection *c, struct mg_http_message 
     html_escape(display, safe_display, sizeof(safe_display));
     html_escape(user->email, safe_email, sizeof(safe_email));
 
-    mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+    UserStats stats;
+    puzzle_get_user_stats(user->id, &stats);
+
+    char daily_str[16];
+    if (stats.daily_score >= 0)
+        snprintf(daily_str, sizeof(daily_str), "%d", stats.daily_score);
+    else
+        snprintf(daily_str, sizeof(daily_str), "-");
+
+    mg_printf(c,
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html\r\n"
+        "Transfer-Encoding: chunked\r\n\r\n");
+
+    mg_http_printf_chunk(c,
         "<!DOCTYPE html>\n"
         "<html><head><title>Account</title>%s</head>\n"
         "<body>\n"
@@ -1495,7 +1537,38 @@ static void handle_account_page(struct mg_connection *c, struct mg_http_message 
         "  </nav>\n"
         "  <hr class=\"nav-line\">\n"
         "</div>\n"
-        "%s"
+        "%s",
+        TERMINAL_CSS,
+        show_saved ? "<div style=\"color:#4ecca3;margin-bottom:15px;\">Display name updated.</div>\n" : "");
+
+    mg_http_printf_chunk(c,
+        "<div style=\"margin-bottom:25px;\">\n"
+        "  <p style=\"color:#808080;margin-bottom:5px;\">Your Stats</p>\n"
+        "  <table>\n"
+        "    <tr><td style=\"color:#808080;\">Today</td>"
+        "<td style=\"text-align:right;\">%s</td></tr>\n"
+        "    <tr><td style=\"color:#808080;\">This week</td>"
+        "<td style=\"text-align:right;\">%d</td></tr>\n"
+        "    <tr><td style=\"color:#808080;\">All time</td>"
+        "<td style=\"text-align:right;\">%d</td></tr>\n"
+        "    <tr><td style=\"color:#808080;\">Average</td>"
+        "<td style=\"text-align:right;\">%d</td></tr>\n"
+        "    <tr><td style=\"color:#808080;\">Puzzles solved</td>"
+        "<td style=\"text-align:right;\">%d</td></tr>\n"
+        "  </table>\n",
+        daily_str,
+        stats.weekly_total, stats.alltime_total,
+        stats.average_score, stats.puzzles_solved);
+
+    if (stats.puzzles_solved > 0) {
+        mg_http_printf_chunk(c,
+            "  <p style=\"color:#4ecca3;\">Top %d%% of players</p>\n",
+            stats.percentile);
+    }
+
+    mg_http_printf_chunk(c, "</div>\n");
+
+    mg_http_printf_chunk(c,
         "<p style=\"color:#808080;margin-bottom:5px;\">Display Name</p>\n"
         "<form action=\"/account\" method=\"POST\">\n"
         "  <label class=\"action-btn\">\n"
@@ -1514,10 +1587,10 @@ static void handle_account_page(struct mg_connection *c, struct mg_http_message 
         "  </button>\n"
         "</form>\n"
         "</body></html>\n",
-        TERMINAL_CSS,
-        show_saved ? "<div style=\"color:#4ecca3;margin-bottom:15px;\">Display name updated.</div>\n" : "",
         safe_display,
         safe_email);
+
+    mg_http_printf_chunk(c, "");
 }
 
 static void handle_account_update(struct mg_connection *c, struct mg_http_message *hm,
