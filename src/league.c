@@ -70,7 +70,10 @@ int64_t league_create(int64_t creator_id, const char *name, char *invite_code_ou
         "INSERT INTO league_members (league_id, user_id) VALUES (?, ?)",
         -1, &stmt, NULL);
     if (rc != SQLITE_OK) {
-        sqlite3_exec(db, "DELETE FROM leagues WHERE id = ?", NULL, NULL, NULL);
+        char cleanup_sql[128];
+        snprintf(cleanup_sql, sizeof(cleanup_sql),
+                 "DELETE FROM leagues WHERE id = %lld", (long long)league_id);
+        sqlite3_exec(db, cleanup_sql, NULL, NULL, NULL);
         return -1;
     }
 

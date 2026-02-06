@@ -7,6 +7,105 @@
 #include "util.h"
 #include "sqlite3.h"
 
+int puzzle_parse_ladder(const char *question, LadderStep *steps, int max_steps) {
+    if (!question || !steps || max_steps <= 0)
+        return 0;
+
+    int count = 0;
+    const char *p = question;
+
+    while (*p && count < max_steps) {
+        while (*p == ' ') p++;
+        if (*p == '\0') break;
+
+        const char *end = strstr(p, ", ");
+        size_t len;
+        if (end)
+            len = end - p;
+        else
+            len = strlen(p);
+
+        /* Trim trailing spaces */
+        while (len > 0 && p[len - 1] == ' ') len--;
+
+        if (len == 0) {
+            if (end)
+                p = end + 2;
+            else
+                break;
+            continue;
+        }
+
+        memset(&steps[count], 0, sizeof(LadderStep));
+
+        if (len == 4 && memcmp(p, "____", 4) == 0) {
+            steps[count].is_blank = 1;
+        } else {
+            if (len >= sizeof(steps[count].word))
+                len = sizeof(steps[count].word) - 1;
+            memcpy(steps[count].word, p, len);
+            steps[count].word[len] = '\0';
+        }
+
+        count++;
+
+        if (end)
+            p = end + 2;
+        else
+            break;
+    }
+
+    return count;
+}
+
+int puzzle_parse_choice(const char *question, ChoicePuzzle *out) {
+    if (!question || !out)
+        return -1;
+
+    memset(out, 0, sizeof(ChoicePuzzle));
+
+    const char *delim = strchr(question, '|');
+    if (!delim)
+        return -1;
+
+    size_t prompt_len = delim - question;
+    if (prompt_len >= sizeof(out->prompt))
+        prompt_len = sizeof(out->prompt) - 1;
+    memcpy(out->prompt, question, prompt_len);
+    out->prompt[prompt_len] = '\0';
+
+    const char *p = delim + 1;
+    while (*p && out->num_options < MAX_CHOICE_OPTIONS) {
+        const char *next = strchr(p, '|');
+        size_t len;
+        if (next)
+            len = next - p;
+        else
+            len = strlen(p);
+
+        if (len == 0) {
+            if (next) { p = next + 1; continue; }
+            break;
+        }
+
+        if (len >= sizeof(out->options[0]))
+            len = sizeof(out->options[0]) - 1;
+        memcpy(out->options[out->num_options], p, len);
+        out->options[out->num_options][len] = '\0';
+        out->num_options++;
+
+        if (next)
+            p = next + 1;
+        else
+            break;
+    }
+
+    if (out->num_options < 2)
+        return -1;
+
+    return 0;
+}
+
 /* Before 09:00 UTC, show yesterday's puzzle */
 static void get_puzzle_date(char *out, size_t out_size) {
     time_t now = (time_t)get_current_time();
@@ -30,13 +129,16 @@ static int populate_puzzle(sqlite3_stmt *stmt, Puzzle *p) {
     const char *type = (const char *)sqlite3_column_text(stmt, 2);
     if (type) strncpy(p->puzzle_type, type, sizeof(p->puzzle_type) - 1);
 
-    const char *question = (const char *)sqlite3_column_text(stmt, 3);
+    const char *name = (const char *)sqlite3_column_text(stmt, 3);
+    if (name) strncpy(p->puzzle_name, name, sizeof(p->puzzle_name) - 1);
+
+    const char *question = (const char *)sqlite3_column_text(stmt, 4);
     if (question) strncpy(p->question, question, sizeof(p->question) - 1);
 
-    const char *answer = (const char *)sqlite3_column_text(stmt, 4);
+    const char *answer = (const char *)sqlite3_column_text(stmt, 5);
     if (answer) strncpy(p->answer, answer, sizeof(p->answer) - 1);
 
-    const char *hint = (const char *)sqlite3_column_text(stmt, 5);
+    const char *hint = (const char *)sqlite3_column_text(stmt, 6);
     if (hint && hint[0] != '\0') {
         strncpy(p->hint, hint, sizeof(p->hint) - 1);
         p->has_hint = 1;
@@ -46,7 +148,7 @@ static int populate_puzzle(sqlite3_stmt *stmt, Puzzle *p) {
 }
 
 static const char *PUZZLE_SELECT =
-    "SELECT id, puzzle_date, puzzle_type, question, answer, hint FROM puzzles ";
+    "SELECT id, puzzle_date, puzzle_type, puzzle_name, question, answer, hint FROM puzzles ";
 
 int puzzle_get_today(Puzzle *puzzle_out) {
     sqlite3 *db = db_get();
@@ -105,7 +207,7 @@ int puzzle_get_by_id(int64_t puzzle_id, Puzzle *puzzle_out) {
     return 0;
 }
 
-int puzzle_get_archive(Puzzle *puzzles, int max, int *count) {
+int puzzle_get_archive(Puzzle *puzzles, int max, int *count, int include_future) {
     sqlite3 *db = db_get();
     sqlite3_stmt *stmt = NULL;
 
@@ -116,16 +218,26 @@ int puzzle_get_archive(Puzzle *puzzles, int max, int *count) {
     get_puzzle_date(today, sizeof(today));
 
     char sql[512];
-    snprintf(sql, sizeof(sql),
-        "%s WHERE puzzle_date < ? ORDER BY puzzle_date DESC LIMIT ?",
-        PUZZLE_SELECT);
+    if (include_future) {
+        snprintf(sql, sizeof(sql),
+            "%s ORDER BY puzzle_date ASC LIMIT ?",
+            PUZZLE_SELECT);
+    } else {
+        snprintf(sql, sizeof(sql),
+            "%s WHERE puzzle_date < ? ORDER BY puzzle_date DESC LIMIT ?",
+            PUZZLE_SELECT);
+    }
 
     int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK)
         return -1;
 
-    sqlite3_bind_text(stmt, 1, today, -1, SQLITE_STATIC);
-    sqlite3_bind_int(stmt, 2, max);
+    if (include_future) {
+        sqlite3_bind_int(stmt, 1, max);
+    } else {
+        sqlite3_bind_text(stmt, 1, today, -1, SQLITE_STATIC);
+        sqlite3_bind_int(stmt, 2, max);
+    }
 
     *count = 0;
     while ((rc = sqlite3_step(stmt)) == SQLITE_ROW && *count < max) {
@@ -244,20 +356,28 @@ char *puzzle_normalize_answer(char *str) {
 }
 
 static int check_answer(const char *guess, const char *answer) {
-    /* Copies needed — normalize modifies in place */
     char guess_norm[256];
-    char answer_norm[256];
-
     strncpy(guess_norm, guess, sizeof(guess_norm) - 1);
     guess_norm[sizeof(guess_norm) - 1] = '\0';
-
-    strncpy(answer_norm, answer, sizeof(answer_norm) - 1);
-    answer_norm[sizeof(answer_norm) - 1] = '\0';
-
     puzzle_normalize_answer(guess_norm);
-    puzzle_normalize_answer(answer_norm);
 
-    return strcmp(guess_norm, answer_norm) == 0;
+    /* Support pipe-separated alternative answers */
+    char answers_buf[1024];
+    strncpy(answers_buf, answer, sizeof(answers_buf) - 1);
+    answers_buf[sizeof(answers_buf) - 1] = '\0';
+
+    char *saveptr;
+    char *alt = strtok_r(answers_buf, "|", &saveptr);
+    while (alt) {
+        char alt_norm[256];
+        strncpy(alt_norm, alt, sizeof(alt_norm) - 1);
+        alt_norm[sizeof(alt_norm) - 1] = '\0';
+        puzzle_normalize_answer(alt_norm);
+        if (strcmp(guess_norm, alt_norm) == 0)
+            return 1;
+        alt = strtok_r(NULL, "|", &saveptr);
+    }
+    return 0;
 }
 
 int puzzle_calculate_score(time_t solve_time, const char *puzzle_date,
@@ -437,6 +557,90 @@ int puzzle_reveal_hint(int64_t user_id, int64_t puzzle_id,
     if (rc == SQLITE_OK) {
         sqlite3_bind_int64(stmt, 1, attempt_id);
         sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+
+    return 0;
+}
+
+int puzzle_get_user_stats(int64_t user_id, UserStats *out) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+
+    if (db == NULL || out == NULL)
+        return -1;
+
+    memset(out, 0, sizeof(UserStats));
+    out->daily_score = -1;
+
+    /* All-time total + average + puzzles solved */
+    int rc = sqlite3_prepare_v2(db,
+        "SELECT COALESCE(SUM(score), 0), COUNT(*), COALESCE(AVG(score), 0) "
+        "FROM attempts WHERE user_id = ? AND solved = 1",
+        -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, user_id);
+    if (sqlite3_step(stmt) == SQLITE_ROW) {
+        out->alltime_total = sqlite3_column_int(stmt, 0);
+        out->puzzles_solved = sqlite3_column_int(stmt, 1);
+        out->average_score = sqlite3_column_int(stmt, 2);
+    }
+    sqlite3_finalize(stmt);
+
+    /* Weekly total */
+    rc = sqlite3_prepare_v2(db,
+        "SELECT COALESCE(SUM(a.score), 0) "
+        "FROM attempts a JOIN puzzles p ON a.puzzle_id = p.id "
+        "WHERE a.user_id = ? AND a.solved = 1 "
+        "AND p.puzzle_date >= date('now', 'weekday 0', '-6 days') "
+        "AND p.puzzle_date <= date('now')",
+        -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, user_id);
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+        out->weekly_total = sqlite3_column_int(stmt, 0);
+    sqlite3_finalize(stmt);
+
+    /* Daily score */
+    rc = sqlite3_prepare_v2(db,
+        "SELECT a.score FROM attempts a JOIN puzzles p ON a.puzzle_id = p.id "
+        "WHERE a.user_id = ? AND a.solved = 1 AND p.puzzle_date = date('now')",
+        -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, user_id);
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+        out->daily_score = sqlite3_column_int(stmt, 0);
+    sqlite3_finalize(stmt);
+
+    /* Global percentile */
+    if (out->puzzles_solved > 0) {
+        rc = sqlite3_prepare_v2(db,
+            "WITH user_totals AS ("
+            "  SELECT user_id, SUM(score) as total "
+            "  FROM attempts WHERE solved = 1 GROUP BY user_id"
+            ") SELECT "
+            "  COUNT(CASE WHEN total >= (SELECT total FROM user_totals WHERE user_id = ?) THEN 1 END),"
+            "  COUNT(*) "
+            "FROM user_totals",
+            -1, &stmt, NULL);
+        if (rc != SQLITE_OK)
+            return -1;
+
+        sqlite3_bind_int64(stmt, 1, user_id);
+        if (sqlite3_step(stmt) == SQLITE_ROW) {
+            int at_or_above = sqlite3_column_int(stmt, 0);
+            int total_users = sqlite3_column_int(stmt, 1);
+            if (total_users > 0)
+                out->percentile = (at_or_above * 100) / total_users;
+            else
+                out->percentile = 100;
+        }
         sqlite3_finalize(stmt);
     }
 

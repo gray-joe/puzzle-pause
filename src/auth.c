@@ -5,18 +5,39 @@
 #include "util.h"
 #include "sqlite3.h"
 
-int auth_create_magic_link(const char *email, char *token_out) {
+static int generate_short_code(char *out, size_t out_size) {
+    static const char charset[] = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    static const int charset_len = 32;
+
+    if (out == NULL || out_size < AUTH_CODE_LEN + 1)
+        return -1;
+
+    unsigned char bytes[AUTH_CODE_LEN];
+    if (generate_random_bytes(bytes, sizeof(bytes)) != 0)
+        return -1;
+
+    for (int i = 0; i < AUTH_CODE_LEN; i++)
+        out[i] = charset[bytes[i] % charset_len];
+    out[AUTH_CODE_LEN] = '\0';
+
+    return 0;
+}
+
+int auth_create_magic_link(const char *email, char *token_out, char *code_out) {
     sqlite3 *db = db_get();
     sqlite3_stmt *stmt = NULL;
     int rc;
 
-    if (db == NULL || email == NULL || token_out == NULL)
+    if (db == NULL || email == NULL || token_out == NULL || code_out == NULL)
         return -1;
 
     if (strlen(email) == 0 || strlen(email) > AUTH_MAX_EMAIL_LEN)
         return -1;
 
     if (generate_token_hex(token_out, 65, AUTH_TOKEN_BYTES) != 0)
+        return -1;
+
+    if (generate_short_code(code_out, AUTH_CODE_LEN + 1) != 0)
         return -1;
 
     char expires_at[32];
@@ -37,8 +58,8 @@ int auth_create_magic_link(const char *email, char *token_out) {
     sqlite3_finalize(stmt);
 
     const char *insert_sql =
-        "INSERT INTO auth_tokens (user_id, email, token, expires_at) "
-        "VALUES (?, ?, ?, ?)";
+        "INSERT INTO auth_tokens (user_id, email, token, short_code, expires_at) "
+        "VALUES (?, ?, ?, ?, ?)";
 
     rc = sqlite3_prepare_v2(db, insert_sql, -1, &stmt, NULL);
     if (rc != SQLITE_OK)
@@ -51,7 +72,8 @@ int auth_create_magic_link(const char *email, char *token_out) {
 
     sqlite3_bind_text(stmt, 2, email, -1, SQLITE_STATIC);
     sqlite3_bind_text(stmt, 3, token_out, -1, SQLITE_STATIC);
-    sqlite3_bind_text(stmt, 4, expires_at, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 4, code_out, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 5, expires_at, -1, SQLITE_STATIC);
 
     rc = sqlite3_step(stmt);
     sqlite3_finalize(stmt);
@@ -121,6 +143,133 @@ int auth_validate_magic_link(const char *token, char *session_out, int64_t *user
         sqlite3_bind_int64(stmt, 1, token_id);
         sqlite3_step(stmt);
         sqlite3_finalize(stmt);
+    }
+
+    if (generate_token_hex(session_out, 65, SESSION_TOKEN_BYTES) != 0)
+        return -1;
+
+    char session_expires[32];
+    long expiry = get_current_time() + SESSION_EXPIRY_SECS;
+    format_datetime(session_expires, sizeof(session_expires), expiry);
+
+    const char *session_sql =
+        "INSERT INTO sessions (user_id, token, expires_at) VALUES (?, ?, ?)";
+
+    rc = sqlite3_prepare_v2(db, session_sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, user_id);
+    sqlite3_bind_text(stmt, 2, session_out, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 3, session_expires, -1, SQLITE_STATIC);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE)
+        return -1;
+
+    *user_id_out = user_id;
+    return 0;
+}
+
+int auth_validate_code(const char *email, const char *code, char *session_out, int64_t *user_id_out) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+    int rc;
+
+    if (db == NULL || email == NULL || code == NULL || session_out == NULL || user_id_out == NULL)
+        return -1;
+
+    /* Case-insensitive code lookup: find unused, unexpired token for this email */
+    const char *lookup_sql =
+        "SELECT id, user_id, short_code, attempts FROM auth_tokens "
+        "WHERE email = ? AND used = 0 AND expires_at > datetime('now') "
+        "AND short_code IS NOT NULL "
+        "ORDER BY id DESC LIMIT 1";
+
+    rc = sqlite3_prepare_v2(db, lookup_sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_text(stmt, 1, email, -1, SQLITE_STATIC);
+
+    rc = sqlite3_step(stmt);
+    if (rc != SQLITE_ROW) {
+        sqlite3_finalize(stmt);
+        return -1;
+    }
+
+    int64_t token_id = sqlite3_column_int64(stmt, 0);
+    int64_t user_id = 0;
+    if (sqlite3_column_type(stmt, 1) != SQLITE_NULL)
+        user_id = sqlite3_column_int64(stmt, 1);
+
+    char stored_code[AUTH_CODE_LEN + 1] = {0};
+    const char *code_text = (const char *)sqlite3_column_text(stmt, 2);
+    if (code_text)
+        strncpy(stored_code, code_text, AUTH_CODE_LEN);
+    int attempts = sqlite3_column_int(stmt, 3);
+    sqlite3_finalize(stmt);
+
+    if (attempts >= AUTH_MAX_CODE_ATTEMPTS) {
+        /* Too many failed attempts — invalidate */
+        rc = sqlite3_prepare_v2(db, "UPDATE auth_tokens SET used = 1 WHERE id = ?", -1, &stmt, NULL);
+        if (rc == SQLITE_OK) {
+            sqlite3_bind_int64(stmt, 1, token_id);
+            sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
+        }
+        return -1;
+    }
+
+    /* Case-insensitive comparison */
+    int match = (stored_code[0] != '\0' && strlen(code) == AUTH_CODE_LEN);
+    if (match) {
+        for (int i = 0; i < AUTH_CODE_LEN; i++) {
+            char a = code[i];
+            char b = stored_code[i];
+            if (a >= 'a' && a <= 'z') a -= 32;
+            if (b >= 'a' && b <= 'z') b -= 32;
+            if (a != b) { match = 0; break; }
+        }
+    }
+
+    if (!match) {
+        /* Increment attempt counter */
+        rc = sqlite3_prepare_v2(db,
+            "UPDATE auth_tokens SET attempts = attempts + 1 WHERE id = ?",
+            -1, &stmt, NULL);
+        if (rc == SQLITE_OK) {
+            sqlite3_bind_int64(stmt, 1, token_id);
+            sqlite3_step(stmt);
+            sqlite3_finalize(stmt);
+        }
+        return -1;
+    }
+
+    /* Code matches — mark as used */
+    rc = sqlite3_prepare_v2(db, "UPDATE auth_tokens SET used = 1 WHERE id = ?", -1, &stmt, NULL);
+    if (rc == SQLITE_OK) {
+        sqlite3_bind_int64(stmt, 1, token_id);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+
+    /* New user registration */
+    if (user_id == 0) {
+        rc = sqlite3_prepare_v2(db, "INSERT INTO users (email) VALUES (?)", -1, &stmt, NULL);
+        if (rc != SQLITE_OK)
+            return -1;
+
+        sqlite3_bind_text(stmt, 1, email, -1, SQLITE_STATIC);
+        rc = sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+
+        if (rc != SQLITE_DONE)
+            return -1;
+
+        user_id = sqlite3_last_insert_rowid(db);
     }
 
     if (generate_token_hex(session_out, 65, SESSION_TOKEN_BYTES) != 0)

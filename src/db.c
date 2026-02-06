@@ -16,8 +16,10 @@ static const char *SCHEMA =
     "    user_id INTEGER REFERENCES users(id),"
     "    email TEXT NOT NULL,"
     "    token TEXT UNIQUE NOT NULL,"
+    "    short_code TEXT,"
     "    expires_at DATETIME NOT NULL,"
-    "    used INTEGER DEFAULT 0"
+    "    used INTEGER DEFAULT 0,"
+    "    attempts INTEGER DEFAULT 0"
     ");"
 
     "CREATE TABLE IF NOT EXISTS sessions ("
@@ -31,6 +33,7 @@ static const char *SCHEMA =
     "    id INTEGER PRIMARY KEY AUTOINCREMENT,"
     "    puzzle_date DATE UNIQUE NOT NULL,"
     "    puzzle_type TEXT NOT NULL,"
+    "    puzzle_name TEXT NOT NULL DEFAULT '',"
     "    question TEXT NOT NULL,"
     "    answer TEXT NOT NULL,"
     "    hint TEXT,"
@@ -70,6 +73,8 @@ static const char *SCHEMA =
     "CREATE INDEX IF NOT EXISTS idx_puzzles_date ON puzzles(puzzle_date);"
     "CREATE INDEX IF NOT EXISTS idx_attempts_user_puzzle ON attempts(user_id, puzzle_id);"
     "CREATE INDEX IF NOT EXISTS idx_leagues_invite_code ON leagues(invite_code);"
+    "CREATE INDEX IF NOT EXISTS idx_league_members_league ON league_members(league_id);"
+    "CREATE INDEX IF NOT EXISTS idx_league_members_user ON league_members(user_id);"
 ;
 
 int db_init(const char *db_path) {
@@ -98,6 +103,10 @@ int db_init(const char *db_path) {
         sqlite3_free(err_msg);
         return -1;
     }
+
+    sqlite3_exec(db, "ALTER TABLE auth_tokens ADD COLUMN short_code TEXT", NULL, NULL, NULL);
+    sqlite3_exec(db, "ALTER TABLE auth_tokens ADD COLUMN attempts INTEGER DEFAULT 0", NULL, NULL, NULL);
+    sqlite3_exec(db, "CREATE INDEX IF NOT EXISTS idx_auth_tokens_email_code ON auth_tokens(email, short_code)", NULL, NULL, NULL);
 
     return 0;
 }
