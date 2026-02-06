@@ -356,20 +356,28 @@ char *puzzle_normalize_answer(char *str) {
 }
 
 static int check_answer(const char *guess, const char *answer) {
-    /* Copies needed — normalize modifies in place */
     char guess_norm[256];
-    char answer_norm[256];
-
     strncpy(guess_norm, guess, sizeof(guess_norm) - 1);
     guess_norm[sizeof(guess_norm) - 1] = '\0';
-
-    strncpy(answer_norm, answer, sizeof(answer_norm) - 1);
-    answer_norm[sizeof(answer_norm) - 1] = '\0';
-
     puzzle_normalize_answer(guess_norm);
-    puzzle_normalize_answer(answer_norm);
 
-    return strcmp(guess_norm, answer_norm) == 0;
+    /* Support pipe-separated alternative answers */
+    char answers_buf[1024];
+    strncpy(answers_buf, answer, sizeof(answers_buf) - 1);
+    answers_buf[sizeof(answers_buf) - 1] = '\0';
+
+    char *saveptr;
+    char *alt = strtok_r(answers_buf, "|", &saveptr);
+    while (alt) {
+        char alt_norm[256];
+        strncpy(alt_norm, alt, sizeof(alt_norm) - 1);
+        alt_norm[sizeof(alt_norm) - 1] = '\0';
+        puzzle_normalize_answer(alt_norm);
+        if (strcmp(guess_norm, alt_norm) == 0)
+            return 1;
+        alt = strtok_r(NULL, "|", &saveptr);
+    }
+    return 0;
 }
 
 int puzzle_calculate_score(time_t solve_time, const char *puzzle_date,

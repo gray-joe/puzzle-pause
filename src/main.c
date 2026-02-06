@@ -27,6 +27,18 @@ static int rate_limit_count = 0;
 
 static int dev_mode = 0;
 
+static void rate_limit_evict_expired(time_t now) {
+    int i = 0;
+    while (i < rate_limit_count) {
+        if (now - rate_limit_table[i].window_start >= RATE_LIMIT_WINDOW_SECS) {
+            rate_limit_table[i] = rate_limit_table[rate_limit_count - 1];
+            rate_limit_count--;
+        } else {
+            i++;
+        }
+    }
+}
+
 /* Returns 1 if allowed, 0 if rate limited. Increments counter. */
 static int rate_limit_check(const char *ip) {
     time_t now = time(NULL);
@@ -45,15 +57,19 @@ static int rate_limit_check(const char *ip) {
         }
     }
 
+    if (rate_limit_count >= RATE_LIMIT_MAX_IPS)
+        rate_limit_evict_expired(now);
+
     if (rate_limit_count < RATE_LIMIT_MAX_IPS) {
         strncpy(rate_limit_table[rate_limit_count].ip, ip,
                 sizeof(rate_limit_table[rate_limit_count].ip) - 1);
         rate_limit_table[rate_limit_count].window_start = now;
         rate_limit_table[rate_limit_count].attempts = 1;
         rate_limit_count++;
+        return 1;
     }
-    /* Table full — fail open */
-    return 1;
+
+    return 0;
 }
 
 static const char *TERMINAL_CSS =
@@ -282,7 +298,7 @@ static void handle_login_page(struct mg_connection *c) {
         "  <hr class=\"nav-line\">\n"
         "</div>\n"
         "<div class=\"content-meta\">\n"
-        "  Enter your email to receive a magic login link.<br>\n"
+        "  Enter your email to receive a login code.<br>\n"
         "  No password required.\n"
         "</div>\n"
         "<form method=\"POST\" action=\"/login\">\n"
@@ -291,7 +307,7 @@ static void handle_login_page(struct mg_connection *c) {
         "    <input type=\"email\" name=\"email\" placeholder=\"your@email.com\" required>\n"
         "  </div>\n"
         "  <button type=\"submit\" class=\"action-btn\">\n"
-        "    <span class=\"gt\">&gt;</span>Send Magic Link\n"
+        "    <span class=\"gt\">&gt;</span>Send Code\n"
         "  </button>\n"
         "</form>\n"
         "<a href=\"/\" class=\"back-link\" style=\"margin-top:20px;\">\n"
@@ -631,10 +647,6 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
     int hint_shown = (puzzle_get_attempt(user->id, puzzle.id, &attempt) == 0)
                      ? attempt.hint_used : 0;
 
-    char safe_question[2048] = {0};
-    char safe_hint[2048] = {0};
-    html_escape(puzzle.question, safe_question, sizeof(safe_question));
-    html_escape(puzzle.hint, safe_hint, sizeof(safe_hint));
 
     mg_printf(c,
         "HTTP/1.1 200 OK\r\n"
@@ -699,7 +711,7 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
             "<div class=\"puzzle-box\">\n"
             "  <div>%s</div>\n"
             "</div>\n",
-            safe_question);
+            puzzle.question);
     }
 
     mg_http_printf_chunk(c,
@@ -708,7 +720,7 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
         (puzzle.has_hint && hint_shown)
             ? "<div class=\"action-btn secondary\"><span class=\"gt\">&gt;</span>Hint: "
             : "",
-        (puzzle.has_hint && hint_shown) ? safe_hint : "",
+        (puzzle.has_hint && hint_shown) ? puzzle.hint : "",
         (puzzle.has_hint && hint_shown) ? "</div>" : "",
         (puzzle.has_hint && !hint_shown)
             ? "<form action=\"/puzzle/hint\" method=\"POST\" hx-post=\"/puzzle/hint\" hx-target=\"#hint-area\" hx-swap=\"innerHTML\">\n"
@@ -950,11 +962,9 @@ static void handle_puzzle_hint(struct mg_connection *c, struct mg_http_message *
     }
 
     if (is_htmx) {
-        char safe_hint[2048] = {0};
-        html_escape(hint, safe_hint, sizeof(safe_hint));
         mg_http_reply(c, 200, "Content-Type: text/html\r\n",
             "<div class=\"action-btn secondary\">"
-            "<span class=\"gt\">&gt;</span>Hint: %s</div>\n", safe_hint);
+            "<span class=\"gt\">&gt;</span>Hint: %s</div>\n", hint);
     } else {
         mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
     }
@@ -978,8 +988,12 @@ static void handle_puzzle_result(struct mg_connection *c, User *user) {
     int hint_penalty = attempt.hint_used ? 10 : 0;
     int base_score = attempt.score + guess_penalty + hint_penalty;
 
+    char display_answer[256] = {0};
+    strncpy(display_answer, puzzle.answer, sizeof(display_answer) - 1);
+    char *pipe = strchr(display_answer, '|');
+    if (pipe) *pipe = '\0';
     char safe_answer[1024] = {0};
-    html_escape(puzzle.answer, safe_answer, sizeof(safe_answer));
+    html_escape(display_answer, safe_answer, sizeof(safe_answer));
 
     const char *time_desc;
     if (base_score >= 100) time_desc = "within 10 min";
@@ -1608,13 +1622,13 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
     sscanf(puzzle.puzzle_date, "%d-%d-%d", &year, &month, &day);
 
     char safe_pname[1024] = {0};
-    char safe_question[2048] = {0};
+    char display_answer[256] = {0};
     char safe_answer[1024] = {0};
-    char safe_hint[2048] = {0};
     html_escape(puzzle.puzzle_name, safe_pname, sizeof(safe_pname));
-    html_escape(puzzle.question, safe_question, sizeof(safe_question));
-    html_escape(puzzle.answer, safe_answer, sizeof(safe_answer));
-    html_escape(puzzle.hint, safe_hint, sizeof(safe_hint));
+    strncpy(display_answer, puzzle.answer, sizeof(display_answer) - 1);
+    char *pipe = strchr(display_answer, '|');
+    if (pipe) *pipe = '\0';
+    html_escape(display_answer, safe_answer, sizeof(safe_answer));
 
     mg_printf(c,
         "HTTP/1.1 200 OK\r\n"
@@ -1670,7 +1684,7 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
                 safe_prompt);
         }
     } else {
-        mg_http_printf_chunk(c, "<div class=\"puzzle-box\">%s</div>\n", safe_question);
+        mg_http_printf_chunk(c, "<div class=\"puzzle-box\">%s</div>\n", puzzle.question);
     }
 
     if (solved) {
@@ -1686,7 +1700,7 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
                     "<div class=\"action-btn\">"
                     "<span class=\"gt\">&gt;</span>Hint: %s"
                     "</div>\n",
-                    safe_hint);
+                    puzzle.hint);
             } else {
                 mg_http_printf_chunk(c,
                     "<form action=\"/archive/%lld/hint\" method=\"POST\">\n"
