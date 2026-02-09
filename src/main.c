@@ -660,16 +660,20 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
         "Content-Type: text/html\r\n"
         "Transfer-Encoding: chunked\r\n\r\n");
 
+    int pnum = puzzle_get_number(puzzle.id);
+    char safe_pname[1024] = {0};
+    html_escape(puzzle.puzzle_name, safe_pname, sizeof(safe_pname));
+
     mg_http_printf_chunk(c,
         "<!DOCTYPE html>\n"
         "<html><head>\n"
-        "<title>Daily Puzzle</title>\n"
+        "<title>#%d. %s</title>\n"
         "%s"
         "<script src=\"/static/htmx.min.js\" defer></script>\n"
         "</head>\n"
         "<body>\n"
         "<div class=\"page-header\">\n"
-        "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>Daily Puzzle</div>\n"
+        "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>#%d. %s</div>\n"
         "  <nav class=\"nav\">\n"
         "%s"
         "  </nav>\n"
@@ -680,7 +684,9 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
         "  Score: 100 pts base, -5 per wrong guess%s\n"
         "%s"
         "</div>\n",
+        pnum, safe_pname,
         TERMINAL_CSS,
+        pnum, safe_pname,
         nav,
         puzzle.puzzle_date,
         puzzle.has_hint ? ", -10 for hint" : "",
