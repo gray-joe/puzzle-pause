@@ -249,6 +249,30 @@ int puzzle_get_archive(Puzzle *puzzles, int max, int *count, int include_future)
     return 0;
 }
 
+int puzzle_get_number(int64_t puzzle_id) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+
+    if (db == NULL)
+        return -1;
+
+    int rc = sqlite3_prepare_v2(db,
+        "SELECT COUNT(*) FROM puzzles WHERE puzzle_date <= "
+        "(SELECT puzzle_date FROM puzzles WHERE id = ?)",
+        -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, puzzle_id);
+
+    int num = -1;
+    if (sqlite3_step(stmt) == SQLITE_ROW)
+        num = sqlite3_column_int(stmt, 0);
+
+    sqlite3_finalize(stmt);
+    return num;
+}
+
 int puzzle_get_attempt(int64_t user_id, int64_t puzzle_id, Attempt *attempt_out) {
     sqlite3 *db = db_get();
     sqlite3_stmt *stmt = NULL;

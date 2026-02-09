@@ -1737,14 +1737,15 @@ static void handle_archive_list(struct mg_connection *c, User *user) {
 
             char safe_pname[1024] = {0};
             html_escape(p->puzzle_name, safe_pname, sizeof(safe_pname));
+            int pnum = puzzle_get_number(p->id);
             mg_http_printf_chunk(c,
                 "<p style=\"display:flex;justify-content:space-between;\">"
                 "<a href=\"/archive/%lld\" style=\"text-decoration:none;\">"
-                "<span class=\"gt\" style=\"color:%s;\">&gt;</span> #%lld. %s"
+                "<span class=\"gt\" style=\"color:%s;\">&gt;</span> #%d. %s"
                 "</a>"
                 "<span style=\"color:#808080;\">%02d/%02d/%02d</span>"
                 "</p>\n",
-                (long long)p->id, gt_color, (long long)p->id, safe_pname,
+                (long long)p->id, gt_color, pnum, safe_pname,
                 day, month, year % 100);
         }
     }
@@ -1800,12 +1801,13 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
         "Content-Type: text/html\r\n"
         "Transfer-Encoding: chunked\r\n\r\n");
 
+    int pnum = puzzle_get_number(puzzle_id);
     mg_http_printf_chunk(c,
         "<!DOCTYPE html>\n"
-        "<html><head><title>#%lld. %s</title>%s</head>\n"
+        "<html><head><title>#%d. %s</title>%s</head>\n"
         "<body>\n"
         "<div class=\"page-header\">\n"
-        "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>#%lld. %s</div>\n"
+        "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>#%d. %s</div>\n"
         "  <nav class=\"nav\">\n"
         "    <a href=\"/puzzle\"><span class=\"gt\">&gt;</span>Daily Puzzle</a>\n"
         "    <a href=\"/leagues\"><span class=\"gt\">&gt;</span>Leagues</a>\n"
@@ -1816,8 +1818,8 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
         "<p><a href=\"/archive\" class=\"back-link\"><span class=\"gt\">&gt;</span>Back to archive</a></p>\n"
         "<p style=\"color:#808080;\">%02d/%02d/%02d</p>\n"
         "<p style=\"color:#808080;\">Archived puzzles are for practice only. No points awarded.</p>\n",
-        (long long)puzzle_id, safe_pname, TERMINAL_CSS,
-        (long long)puzzle_id, safe_pname,
+        pnum, safe_pname, TERMINAL_CSS,
+        pnum, safe_pname,
         day, month, year % 100);
 
     if (strcmp(puzzle.puzzle_type, "ladder") == 0) {

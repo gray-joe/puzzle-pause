@@ -48,6 +48,7 @@ int puzzle_parse_choice(const char *question, ChoicePuzzle *out);
 int puzzle_get_today(Puzzle *puzzle_out);
 int puzzle_get_by_id(int64_t puzzle_id, Puzzle *puzzle_out);
 int puzzle_get_archive(Puzzle *puzzles, int max, int *count, int include_future);
+int puzzle_get_number(int64_t puzzle_id);
 int puzzle_get_attempt(int64_t user_id, int64_t puzzle_id, Attempt *attempt_out);
 
 /* Returns 1 if correct, 0 if incorrect, -1 on error */
