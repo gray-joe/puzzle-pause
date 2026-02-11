@@ -653,7 +653,7 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
                      ? attempt.hint_used : 0;
     }
 
-    int show_hint_button = user && puzzle.has_hint && !hint_shown;
+    int show_hint_button = puzzle.has_hint && !hint_shown;
 
     mg_printf(c,
         "HTTP/1.1 200 OK\r\n"
@@ -729,21 +729,22 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
     }
 
     mg_http_printf_chunk(c,
-        "<div id=\"hint-area\">%s%s%s</div>\n"
-        "%s",
+        "<div id=\"hint-area\">%s%s%s</div>\n",
         (puzzle.has_hint && hint_shown)
             ? "<div class=\"action-btn secondary\"><span class=\"gt\">&gt;</span>Hint: "
             : "",
         (puzzle.has_hint && hint_shown) ? puzzle.hint : "",
-        (puzzle.has_hint && hint_shown) ? "</div>" : "",
-        show_hint_button
-            ? "<form action=\"/puzzle/hint\" method=\"POST\" hx-post=\"/puzzle/hint\" hx-target=\"#hint-area\" hx-swap=\"innerHTML\">\n"
-              "  <input type=\"hidden\" name=\"puzzle_id\" value=\"0\">\n"
-              "  <button type=\"submit\" class=\"action-btn secondary\">\n"
-              "    <span class=\"gt\">&gt;</span>Hint? (-10 pts)\n"
-              "  </button>\n"
-              "</form>\n"
-            : "");
+        (puzzle.has_hint && hint_shown) ? "</div>" : "");
+    if (show_hint_button) {
+        mg_http_printf_chunk(c,
+            "<form action=\"/puzzle/hint\" method=\"POST\" hx-post=\"/puzzle/hint\" hx-target=\"#hint-area\" hx-swap=\"innerHTML\">\n"
+            "  <input type=\"hidden\" name=\"puzzle_id\" value=\"0\">\n"
+            "  <button type=\"submit\" class=\"action-btn secondary\">\n"
+            "    <span class=\"gt\">&gt;</span>Hint?%s\n"
+            "  </button>\n"
+            "</form>\n",
+            user ? " (-10 pts)" : "");
+    }
 
     mg_http_printf_chunk(c,
         "<form action=\"/puzzle/attempt\" method=\"POST\" hx-post=\"/puzzle/attempt\" hx-target=\"#feedback\" hx-swap=\"innerHTML\">\n"
@@ -981,11 +982,6 @@ static void handle_puzzle_attempt(struct mg_connection *c, struct mg_http_messag
 }
 
 static void handle_puzzle_hint(struct mg_connection *c, struct mg_http_message *hm, User *user) {
-    if (!user) {
-        mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
-        return;
-    }
-
     struct mg_str *hx_request = mg_http_get_header(hm, "HX-Request");
     int is_htmx = (hx_request != NULL && hx_request->len > 0);
 
@@ -1003,15 +999,29 @@ static void handle_puzzle_hint(struct mg_connection *c, struct mg_http_message *
     }
 
     char hint[512] = {0};
-    if (puzzle_reveal_hint(user->id, puzzle.id, hint, sizeof(hint)) != 0) {
-        if (is_htmx) {
-            mg_http_reply(c, 200, "Content-Type: text/html\r\n",
-                "<div class=\"action-btn secondary\">"
-                "<span class=\"gt\">&gt;</span>No hint available</div>\n");
-        } else {
-            mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
+    if (user) {
+        if (puzzle_reveal_hint(user->id, puzzle.id, hint, sizeof(hint)) != 0) {
+            if (is_htmx) {
+                mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+                    "<div class=\"action-btn secondary\">"
+                    "<span class=\"gt\">&gt;</span>No hint available</div>\n");
+            } else {
+                mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
+            }
+            return;
         }
-        return;
+    } else {
+        if (!puzzle.has_hint || puzzle.hint[0] == '\0') {
+            if (is_htmx) {
+                mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+                    "<div class=\"action-btn secondary\">"
+                    "<span class=\"gt\">&gt;</span>No hint available</div>\n");
+            } else {
+                mg_http_reply(c, 302, "Location: /puzzle\r\n", "");
+            }
+            return;
+        }
+        snprintf(hint, sizeof(hint), "%s", puzzle.hint);
     }
 
     if (is_htmx) {
