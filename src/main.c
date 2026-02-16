@@ -2172,6 +2172,7 @@ static void handle_admin_puzzles_list(struct mg_connection *c) {
             "<td>%s</td>"
             "<td>%s</td>"
             "<td>"
+            "<a href=\"/admin/puzzles/preview?id=%lld\">preview</a> | "
             "<a href=\"/admin/puzzles/edit?id=%lld\">edit</a> | "
             "<form method=\"POST\" action=\"/admin/puzzles/delete\" style=\"display:inline;\">"
             "<input type=\"hidden\" name=\"id\" value=\"%lld\">"
@@ -2182,7 +2183,8 @@ static void handle_admin_puzzles_list(struct mg_connection *c) {
             "</tr>\n",
             puzzles[i].puzzle_date, puzzles[i].puzzle_type,
             esc_name,
-            (long long)puzzles[i].id, (long long)puzzles[i].id);
+            (long long)puzzles[i].id, (long long)puzzles[i].id,
+            (long long)puzzles[i].id);
     }
 
     off += snprintf(body + off, sizeof(body) - off,
@@ -2220,6 +2222,13 @@ static void render_puzzle_form(struct mg_connection *c, const char *title,
         snprintf(err_html, sizeof(err_html),
             "<p class=\"error\">%s</p>\n", error);
 
+    char preview_link[256] = {0};
+    if (p->id > 0)
+        snprintf(preview_link, sizeof(preview_link),
+            "<a href=\"/admin/puzzles/preview?id=%lld\" class=\"action-btn\" "
+            "style=\"margin-top:15px;\"><span class=\"gt\">&gt;</span>Preview</a>\n",
+            (long long)p->id);
+
     mg_http_reply(c, 200, "Content-Type: text/html\r\n",
         "<!DOCTYPE html>\n<html><head><title>Admin - %s</title>%s\n"
         "<style>textarea,select{background:#15191e;color:#e0e0e0;border:1px solid #3a3a3a;"
@@ -2254,13 +2263,140 @@ static void render_puzzle_form(struct mg_connection *c, const char *title,
         "  <span class=\"gt\">&gt;</span>Save\n"
         "</button>\n"
         "</form>\n"
+        "%s"
         "<a href=\"/admin/puzzles\" class=\"back-link\" style=\"margin-top:15px;\">\n"
         "  <span class=\"gt\">&lt;</span> Back to puzzles\n"
         "</a>\n"
         "</body></html>\n",
         title, TERMINAL_CSS, title, err_html, action, id_field,
         p->puzzle_date, type_options, esc_name, esc_question,
-        esc_answer, esc_hint);
+        esc_answer, esc_hint, preview_link);
+}
+
+static void handle_admin_puzzle_preview(struct mg_connection *c,
+                                         struct mg_http_message *hm) {
+    char id_str[32] = {0};
+    get_query_var(hm, "id", id_str, sizeof(id_str));
+    int64_t id = atoll(id_str);
+    if (id <= 0) {
+        mg_http_reply(c, 400, "Content-Type: text/plain\r\n", "Invalid ID\n");
+        return;
+    }
+
+    Puzzle p = {0};
+    if (puzzle_get_by_id(id, &p) != 0) {
+        mg_http_reply(c, 404, "Content-Type: text/plain\r\n", "Puzzle not found\n");
+        return;
+    }
+
+    char esc_name[256], esc_answer[512], esc_hint[1024];
+    html_escape(p.puzzle_name, esc_name, sizeof(esc_name));
+    html_escape(p.answer, esc_answer, sizeof(esc_answer));
+    html_escape(p.hint, esc_hint, sizeof(esc_hint));
+
+    char body[65536];
+    int off = snprintf(body, sizeof(body),
+        "<!DOCTYPE html>\n<html><head><title>Preview: %s</title>%s</head>\n"
+        "<body>\n"
+        "<div class=\"page-header\">\n"
+        "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>Preview: #%lld. %s</div>\n"
+        "  <div class=\"nav\">\n"
+        "    <a href=\"/admin\"><span class=\"gt\">&gt;</span>Dashboard</a>\n"
+        "    <a href=\"/admin/puzzles\"><span class=\"gt\">&gt;</span>Puzzles</a>\n"
+        "  </div>\n"
+        "  <hr class=\"nav-line\">\n"
+        "</div>\n"
+        "<div class=\"content-meta\">%s &middot; %s</div>\n",
+        esc_name, TERMINAL_CSS,
+        (long long)p.id, esc_name,
+        p.puzzle_date, p.puzzle_type);
+
+    if (strcmp(p.puzzle_type, "ladder") == 0) {
+        LadderStep steps[MAX_LADDER_STEPS];
+        int step_count = puzzle_parse_ladder(p.question, steps, MAX_LADDER_STEPS);
+        off += snprintf(body + off, sizeof(body) - off,
+            "<div class=\"puzzle-box\" style=\"text-align:left;display:block;\">\n"
+            "  <div>\n");
+        for (int i = 0; i < step_count && off < (int)sizeof(body) - 256; i++) {
+            if (steps[i].is_blank) {
+                off += snprintf(body + off, sizeof(body) - off,
+                    "    <div>%d. ____</div>\n", i + 1);
+            } else {
+                char safe_word[256] = {0};
+                html_escape(steps[i].word, safe_word, sizeof(safe_word));
+                off += snprintf(body + off, sizeof(body) - off,
+                    "    <div>%d. %s</div>\n", i + 1, safe_word);
+            }
+        }
+        off += snprintf(body + off, sizeof(body) - off, "  </div>\n</div>\n");
+
+        for (int i = 0; i < step_count && off < (int)sizeof(body) - 256; i++) {
+            if (steps[i].is_blank) {
+                off += snprintf(body + off, sizeof(body) - off,
+                    "<label class=\"action-btn\">\n"
+                    "  <span class=\"gt\">&gt;</span>\n"
+                    "  <input type=\"text\" placeholder=\"Step %d\" disabled>\n"
+                    "</label>\n", i + 1);
+            }
+        }
+    } else if (strcmp(p.puzzle_type, "choice") == 0) {
+        ChoicePuzzle cp;
+        if (puzzle_parse_choice(p.question, &cp) == 0) {
+            char safe_prompt[2048] = {0};
+            html_escape(cp.prompt, safe_prompt, sizeof(safe_prompt));
+            off += snprintf(body + off, sizeof(body) - off,
+                "<div class=\"puzzle-box\">\n"
+                "  <div>%s</div>\n"
+                "</div>\n", safe_prompt);
+            for (int i = 0; i < cp.num_options && off < (int)sizeof(body) - 256; i++) {
+                char safe_opt[512] = {0};
+                html_escape(cp.options[i], safe_opt, sizeof(safe_opt));
+                off += snprintf(body + off, sizeof(body) - off,
+                    "<label class=\"action-btn\">\n"
+                    "  <span class=\"gt\">&gt;</span>\n"
+                    "  <input type=\"radio\" disabled style=\"margin-right:10px;\"> %c. %s\n"
+                    "</label>\n", 'A' + i, safe_opt);
+            }
+        }
+    } else if (strcmp(p.puzzle_type, "math") == 0) {
+        off += snprintf(body + off, sizeof(body) - off,
+            "<div class=\"puzzle-box\">\n"
+            "  <div>%s</div>\n"
+            "</div>\n"
+            "<label class=\"action-btn\">\n"
+            "  <span class=\"gt\">&gt;</span>\n"
+            "  <input type=\"number\" step=\"any\" placeholder=\"Enter your answer\" disabled>\n"
+            "</label>\n", p.question);
+    } else {
+        off += snprintf(body + off, sizeof(body) - off,
+            "<div class=\"puzzle-box\">\n"
+            "  <div>%s</div>\n"
+            "</div>\n"
+            "<label class=\"action-btn\">\n"
+            "  <span class=\"gt\">&gt;</span>\n"
+            "  <input type=\"text\" placeholder=\"Enter your answer\" disabled>\n"
+            "</label>\n", p.question);
+    }
+
+    off += snprintf(body + off, sizeof(body) - off,
+        "<hr>\n"
+        "<div style=\"margin:15px 0;\">\n"
+        "  <div><strong>Answer:</strong> %s</div>\n"
+        "  <div><strong>Hint:</strong> %s</div>\n"
+        "</div>\n"
+        "<hr>\n"
+        "<div style=\"margin-top:15px;\">\n"
+        "  <a href=\"/admin/puzzles/edit?id=%lld\" class=\"action-btn\">"
+        "<span class=\"gt\">&gt;</span>Edit</a>\n"
+        "  <a href=\"/admin/puzzles\" class=\"back-link\" style=\"margin-left:15px;\">"
+        "<span class=\"gt\">&lt;</span> Back to puzzles</a>\n"
+        "</div>\n"
+        "</body></html>\n",
+        esc_answer,
+        p.hint[0] ? esc_hint : "None",
+        (long long)p.id);
+
+    mg_http_reply(c, 200, "Content-Type: text/html\r\n", "%s", body);
 }
 
 static void handle_admin_puzzle_new(struct mg_connection *c) {
@@ -2505,6 +2641,13 @@ static void event_handler(struct mg_connection *c, int ev, void *ev_data) {
             handle_admin_puzzle_create(c, hm);
         } else {
             handle_admin_puzzle_new(c);
+        }
+
+    } else if (mg_match(hm->uri, mg_str("/admin/puzzles/preview"), NULL)) {
+        if (!logged_in || !auth_is_admin(user.email)) {
+            mg_http_reply(c, 403, "Content-Type: text/plain\r\n", "Forbidden\n");
+        } else {
+            handle_admin_puzzle_preview(c, hm);
         }
 
     } else if (mg_match(hm->uri, mg_str("/admin/puzzles/edit"), NULL)) {
