@@ -511,6 +511,33 @@ TEST(test_parse_choice_no_options) {
     return 1;
 }
 
+TEST(test_unordered_answer_match) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt;
+
+    const char *sql = "INSERT OR REPLACE INTO puzzles "
+                      "(puzzle_date, puzzle_type, puzzle_name, question, answer) "
+                      "VALUES ('2099-01-01', 'word', 'Test', 'Find words', "
+                      "'~lemon, banana, strawberry, milk, sugar, flour, nutella, eggs')";
+    sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    int64_t pid = 0;
+    sqlite3_prepare_v2(db, "SELECT id FROM puzzles WHERE puzzle_date='2099-01-01'", -1, &stmt, NULL);
+    if (sqlite3_step(stmt) == SQLITE_ROW) pid = sqlite3_column_int64(stmt, 0);
+    sqlite3_finalize(stmt);
+
+    ASSERT_INT_EQ(1, puzzle_check_answer(pid, "lemon, banana, strawberry, milk, sugar, flour, nutella, eggs"));
+    ASSERT_INT_EQ(1, puzzle_check_answer(pid, "eggs, flour, sugar, milk, strawberry, banana, lemon, nutella"));
+    ASSERT_INT_EQ(1, puzzle_check_answer(pid, "  EGGS  FLOUR  SUGAR  MILK  STRAWBERRY  BANANA  LEMON  NUTELLA  "));
+    ASSERT_INT_EQ(0, puzzle_check_answer(pid, "lemon, banana, strawberry, milk, sugar, flour, nutella"));
+    ASSERT_INT_EQ(0, puzzle_check_answer(pid, "lemon, banana, strawberry, milk, sugar, flour, nutella, eggs, extra"));
+    ASSERT_INT_EQ(0, puzzle_check_answer(pid, "wrong answer"));
+
+    return 1;
+}
+
 int main(void) {
     /* Initialize database with test file */
     if (db_init("test_puzzle.db") != 0) {
@@ -554,6 +581,9 @@ int main(void) {
     RUN_TEST(test_submit_correct_guess);
     RUN_TEST(test_submit_incorrect_guess);
     RUN_TEST(test_reveal_hint);
+
+    /* Unordered answer matching */
+    RUN_TEST(test_unordered_answer_match);
 
     db_close();
     return test_summary();

@@ -387,6 +387,60 @@ int league_get_user_leagues(int64_t user_id, League *leagues, int max, int *coun
     return 0;
 }
 
+static int64_t query_tag_winner(sqlite3 *db, int64_t league_id, const char *sql) {
+    sqlite3_stmt *stmt;
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, league_id);
+    rc = sqlite3_step(stmt);
+
+    int64_t result = -1;
+    if (rc == SQLITE_ROW)
+        result = sqlite3_column_int64(stmt, 0);
+
+    sqlite3_finalize(stmt);
+    return result;
+}
+
+int league_get_tags(int64_t league_id, LeagueTags *tags) {
+    sqlite3 *db = db_get();
+    if (db == NULL || tags == NULL)
+        return -1;
+
+    tags->guesser_id = query_tag_winner(db, league_id,
+        "SELECT lm.user_id FROM league_members lm "
+        "JOIN attempts a ON a.user_id = lm.user_id "
+        "WHERE lm.league_id = ? AND a.incorrect_guesses > 0 "
+        "GROUP BY lm.user_id ORDER BY SUM(a.incorrect_guesses) DESC LIMIT 1");
+
+    tags->one_shotter_id = query_tag_winner(db, league_id,
+        "SELECT lm.user_id FROM league_members lm "
+        "JOIN attempts a ON a.user_id = lm.user_id "
+        "WHERE lm.league_id = ? AND a.solved = 1 "
+        "GROUP BY lm.user_id HAVING COUNT(*) >= 3 "
+        "ORDER BY (CAST(SUM(CASE WHEN a.incorrect_guesses = 0 THEN 1 ELSE 0 END) AS REAL) / COUNT(*)) DESC, "
+        "COUNT(*) DESC LIMIT 1");
+
+    tags->early_riser_id = query_tag_winner(db, league_id,
+        "SELECT lm.user_id FROM league_members lm "
+        "JOIN attempts a ON a.user_id = lm.user_id "
+        "WHERE lm.league_id = ? AND a.solved = 1 AND a.completed_at IS NOT NULL "
+        "GROUP BY lm.user_id HAVING COUNT(*) >= 3 "
+        "ORDER BY AVG(CAST(strftime('%H', a.completed_at) AS INTEGER) * 3600 + "
+        "CAST(strftime('%M', a.completed_at) AS INTEGER) * 60 + "
+        "CAST(strftime('%S', a.completed_at) AS INTEGER)) ASC LIMIT 1");
+
+    tags->hint_lover_id = query_tag_winner(db, league_id,
+        "SELECT lm.user_id FROM league_members lm "
+        "JOIN attempts a ON a.user_id = lm.user_id "
+        "WHERE lm.league_id = ? AND a.hint_used = 1 "
+        "GROUP BY lm.user_id ORDER BY SUM(a.hint_used) DESC LIMIT 1");
+
+    return 0;
+}
+
 static void assign_ranks(LeaderboardEntry *entries, int count) {
     if (count == 0) return;
 

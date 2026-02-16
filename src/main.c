@@ -1043,7 +1043,8 @@ static void handle_puzzle_result(struct mg_connection *c, struct mg_http_message
     }
 
     char display_answer[256] = {0};
-    strncpy(display_answer, puzzle.answer, sizeof(display_answer) - 1);
+    const char *ans_src = puzzle.answer[0] == '~' ? puzzle.answer + 1 : puzzle.answer;
+    strncpy(display_answer, ans_src, sizeof(display_answer) - 1);
     char *pipe = strchr(display_answer, '|');
     if (pipe) *pipe = '\0';
     char safe_answer[1024] = {0};
@@ -1343,6 +1344,9 @@ static void handle_league_view(struct mg_connection *c, struct mg_http_message *
     else
         league_get_leaderboard_weekly(league_id, entries, 100, &entry_count);
 
+    LeagueTags tags;
+    league_get_tags(league_id, &tags);
+
     char safe_name[1536] = {0};
     html_escape(league.name, safe_name, sizeof(safe_name));
 
@@ -1395,14 +1399,32 @@ static void handle_league_view(struct mg_connection *c, struct mg_http_message *
             snprintf(score_str, sizeof(score_str), "-");
         else
             snprintf(score_str, sizeof(score_str), "%d", entries[i].score);
+
+        char tag_html[512] = {0};
+        int pos = 0;
+        int64_t uid = entries[i].user_id;
+        if (uid == tags.guesser_id)
+            pos += snprintf(tag_html + pos, sizeof(tag_html) - pos,
+                "<br><i style=\"color:#808080;font-size:0.85em;\">The Guesser</i>");
+        if (uid == tags.one_shotter_id)
+            pos += snprintf(tag_html + pos, sizeof(tag_html) - pos,
+                "<br><i style=\"color:#808080;font-size:0.85em;\">The One Shotter</i>");
+        if (uid == tags.early_riser_id)
+            pos += snprintf(tag_html + pos, sizeof(tag_html) - pos,
+                "<br><i style=\"color:#808080;font-size:0.85em;\">The Early Riser</i>");
+        if (uid == tags.hint_lover_id)
+            pos += snprintf(tag_html + pos, sizeof(tag_html) - pos,
+                "<br><i style=\"color:#808080;font-size:0.85em;\">The Hint Lover</i>");
+
         mg_http_printf_chunk(c,
             "<tr>\n"
             "  <td>%d</td>\n"
-            "  <td>%s</td>\n"
+            "  <td>%s%s</td>\n"
             "  <td style=\"text-align:right;\">%s</td>\n"
             "</tr>\n",
             entries[i].rank,
             safe_display,
+            tag_html,
             score_str);
     }
 
@@ -1807,7 +1829,8 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
     char display_answer[256] = {0};
     char safe_answer[1024] = {0};
     html_escape(puzzle.puzzle_name, safe_pname, sizeof(safe_pname));
-    strncpy(display_answer, puzzle.answer, sizeof(display_answer) - 1);
+    const char *ans_src2 = puzzle.answer[0] == '~' ? puzzle.answer + 1 : puzzle.answer;
+    strncpy(display_answer, ans_src2, sizeof(display_answer) - 1);
     char *pipe = strchr(display_answer, '|');
     if (pipe) *pipe = '\0';
     html_escape(display_answer, safe_answer, sizeof(safe_answer));

@@ -379,11 +379,48 @@ char *puzzle_normalize_answer(char *str) {
     return str;
 }
 
+static int word_compare(const void *a, const void *b) {
+    return strcmp(*(const char **)a, *(const char **)b);
+}
+
+static int check_unordered(const char *guess_norm, const char *answer_words) {
+    char guess_buf[256], answer_buf[256];
+    strncpy(guess_buf, guess_norm, sizeof(guess_buf) - 1);
+    guess_buf[sizeof(guess_buf) - 1] = '\0';
+    strncpy(answer_buf, answer_words, sizeof(answer_buf) - 1);
+    answer_buf[sizeof(answer_buf) - 1] = '\0';
+    puzzle_normalize_answer(answer_buf);
+
+    char *g_words[32], *a_words[32];
+    int g_count = 0, a_count = 0;
+    char *sp;
+
+    char *tok = strtok_r(guess_buf, " ", &sp);
+    while (tok && g_count < 32) { g_words[g_count++] = tok; tok = strtok_r(NULL, " ", &sp); }
+
+    tok = strtok_r(answer_buf, " ", &sp);
+    while (tok && a_count < 32) { a_words[a_count++] = tok; tok = strtok_r(NULL, " ", &sp); }
+
+    if (g_count != a_count) return 0;
+
+    qsort(g_words, g_count, sizeof(char *), word_compare);
+    qsort(a_words, a_count, sizeof(char *), word_compare);
+
+    for (int i = 0; i < g_count; i++) {
+        if (strcmp(g_words[i], a_words[i]) != 0) return 0;
+    }
+    return 1;
+}
+
 static int check_answer(const char *guess, const char *answer) {
     char guess_norm[256];
     strncpy(guess_norm, guess, sizeof(guess_norm) - 1);
     guess_norm[sizeof(guess_norm) - 1] = '\0';
     puzzle_normalize_answer(guess_norm);
+
+    /* ~prefix means accept words in any order */
+    if (answer[0] == '~')
+        return check_unordered(guess_norm, answer + 1);
 
     /* Support pipe-separated alternative answers */
     char answers_buf[1024];

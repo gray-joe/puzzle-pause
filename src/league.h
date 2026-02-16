@@ -33,6 +33,15 @@ int league_get_user_leagues(int64_t user_id, League *leagues, int max, int *coun
 /* Returns 1 if member, 0 if not */
 int league_is_member(int64_t league_id, int64_t user_id);
 
+typedef struct {
+    int64_t guesser_id;
+    int64_t one_shotter_id;
+    int64_t early_riser_id;
+    int64_t hint_lover_id;
+} LeagueTags;
+
+int league_get_tags(int64_t league_id, LeagueTags *tags);
+
 /* Leaderboard queries - entries sorted by score desc, with rank assigned */
 int league_get_leaderboard_today(int64_t league_id, LeaderboardEntry *entries,
                                   int max, int *count);

@@ -84,6 +84,44 @@ static void record_attempt(int64_t user_id, int64_t puzzle_id, int score) {
     sqlite3_finalize(stmt);
 }
 
+static void record_attempt_full(int64_t user_id, int64_t puzzle_id, int score,
+                                int incorrect_guesses, int hint_used,
+                                const char *completed_at) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt;
+
+    sqlite3_prepare_v2(db,
+        "INSERT INTO attempts (user_id, puzzle_id, solved, score, incorrect_guesses, "
+        "hint_used, completed_at) VALUES (?, ?, 1, ?, ?, ?, ?)",
+        -1, &stmt, NULL);
+    sqlite3_bind_int64(stmt, 1, user_id);
+    sqlite3_bind_int64(stmt, 2, puzzle_id);
+    sqlite3_bind_int(stmt, 3, score);
+    sqlite3_bind_int(stmt, 4, incorrect_guesses);
+    sqlite3_bind_int(stmt, 5, hint_used);
+    sqlite3_bind_text(stmt, 6, completed_at, -1, SQLITE_STATIC);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+}
+
+static int64_t create_puzzle_on_date(const char *date) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt;
+
+    int rc = sqlite3_prepare_v2(db,
+        "INSERT INTO puzzles (puzzle_date, puzzle_type, question, answer) "
+        "VALUES (?, 'word', 'Test question', 'answer')",
+        -1, &stmt, NULL);
+    if (rc != SQLITE_OK) return -1;
+
+    sqlite3_bind_text(stmt, 1, date, -1, SQLITE_STATIC);
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE) return -1;
+    return sqlite3_last_insert_rowid(db);
+}
+
 /*
  * Test: Create a league successfully
  */
@@ -499,6 +537,108 @@ TEST(test_leaderboard_ties) {
     return 1;
 }
 
+TEST(test_league_tags) {
+    int64_t u1 = create_test_user("tag1@test.com");
+    int64_t u2 = create_test_user("tag2@test.com");
+    int64_t u3 = create_test_user("tag3@test.com");
+
+    char code[8];
+    int64_t lid = league_create(u1, "Tag League", code);
+    league_join(lid, u2);
+    league_join(lid, u3);
+
+    int64_t p1 = create_puzzle_on_date("2025-01-01");
+    int64_t p2 = create_puzzle_on_date("2025-01-02");
+    int64_t p3 = create_puzzle_on_date("2025-01-03");
+
+    /* u1: 3 wrong guesses total, no hints, completes at 10:00 */
+    record_attempt_full(u1, p1, 80, 2, 0, "2025-01-01 10:00:00");
+    record_attempt_full(u1, p2, 85, 1, 0, "2025-01-02 10:00:00");
+    record_attempt_full(u1, p3, 90, 0, 0, "2025-01-03 10:00:00");
+
+    /* u2: 1 wrong guess, 3 hints, completes at 07:00 (early riser) */
+    record_attempt_full(u2, p1, 70, 0, 1, "2025-01-01 07:00:00");
+    record_attempt_full(u2, p2, 75, 1, 1, "2025-01-02 07:00:00");
+    record_attempt_full(u2, p3, 80, 0, 1, "2025-01-03 07:00:00");
+
+    /* u3: 0 wrong guesses (one shotter), no hints, completes at 12:00 */
+    record_attempt_full(u3, p1, 100, 0, 0, "2025-01-01 12:00:00");
+    record_attempt_full(u3, p2, 100, 0, 0, "2025-01-02 12:00:00");
+    record_attempt_full(u3, p3, 100, 0, 0, "2025-01-03 12:00:00");
+
+    LeagueTags tags;
+    ASSERT_INT_EQ(0, league_get_tags(lid, &tags));
+
+    /* u1 has most incorrect guesses (3 total) */
+    ASSERT_INT_EQ((int)u1, (int)tags.guesser_id);
+
+    /* u3 solved all 3 with 0 incorrect = 100% first-try ratio */
+    ASSERT_INT_EQ((int)u3, (int)tags.one_shotter_id);
+
+    /* u2 completes at 07:00 avg = earliest */
+    ASSERT_INT_EQ((int)u2, (int)tags.early_riser_id);
+
+    /* u2 used 3 hints total */
+    ASSERT_INT_EQ((int)u2, (int)tags.hint_lover_id);
+
+    /* Cleanup */
+    sqlite3 *db = db_get();
+    sqlite3_exec(db, "DELETE FROM attempts", NULL, NULL, NULL);
+    sqlite3_exec(db, "DELETE FROM puzzles", NULL, NULL, NULL);
+    league_delete(lid, u1);
+    delete_test_user(u1);
+    delete_test_user(u2);
+    delete_test_user(u3);
+
+    return 1;
+}
+
+TEST(test_league_tags_empty) {
+    int64_t u1 = create_test_user("empty_tag@test.com");
+
+    char code[8];
+    int64_t lid = league_create(u1, "Empty Tag League", code);
+
+    LeagueTags tags;
+    ASSERT_INT_EQ(0, league_get_tags(lid, &tags));
+    ASSERT_INT_EQ(-1, (int)tags.guesser_id);
+    ASSERT_INT_EQ(-1, (int)tags.one_shotter_id);
+    ASSERT_INT_EQ(-1, (int)tags.early_riser_id);
+    ASSERT_INT_EQ(-1, (int)tags.hint_lover_id);
+
+    league_delete(lid, u1);
+    delete_test_user(u1);
+
+    return 1;
+}
+
+TEST(test_league_tags_below_threshold) {
+    int64_t u1 = create_test_user("thresh@test.com");
+
+    char code[8];
+    int64_t lid = league_create(u1, "Threshold League", code);
+
+    int64_t p1 = create_puzzle_on_date("2025-02-01");
+    int64_t p2 = create_puzzle_on_date("2025-02-02");
+
+    /* Only 2 solved — below the 3-puzzle minimum for one_shotter and early_riser */
+    record_attempt_full(u1, p1, 100, 0, 0, "2025-02-01 06:00:00");
+    record_attempt_full(u1, p2, 100, 0, 0, "2025-02-02 06:00:00");
+
+    LeagueTags tags;
+    ASSERT_INT_EQ(0, league_get_tags(lid, &tags));
+    ASSERT_INT_EQ(-1, (int)tags.one_shotter_id);
+    ASSERT_INT_EQ(-1, (int)tags.early_riser_id);
+
+    sqlite3 *db = db_get();
+    sqlite3_exec(db, "DELETE FROM attempts", NULL, NULL, NULL);
+    sqlite3_exec(db, "DELETE FROM puzzles", NULL, NULL, NULL);
+    league_delete(lid, u1);
+    delete_test_user(u1);
+
+    return 1;
+}
+
 int main(void) {
     printf("League Tests\n");
     printf("============\n\n");
@@ -535,6 +675,11 @@ int main(void) {
     RUN_TEST(test_leaderboard_today);
     RUN_TEST(test_leaderboard_alltime);
     RUN_TEST(test_leaderboard_ties);
+
+    /* Tag tests */
+    RUN_TEST(test_league_tags);
+    RUN_TEST(test_league_tags_empty);
+    RUN_TEST(test_league_tags_below_threshold);
 
     int result = test_summary();
 
