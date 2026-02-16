@@ -77,4 +77,8 @@ typedef struct {
 
 int puzzle_get_user_stats(int64_t user_id, UserStats *out);
 
+int puzzle_create(const Puzzle *puzzle);
+int puzzle_update(const Puzzle *puzzle);
+int puzzle_delete(int64_t puzzle_id);
+
 #endif /* PUZZLE_H */

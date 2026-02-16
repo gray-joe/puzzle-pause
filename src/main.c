@@ -2059,6 +2059,306 @@ static void handle_archive_hint(struct mg_connection *c, struct mg_http_message 
     mg_http_reply(c, 302, loc, "");
 }
 
+/* --- Admin handlers --- */
+
+static const char *VALID_PUZZLE_TYPES[] = {
+    "word", "math", "ladder", "choice", NULL
+};
+
+static int validate_puzzle_form(const char *date, const char *type,
+                                 const char *name, const char *question,
+                                 const char *answer, char *err, size_t err_size) {
+    if (date[0] == '\0' || type[0] == '\0' || question[0] == '\0' || answer[0] == '\0') {
+        snprintf(err, err_size, "Date, type, question, and answer are required.");
+        return -1;
+    }
+
+    int y, m, d;
+    if (sscanf(date, "%d-%d-%d", &y, &m, &d) != 3 ||
+        y < 2000 || y > 2100 || m < 1 || m > 12 || d < 1 || d > 31) {
+        snprintf(err, err_size, "Invalid date format. Use YYYY-MM-DD.");
+        return -1;
+    }
+
+    int valid_type = 0;
+    for (int i = 0; VALID_PUZZLE_TYPES[i]; i++) {
+        if (strcmp(type, VALID_PUZZLE_TYPES[i]) == 0) {
+            valid_type = 1;
+            break;
+        }
+    }
+    if (!valid_type) {
+        snprintf(err, err_size, "Invalid puzzle type.");
+        return -1;
+    }
+
+    if (strlen(name) > 127 || strlen(question) > 1023 ||
+        strlen(answer) > 255) {
+        snprintf(err, err_size, "Field too long.");
+        return -1;
+    }
+
+    return 0;
+}
+
+static void handle_admin_dashboard(struct mg_connection *c) {
+    sqlite3 *db = db_get();
+    int puzzle_count = 0, user_count = 0, attempt_count = 0;
+    sqlite3_stmt *stmt = NULL;
+
+    if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM puzzles", -1, &stmt, NULL) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) puzzle_count = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+    }
+    if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM users", -1, &stmt, NULL) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) user_count = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+    }
+    if (sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM attempts", -1, &stmt, NULL) == SQLITE_OK) {
+        if (sqlite3_step(stmt) == SQLITE_ROW) attempt_count = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+    }
+
+    mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+        "<!DOCTYPE html>\n<html><head><title>Admin</title>%s</head>\n"
+        "<body>\n"
+        "<div class=\"page-header\">\n"
+        "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>Admin</div>\n"
+        "  <div class=\"nav\">\n"
+        "    <a class=\"active\" href=\"/admin\"><span class=\"gt\">&gt;</span>Dashboard</a>\n"
+        "    <a href=\"/admin/puzzles\"><span class=\"gt\">&gt;</span>Puzzles</a>\n"
+        "  </div>\n"
+        "  <hr class=\"nav-line\">\n"
+        "</div>\n"
+        "<div class=\"list-row\"><span class=\"gt\">&gt;</span> Puzzles: %d</div>\n"
+        "<div class=\"list-row\"><span class=\"gt\">&gt;</span> Users: %d</div>\n"
+        "<div class=\"list-row\"><span class=\"gt\">&gt;</span> Attempts: %d</div>\n"
+        "<a href=\"/admin/puzzles\" class=\"action-btn\" style=\"margin-top:20px;\">\n"
+        "  <span class=\"gt\">&gt;</span>Manage Puzzles\n"
+        "</a>\n"
+        "</body></html>\n",
+        TERMINAL_CSS, puzzle_count, user_count, attempt_count);
+}
+
+static void handle_admin_puzzles_list(struct mg_connection *c) {
+    Puzzle puzzles[200];
+    int count = 0;
+    puzzle_get_archive(puzzles, 200, &count, 1);
+
+    char body[65536];
+    int off = snprintf(body, sizeof(body),
+        "<!DOCTYPE html>\n<html><head><title>Admin - Puzzles</title>%s</head>\n"
+        "<body>\n"
+        "<div class=\"page-header\">\n"
+        "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>Puzzles</div>\n"
+        "  <div class=\"nav\">\n"
+        "    <a href=\"/admin\"><span class=\"gt\">&gt;</span>Dashboard</a>\n"
+        "    <a class=\"active\" href=\"/admin/puzzles\"><span class=\"gt\">&gt;</span>Puzzles</a>\n"
+        "  </div>\n"
+        "  <hr class=\"nav-line\">\n"
+        "</div>\n"
+        "<a href=\"/admin/puzzles/new\" class=\"action-btn\">\n"
+        "  <span class=\"gt\">&gt;</span>New Puzzle\n"
+        "</a>\n"
+        "<table><tr><th>Date</th><th>Type</th><th>Name</th><th></th></tr>\n",
+        TERMINAL_CSS);
+
+    for (int i = 0; i < count && off < (int)sizeof(body) - 512; i++) {
+        char esc_name[256];
+        html_escape(puzzles[i].puzzle_name, esc_name, sizeof(esc_name));
+        off += snprintf(body + off, sizeof(body) - off,
+            "<tr>"
+            "<td>%s</td>"
+            "<td>%s</td>"
+            "<td>%s</td>"
+            "<td>"
+            "<a href=\"/admin/puzzles/edit?id=%lld\">edit</a> | "
+            "<form method=\"POST\" action=\"/admin/puzzles/delete\" style=\"display:inline;\">"
+            "<input type=\"hidden\" name=\"id\" value=\"%lld\">"
+            "<button type=\"submit\" style=\"background:none;border:none;color:#ff6b6b;cursor:pointer;font-family:inherit;font-size:inherit;padding:0;\""
+            " onclick=\"return confirm('Delete this puzzle?')\">delete</button>"
+            "</form>"
+            "</td>"
+            "</tr>\n",
+            puzzles[i].puzzle_date, puzzles[i].puzzle_type,
+            esc_name,
+            (long long)puzzles[i].id, (long long)puzzles[i].id);
+    }
+
+    off += snprintf(body + off, sizeof(body) - off,
+        "</table>\n</body></html>\n");
+
+    mg_http_reply(c, 200, "Content-Type: text/html\r\n", "%s", body);
+}
+
+static void render_puzzle_form(struct mg_connection *c, const char *title,
+                                const char *action, const Puzzle *p,
+                                const char *error) {
+    char esc_name[256], esc_question[2048], esc_answer[512], esc_hint[1024];
+    html_escape(p->puzzle_name, esc_name, sizeof(esc_name));
+    html_escape(p->question, esc_question, sizeof(esc_question));
+    html_escape(p->answer, esc_answer, sizeof(esc_answer));
+    html_escape(p->hint, esc_hint, sizeof(esc_hint));
+
+    char type_options[512] = {0};
+    int toff = 0;
+    for (int i = 0; VALID_PUZZLE_TYPES[i]; i++) {
+        toff += snprintf(type_options + toff, sizeof(type_options) - toff,
+            "<option value=\"%s\"%s>%s</option>",
+            VALID_PUZZLE_TYPES[i],
+            strcmp(p->puzzle_type, VALID_PUZZLE_TYPES[i]) == 0 ? " selected" : "",
+            VALID_PUZZLE_TYPES[i]);
+    }
+
+    char id_field[128] = {0};
+    if (p->id > 0)
+        snprintf(id_field, sizeof(id_field),
+            "<input type=\"hidden\" name=\"id\" value=\"%lld\">", (long long)p->id);
+
+    char err_html[512] = {0};
+    if (error && error[0])
+        snprintf(err_html, sizeof(err_html),
+            "<p class=\"error\">%s</p>\n", error);
+
+    mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+        "<!DOCTYPE html>\n<html><head><title>Admin - %s</title>%s\n"
+        "<style>textarea,select{background:#15191e;color:#e0e0e0;border:1px solid #3a3a3a;"
+        "padding:10px 15px;font-family:inherit;font-size:inherit;margin:5px 5px 5px 0;width:100%%;}"
+        "textarea:focus,select:focus{outline:none;border-color:#4ecca3;}"
+        "label{color:#808080;display:block;margin-top:10px;}</style>\n"
+        "</head>\n<body>\n"
+        "<div class=\"page-header\">\n"
+        "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>%s</div>\n"
+        "  <div class=\"nav\">\n"
+        "    <a href=\"/admin\"><span class=\"gt\">&gt;</span>Dashboard</a>\n"
+        "    <a href=\"/admin/puzzles\"><span class=\"gt\">&gt;</span>Puzzles</a>\n"
+        "  </div>\n"
+        "  <hr class=\"nav-line\">\n"
+        "</div>\n"
+        "%s"
+        "<form method=\"POST\" action=\"%s\">\n"
+        "%s"
+        "<label>Date (YYYY-MM-DD)</label>\n"
+        "<input type=\"date\" name=\"puzzle_date\" value=\"%s\" required>\n"
+        "<label>Type</label>\n"
+        "<select name=\"puzzle_type\" required>%s</select>\n"
+        "<label>Name</label>\n"
+        "<input type=\"text\" name=\"puzzle_name\" value=\"%s\" style=\"width:100%%;\">\n"
+        "<label>Question</label>\n"
+        "<textarea name=\"question\" rows=\"4\" required>%s</textarea>\n"
+        "<label>Answer</label>\n"
+        "<input type=\"text\" name=\"answer\" value=\"%s\" style=\"width:100%%;\" required>\n"
+        "<label>Hint</label>\n"
+        "<input type=\"text\" name=\"hint\" value=\"%s\" style=\"width:100%%;\">\n"
+        "<button type=\"submit\" class=\"action-btn\" style=\"margin-top:15px;\">\n"
+        "  <span class=\"gt\">&gt;</span>Save\n"
+        "</button>\n"
+        "</form>\n"
+        "<a href=\"/admin/puzzles\" class=\"back-link\" style=\"margin-top:15px;\">\n"
+        "  <span class=\"gt\">&lt;</span> Back to puzzles\n"
+        "</a>\n"
+        "</body></html>\n",
+        title, TERMINAL_CSS, title, err_html, action, id_field,
+        p->puzzle_date, type_options, esc_name, esc_question,
+        esc_answer, esc_hint);
+}
+
+static void handle_admin_puzzle_new(struct mg_connection *c) {
+    Puzzle p = {0};
+    render_puzzle_form(c, "New Puzzle", "/admin/puzzles/new", &p, NULL);
+}
+
+static void handle_admin_puzzle_create(struct mg_connection *c,
+                                        struct mg_http_message *hm) {
+    Puzzle p = {0};
+    get_form_var(hm, "puzzle_date", p.puzzle_date, sizeof(p.puzzle_date));
+    get_form_var(hm, "puzzle_type", p.puzzle_type, sizeof(p.puzzle_type));
+    get_form_var(hm, "puzzle_name", p.puzzle_name, sizeof(p.puzzle_name));
+    get_form_var(hm, "question", p.question, sizeof(p.question));
+    get_form_var(hm, "answer", p.answer, sizeof(p.answer));
+    get_form_var(hm, "hint", p.hint, sizeof(p.hint));
+
+    char err[256] = {0};
+    if (validate_puzzle_form(p.puzzle_date, p.puzzle_type, p.puzzle_name,
+                              p.question, p.answer, err, sizeof(err)) != 0) {
+        render_puzzle_form(c, "New Puzzle", "/admin/puzzles/new", &p, err);
+        return;
+    }
+
+    if (puzzle_create(&p) != 0) {
+        render_puzzle_form(c, "New Puzzle", "/admin/puzzles/new", &p,
+                           "Failed to create puzzle. Date may already exist.");
+        return;
+    }
+
+    mg_http_reply(c, 302, "Location: /admin/puzzles\r\n", "");
+}
+
+static void handle_admin_puzzle_edit(struct mg_connection *c,
+                                      struct mg_http_message *hm) {
+    char id_str[32] = {0};
+
+    if (method_is(hm, "POST")) {
+        get_form_var(hm, "id", id_str, sizeof(id_str));
+    } else {
+        get_query_var(hm, "id", id_str, sizeof(id_str));
+    }
+
+    int64_t id = atoll(id_str);
+    if (id <= 0) {
+        mg_http_reply(c, 400, "Content-Type: text/plain\r\n", "Invalid ID\n");
+        return;
+    }
+
+    if (method_is(hm, "POST")) {
+        Puzzle p = {0};
+        p.id = id;
+        get_form_var(hm, "puzzle_date", p.puzzle_date, sizeof(p.puzzle_date));
+        get_form_var(hm, "puzzle_type", p.puzzle_type, sizeof(p.puzzle_type));
+        get_form_var(hm, "puzzle_name", p.puzzle_name, sizeof(p.puzzle_name));
+        get_form_var(hm, "question", p.question, sizeof(p.question));
+        get_form_var(hm, "answer", p.answer, sizeof(p.answer));
+        get_form_var(hm, "hint", p.hint, sizeof(p.hint));
+
+        char err[256] = {0};
+        if (validate_puzzle_form(p.puzzle_date, p.puzzle_type, p.puzzle_name,
+                                  p.question, p.answer, err, sizeof(err)) != 0) {
+            render_puzzle_form(c, "Edit Puzzle", "/admin/puzzles/edit", &p, err);
+            return;
+        }
+
+        if (puzzle_update(&p) != 0) {
+            render_puzzle_form(c, "Edit Puzzle", "/admin/puzzles/edit", &p,
+                               "Failed to update puzzle.");
+            return;
+        }
+
+        mg_http_reply(c, 302, "Location: /admin/puzzles\r\n", "");
+    } else {
+        Puzzle p = {0};
+        if (puzzle_get_by_id(id, &p) != 0) {
+            mg_http_reply(c, 404, "Content-Type: text/plain\r\n", "Puzzle not found\n");
+            return;
+        }
+        render_puzzle_form(c, "Edit Puzzle", "/admin/puzzles/edit", &p, NULL);
+    }
+}
+
+static void handle_admin_puzzle_delete(struct mg_connection *c,
+                                        struct mg_http_message *hm) {
+    char id_str[32] = {0};
+    get_form_var(hm, "id", id_str, sizeof(id_str));
+
+    int64_t id = atoll(id_str);
+    if (id <= 0) {
+        mg_http_reply(c, 400, "Content-Type: text/plain\r\n", "Invalid ID\n");
+        return;
+    }
+
+    puzzle_delete(id);
+    mg_http_reply(c, 302, "Location: /admin/puzzles\r\n", "");
+}
+
 static void event_handler(struct mg_connection *c, int ev, void *ev_data) {
     if (ev != MG_EV_HTTP_MSG) return;
 
@@ -2196,6 +2496,45 @@ static void event_handler(struct mg_connection *c, int ev, void *ev_data) {
             handle_account_update(c, hm, &user);
         } else {
             handle_account_page(c, hm, &user);
+        }
+
+    } else if (mg_match(hm->uri, mg_str("/admin/puzzles/new"), NULL)) {
+        if (!logged_in || !auth_is_admin(user.email)) {
+            mg_http_reply(c, 403, "Content-Type: text/plain\r\n", "Forbidden\n");
+        } else if (method_is(hm, "POST")) {
+            handle_admin_puzzle_create(c, hm);
+        } else {
+            handle_admin_puzzle_new(c);
+        }
+
+    } else if (mg_match(hm->uri, mg_str("/admin/puzzles/edit"), NULL)) {
+        if (!logged_in || !auth_is_admin(user.email)) {
+            mg_http_reply(c, 403, "Content-Type: text/plain\r\n", "Forbidden\n");
+        } else {
+            handle_admin_puzzle_edit(c, hm);
+        }
+
+    } else if (mg_match(hm->uri, mg_str("/admin/puzzles/delete"), NULL)) {
+        if (!logged_in || !auth_is_admin(user.email)) {
+            mg_http_reply(c, 403, "Content-Type: text/plain\r\n", "Forbidden\n");
+        } else if (method_is(hm, "POST")) {
+            handle_admin_puzzle_delete(c, hm);
+        } else {
+            mg_http_reply(c, 405, "Content-Type: text/plain\r\n", "Method Not Allowed\n");
+        }
+
+    } else if (mg_match(hm->uri, mg_str("/admin/puzzles"), NULL)) {
+        if (!logged_in || !auth_is_admin(user.email)) {
+            mg_http_reply(c, 403, "Content-Type: text/plain\r\n", "Forbidden\n");
+        } else {
+            handle_admin_puzzles_list(c);
+        }
+
+    } else if (mg_match(hm->uri, mg_str("/admin"), NULL)) {
+        if (!logged_in || !auth_is_admin(user.email)) {
+            mg_http_reply(c, 403, "Content-Type: text/plain\r\n", "Forbidden\n");
+        } else {
+            handle_admin_dashboard(c);
         }
 
     } else if (mg_match(hm->uri, mg_str("/"), NULL)) {

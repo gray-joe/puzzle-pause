@@ -25,5 +25,6 @@ int auth_get_user_from_session(const char *session_token, User *user_out);
 int auth_logout(const char *session_token);
 int auth_update_display_name(int64_t user_id, const char *display_name);
 void auth_cleanup_expired(void);
+int auth_is_admin(const char *email);
 
 #endif /* AUTH_H */

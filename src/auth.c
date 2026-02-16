@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include "auth.h"
 #include "db.h"
 #include "util.h"
@@ -377,6 +379,34 @@ int auth_update_display_name(int64_t user_id, const char *display_name) {
     sqlite3_finalize(stmt);
 
     return (rc == SQLITE_DONE) ? 0 : -1;
+}
+
+int auth_is_admin(const char *email) {
+    if (email == NULL || email[0] == '\0')
+        return 0;
+
+    const char *env = getenv("ADMIN_EMAILS");
+    if (env == NULL || env[0] == '\0')
+        return 0;
+
+    char buf[1024];
+    strncpy(buf, env, sizeof(buf) - 1);
+    buf[sizeof(buf) - 1] = '\0';
+
+    char *saveptr;
+    char *tok = strtok_r(buf, ",", &saveptr);
+    while (tok) {
+        while (*tok == ' ') tok++;
+        char *end = tok + strlen(tok) - 1;
+        while (end > tok && *end == ' ') *end-- = '\0';
+
+        if (strcasecmp(tok, email) == 0)
+            return 1;
+
+        tok = strtok_r(NULL, ",", &saveptr);
+    }
+
+    return 0;
 }
 
 void auth_cleanup_expired(void) {

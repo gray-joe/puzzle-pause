@@ -718,3 +718,100 @@ int puzzle_get_user_stats(int64_t user_id, UserStats *out) {
 
     return 0;
 }
+
+int puzzle_create(const Puzzle *puzzle) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+
+    if (db == NULL || puzzle == NULL)
+        return -1;
+
+    const char *sql =
+        "INSERT INTO puzzles (puzzle_date, puzzle_type, puzzle_name, question, answer, hint) "
+        "VALUES (?, ?, ?, ?, ?, ?)";
+
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_text(stmt, 1, puzzle->puzzle_date, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, puzzle->puzzle_type, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 3, puzzle->puzzle_name, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 4, puzzle->question, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 5, puzzle->answer, -1, SQLITE_STATIC);
+    if (puzzle->hint[0] != '\0')
+        sqlite3_bind_text(stmt, 6, puzzle->hint, -1, SQLITE_STATIC);
+    else
+        sqlite3_bind_null(stmt, 6);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    return (rc == SQLITE_DONE) ? 0 : -1;
+}
+
+int puzzle_update(const Puzzle *puzzle) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+
+    if (db == NULL || puzzle == NULL || puzzle->id <= 0)
+        return -1;
+
+    const char *sql =
+        "UPDATE puzzles SET puzzle_date = ?, puzzle_type = ?, puzzle_name = ?, "
+        "question = ?, answer = ?, hint = ? WHERE id = ?";
+
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_text(stmt, 1, puzzle->puzzle_date, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 2, puzzle->puzzle_type, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 3, puzzle->puzzle_name, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 4, puzzle->question, -1, SQLITE_STATIC);
+    sqlite3_bind_text(stmt, 5, puzzle->answer, -1, SQLITE_STATIC);
+    if (puzzle->hint[0] != '\0')
+        sqlite3_bind_text(stmt, 6, puzzle->hint, -1, SQLITE_STATIC);
+    else
+        sqlite3_bind_null(stmt, 6);
+    sqlite3_bind_int64(stmt, 7, puzzle->id);
+
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE)
+        return -1;
+
+    return sqlite3_changes(db) > 0 ? 0 : -1;
+}
+
+int puzzle_delete(int64_t puzzle_id) {
+    sqlite3 *db = db_get();
+    sqlite3_stmt *stmt = NULL;
+
+    if (db == NULL || puzzle_id <= 0)
+        return -1;
+
+    int rc = sqlite3_prepare_v2(db,
+        "DELETE FROM attempts WHERE puzzle_id = ?", -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, puzzle_id);
+    sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    rc = sqlite3_prepare_v2(db,
+        "DELETE FROM puzzles WHERE id = ?", -1, &stmt, NULL);
+    if (rc != SQLITE_OK)
+        return -1;
+
+    sqlite3_bind_int64(stmt, 1, puzzle_id);
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
+
+    if (rc != SQLITE_DONE)
+        return -1;
+
+    return sqlite3_changes(db) > 0 ? 0 : -1;
+}

@@ -21,7 +21,7 @@ $(TARGET): $(SRC) src/mongoose.h
 	$(CC) $(CFLAGS) -o $@ $(SRC) $(LDFLAGS)
 
 clean:
-	rm -f $(TARGET) test_db test_auth test_puzzle test_league test_puzzle.db test_auth.db test_league.db
+	rm -f $(TARGET) test_db test_auth test_puzzle test_league test_admin test_puzzle.db test_auth.db test_league.db test_admin.db
 
 seed:
 	@./scripts/seed_dev.sh
@@ -46,7 +46,10 @@ test_puzzle: src/test_puzzle.c src/puzzle.c src/util.c src/db.c src/sqlite3.c
 test_league: src/test_league.c src/league.c src/util.c src/db.c src/sqlite3.c
 	$(CC) $(CFLAGS) -o test_league src/test_league.c src/league.c src/util.c src/db.c src/sqlite3.c $(LDFLAGS)
 
-test: test_db test_auth test_puzzle test_league $(TARGET)
+test_admin: src/test_admin.c src/auth.c src/puzzle.c src/util.c src/db.c src/sqlite3.c
+	$(CC) $(CFLAGS) -o test_admin src/test_admin.c src/auth.c src/puzzle.c src/util.c src/db.c src/sqlite3.c $(LDFLAGS)
+
+test: test_db test_auth test_puzzle test_league test_admin $(TARGET)
 	@echo ""
 	@echo "=== Database Tests ==="
 	@./test_db
@@ -59,6 +62,9 @@ test: test_db test_auth test_puzzle test_league $(TARGET)
 	@echo ""
 	@echo "=== League Tests ==="
 	@./test_league
+	@echo ""
+	@echo "=== Admin Tests ==="
+	@./test_admin
 
 test-db: test_db
 	@./test_db
@@ -71,6 +77,9 @@ test-puzzle: test_puzzle
 
 test-league: test_league
 	@./test_league
+
+test-admin: test_admin
+	@./test_admin
 
 # Download third-party dependencies
 MONGOOSE_VERSION = master
@@ -88,4 +97,4 @@ deps:
 	rm -rf sqlite-amalgamation-3450000 sqlite.zip
 	@echo "Done. Dependencies downloaded to src/"
 
-.PHONY: all clean run run-prod seed deps test test-db test-auth test-puzzle test-league
+.PHONY: all clean run run-prod seed deps test test-db test-auth test-puzzle test-league test-admin
