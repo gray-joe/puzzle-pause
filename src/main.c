@@ -697,7 +697,7 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
         int step_count = puzzle_parse_ladder(puzzle.question, steps, MAX_LADDER_STEPS);
 
         mg_http_printf_chunk(c,
-            "<div class=\"puzzle-box\" style=\"text-align:left;display:block;\">\n"
+            "<div data-testid=\"puzzle-container\" class=\"puzzle-box\" style=\"text-align:left;display:block;\">\n"
             "  <div>\n");
         for (int i = 0; i < step_count; i++) {
             if (steps[i].is_blank) {
@@ -715,14 +715,14 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
             char safe_prompt[2048] = {0};
             html_escape(cp.prompt, safe_prompt, sizeof(safe_prompt));
             mg_http_printf_chunk(c,
-                "<div class=\"puzzle-box\">\n"
+                "<div data-testid=\"puzzle-container\" class=\"puzzle-box\">\n"
                 "  <div>%s</div>\n"
                 "</div>\n",
                 safe_prompt);
         }
     } else {
         mg_http_printf_chunk(c,
-            "<div class=\"puzzle-box\">\n"
+            "<div data-testid=\"puzzle-container\" class=\"puzzle-box\">\n"
             "  <div>%s</div>\n"
             "</div>\n",
             puzzle.question);
@@ -739,7 +739,7 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
         mg_http_printf_chunk(c,
             "<form action=\"/puzzle/hint\" method=\"POST\" hx-post=\"/puzzle/hint\" hx-target=\"#hint-area\" hx-swap=\"innerHTML\">\n"
             "  <input type=\"hidden\" name=\"puzzle_id\" value=\"0\">\n"
-            "  <button type=\"submit\" class=\"action-btn secondary\">\n"
+            "  <button data-testid=\"hint-button\" type=\"submit\" class=\"action-btn secondary\">\n"
             "    <span class=\"gt\">&gt;</span>Hint?%s\n"
             "  </button>\n"
             "</form>\n",
@@ -786,18 +786,18 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
         mg_http_printf_chunk(c,
             "  <label class=\"action-btn\">\n"
             "    <span class=\"gt\">&gt;</span>\n"
-            "    <input type=\"number\" step=\"any\" name=\"guess\" placeholder=\"Enter your answer\" autocomplete=\"off\" required>\n"
+            "    <input data-testid=\"answer-input\" type=\"number\" step=\"any\" name=\"guess\" placeholder=\"Enter your answer\" autocomplete=\"off\" required>\n"
             "  </label>\n");
     } else {
         mg_http_printf_chunk(c,
             "  <label class=\"action-btn\">\n"
             "    <span class=\"gt\">&gt;</span>\n"
-            "    <input type=\"text\" name=\"guess\" placeholder=\"Enter your answer\" autocomplete=\"off\" required>\n"
+            "    <input data-testid=\"answer-input\" type=\"text\" name=\"guess\" placeholder=\"Enter your answer\" autocomplete=\"off\" required>\n"
             "  </label>\n");
     }
 
     mg_http_printf_chunk(c,
-        "  <button type=\"submit\" class=\"action-btn\">\n"
+        "  <button data-testid=\"submit-button\" type=\"submit\" class=\"action-btn\">\n"
         "    <span class=\"gt\">&gt;</span>Submit\n"
         "  </button>\n"
         "</form>\n"
@@ -1085,7 +1085,7 @@ static void handle_puzzle_result(struct mg_connection *c, struct mg_http_message
             "</div>\n"
             "<div class=\"puzzle-box\" style=\"text-align:center;\">\n"
             "  <div>\n"
-            "    <p style=\"color:#4ecca3;font-size:2.5em;margin:0;\">%d</p>\n"
+            "    <p data-testid=\"points\" style=\"color:#4ecca3;font-size:2.5em;margin:0;\">%d</p>\n"
             "    <p style=\"color:#808080;margin:5px 0 0 0;\">points</p>\n"
             "  </div>\n"
             "</div>\n"
@@ -1137,7 +1137,7 @@ static void handle_puzzle_result(struct mg_connection *c, struct mg_http_message
             "</div>\n"
             "<div class=\"puzzle-box\" style=\"text-align:center;\">\n"
             "  <div>\n"
-            "    <p style=\"color:#4ecca3;font-size:2.5em;margin:0;\">%d</p>\n"
+            "    <p data-testid=\"points\" style=\"color:#4ecca3;font-size:2.5em;margin:0;\">%d</p>\n"
             "    <p style=\"color:#808080;margin:5px 0 0 0;\">points</p>\n"
             "  </div>\n"
             "</div>\n"
