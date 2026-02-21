@@ -4,6 +4,7 @@ test_db
 test_auth
 test_puzzle
 test_league
+test_admin
 *.dSYM/
 *.o
 

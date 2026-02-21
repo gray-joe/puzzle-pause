@@ -1069,6 +1069,22 @@ static void handle_puzzle_result(struct mg_connection *c, struct mg_http_message
         else if (base_score >= 70) time_desc = "2-3 hours";
         else time_desc = "3+ hours";
 
+        const char *base_url = getenv("BASE_URL");
+        if (!base_url) base_url = "http://localhost:8080";
+        int total_guesses = attempt.incorrect_guesses + 1;
+        int hints = attempt.hint_used ? 1 : 0;
+        char time_hhmm[6] = {0};
+        if (strlen(attempt.completed_at) >= 16)
+            strncpy(time_hhmm, attempt.completed_at + 11, 5);
+        char share_text[512];
+        snprintf(share_text, sizeof(share_text),
+            "I solved the Daily Puzzle Pause at %s, in %d %s and %d %s! "
+            "Check out the puzzle here: %s/puzzle",
+            time_hhmm,
+            total_guesses, total_guesses == 1 ? "guess" : "guesses",
+            hints, hints == 1 ? "hint" : "hints",
+            base_url);
+
         mg_http_reply(c, 200, "Content-Type: text/html\r\n",
             "<!DOCTYPE html>\n"
             "<html><head><title>Puzzle Complete!</title>%s</head>\n"
@@ -1096,6 +1112,16 @@ static void handle_puzzle_result(struct mg_connection *c, struct mg_http_message
             "<hr class=\"nav-line\">\n"
             "<p style=\"color:#4ecca3;\">Final score: %d pts</p>\n"
             "<p style=\"margin-top:20px;\">The answer was: <span style=\"color:#4ecca3;\">%s</span></p>\n"
+            "<span id=\"share-text\" style=\"display:none;\">%s</span>\n"
+            "<button onclick=\"var t=document.getElementById('share-text').textContent;"
+            "if(navigator.clipboard){navigator.clipboard.writeText(t)"
+            ".then(function(){this.textContent='> Copied!'}.bind(this))"
+            ".catch(function(){})}else{"
+            "var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);"
+            "a.select();document.execCommand('copy');document.body.removeChild(a);"
+            "this.textContent='> Copied!'}\" class=\"action-btn\">\n"
+            "  <span class=\"gt\">&gt;</span>Share result\n"
+            "</button>\n"
             "<a href=\"/leagues\" class=\"action-btn\">\n"
             "  <span class=\"gt\">&gt;</span>View Leagues\n"
             "</a>\n"
@@ -1108,7 +1134,8 @@ static void handle_puzzle_result(struct mg_connection *c, struct mg_http_message
             guess_penalty,
             attempt.hint_used ? "-10 pts" : "0 pts",
             attempt.score,
-            safe_answer);
+            safe_answer,
+            share_text);
     } else {
         char score_str[16] = {0};
         struct mg_str query = hm->query;
@@ -1122,6 +1149,17 @@ static void handle_puzzle_result(struct mg_connection *c, struct mg_http_message
         int score = atoi(score_str);
         if (score < 10) score = 10;
         if (score > 100) score = 100;
+
+        const char *base_url = getenv("BASE_URL");
+        if (!base_url) base_url = "http://localhost:8080";
+        char time_hhmm[6] = {0};
+        struct tm *tm_utc = gmtime(&(time_t){time(NULL)});
+        strftime(time_hhmm, sizeof(time_hhmm), "%H:%M", tm_utc);
+        char share_text[256];
+        snprintf(share_text, sizeof(share_text),
+            "I solved the Daily Puzzle Pause at %s, in 1 guess and 0 hints! "
+            "Check out the puzzle here: %s/puzzle",
+            time_hhmm, base_url);
 
         mg_http_reply(c, 200, "Content-Type: text/html\r\n",
             "<!DOCTYPE html>\n"
@@ -1144,13 +1182,24 @@ static void handle_puzzle_result(struct mg_connection *c, struct mg_http_message
             "<p style=\"margin-top:20px;\">The answer was: <span style=\"color:#4ecca3;\">%s</span></p>\n"
             "<p style=\"color:#808080;margin-top:15px;\">"
             "<a href=\"/login\">Log in</a> to save your scores and compete in leagues.</p>\n"
+            "<span id=\"share-text\" style=\"display:none;\">%s</span>\n"
+            "<button onclick=\"var t=document.getElementById('share-text').textContent;"
+            "if(navigator.clipboard){navigator.clipboard.writeText(t)"
+            ".then(function(){this.textContent='> Copied!'}.bind(this))"
+            ".catch(function(){})}else{"
+            "var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);"
+            "a.select();document.execCommand('copy');document.body.removeChild(a);"
+            "this.textContent='> Copied!'}\" class=\"action-btn\">\n"
+            "  <span class=\"gt\">&gt;</span>Share result\n"
+            "</button>\n"
             "<a href=\"/login\" class=\"action-btn\">\n"
             "  <span class=\"gt\">&gt;</span>Login\n"
             "</a>\n"
             "</body></html>\n",
             TERMINAL_CSS,
             score,
-            safe_answer);
+            safe_answer,
+            share_text);
     }
 }
 
