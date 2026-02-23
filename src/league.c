@@ -523,10 +523,9 @@ int league_get_leaderboard_weekly(int64_t league_id, LeaderboardEntry *entries,
         "SELECT u.id, u.display_name, u.email, COALESCE(SUM(a.score), 0) as total_score "
         "FROM league_members lm "
         "JOIN users u ON lm.user_id = u.id "
-        "LEFT JOIN attempts a ON a.user_id = u.id AND a.solved = 1 "
-        "LEFT JOIN puzzles p ON a.puzzle_id = p.id "
-        "  AND p.puzzle_date >= date('now', 'weekday 0', '-6 days') "
+        "LEFT JOIN puzzles p ON p.puzzle_date >= date('now', 'weekday 0', '-6 days') "
         "  AND p.puzzle_date <= date('now') "
+        "LEFT JOIN attempts a ON a.user_id = u.id AND a.puzzle_id = p.id AND a.solved = 1 "
         "WHERE lm.league_id = ? "
         "GROUP BY u.id "
         "ORDER BY total_score DESC, COALESCE(u.display_name, u.email) ASC",
