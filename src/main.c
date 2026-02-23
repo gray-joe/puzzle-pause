@@ -620,7 +620,8 @@ static void handle_puzzle_page(struct mg_connection *c, struct mg_http_message *
         ? "    <a href=\"/leagues\"><span class=\"gt\">&gt;</span>Leagues</a>\n"
           "    <a href=\"/archive\"><span class=\"gt\">&gt;</span>Archive</a>\n"
           "    <a href=\"/account\"><span class=\"gt\">&gt;</span>Account</a>\n"
-        : "    <a href=\"/login\"><span class=\"gt\">&gt;</span>Login</a>\n";
+        : "    <a href=\"/archive\"><span class=\"gt\">&gt;</span>Archive</a>\n"
+          "    <a href=\"/login\"><span class=\"gt\">&gt;</span>Login</a>\n";
 
     if (puzzle_get_today(&puzzle) != 0) {
         mg_http_reply(c, 200, "Content-Type: text/html\r\n",
@@ -1169,6 +1170,7 @@ static void handle_puzzle_result(struct mg_connection *c, struct mg_http_message
             "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>Puzzle Complete!</div>\n"
             "  <nav class=\"nav\">\n"
             "    <a href=\"/puzzle\"><span class=\"gt\">&gt;</span>Daily Puzzle</a>\n"
+            "    <a href=\"/archive\"><span class=\"gt\">&gt;</span>Archive</a>\n"
             "    <a href=\"/login\"><span class=\"gt\">&gt;</span>Login</a>\n"
             "  </nav>\n"
             "  <hr class=\"nav-line\">\n"
@@ -1780,6 +1782,149 @@ static void handle_account_update(struct mg_connection *c, struct mg_http_messag
     mg_http_reply(c, 302, "Location: /account?saved=1\r\n", "");
 }
 
+static void handle_archive_result(struct mg_connection *c, struct mg_http_message *hm,
+                                   User *user) {
+    char id_str[32] = {0};
+    const char *uri = hm->uri.buf;
+    const char *id_start = uri + 9;  /* skip "/archive/" */
+    const char *id_end = strstr(id_start, "/result");
+    if (!id_end) {
+        mg_http_reply(c, 404, "Content-Type: text/plain\r\n", "Not found\n");
+        return;
+    }
+    size_t id_len = id_end - id_start;
+    if (id_len >= sizeof(id_str)) id_len = sizeof(id_str) - 1;
+    strncpy(id_str, id_start, id_len);
+
+    int64_t puzzle_id = atoll(id_str);
+    if (puzzle_id <= 0) {
+        mg_http_reply(c, 404, "Content-Type: text/plain\r\n", "Invalid puzzle ID\n");
+        return;
+    }
+
+    Puzzle puzzle;
+    if (puzzle_get_by_id(puzzle_id, &puzzle) != 0) {
+        mg_http_reply(c, 404, "Content-Type: text/plain\r\n", "Puzzle not found\n");
+        return;
+    }
+
+    char display_answer[256] = {0};
+    const char *ans_src = puzzle.answer[0] == '~' ? puzzle.answer + 1 : puzzle.answer;
+    strncpy(display_answer, ans_src, sizeof(display_answer) - 1);
+    char *pipe = strchr(display_answer, '|');
+    if (pipe) *pipe = '\0';
+    char safe_answer[1024] = {0};
+    html_escape(display_answer, safe_answer, sizeof(safe_answer));
+
+    int pnum = puzzle_get_number(puzzle_id);
+
+    const char *base_url = getenv("BASE_URL");
+    if (!base_url) base_url = "http://localhost:8080";
+
+#define SHARE_BTN_FMT \
+    "<span id=\"share-text\" style=\"display:none;\">%s</span>\n" \
+    "<button onclick=\"var t=document.getElementById('share-text').textContent;" \
+    "if(navigator.clipboard){navigator.clipboard.writeText(t)" \
+    ".then(function(){this.textContent='> Copied!'}.bind(this))" \
+    ".catch(function(){})}else{" \
+    "var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);" \
+    "a.select();document.execCommand('copy');document.body.removeChild(a);" \
+    "this.textContent='> Copied!'}\" class=\"action-btn\">\n" \
+    "  <span class=\"gt\">&gt;</span>Share result\n" \
+    "</button>\n"
+
+    if (user) {
+        Attempt attempt;
+        if (puzzle_get_attempt(user->id, puzzle_id, &attempt) != 0 || !attempt.solved) {
+            char loc[64];
+            snprintf(loc, sizeof(loc), "Location: /archive/%lld\r\n", (long long)puzzle_id);
+            mg_http_reply(c, 302, loc, "");
+            return;
+        }
+
+        int total_guesses = attempt.incorrect_guesses + 1;
+        int hints = attempt.hint_used ? 1 : 0;
+        char time_hhmm[6] = {0};
+        if (strlen(attempt.completed_at) >= 16)
+            strncpy(time_hhmm, attempt.completed_at + 11, 5);
+        char share_text[512];
+        snprintf(share_text, sizeof(share_text),
+            "I solved Daily Puzzle Pause #%d at %s, in %d %s and %d %s! "
+            "Check out the puzzle here: %s/archive/%lld",
+            pnum, time_hhmm,
+            total_guesses, total_guesses == 1 ? "guess" : "guesses",
+            hints, hints == 1 ? "hint" : "hints",
+            base_url, (long long)puzzle_id);
+
+        mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+            "<!DOCTYPE html>\n"
+            "<html><head><title>Puzzle #%d Complete!</title>%s</head>\n"
+            "<body>\n"
+            "<div class=\"page-header\">\n"
+            "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>Puzzle Complete!</div>\n"
+            "  <nav class=\"nav\">\n"
+            "    <a href=\"/puzzle\"><span class=\"gt\">&gt;</span>Daily Puzzle</a>\n"
+            "    <a href=\"/leagues\"><span class=\"gt\">&gt;</span>Leagues</a>\n"
+            "    <a href=\"/archive\"><span class=\"gt\">&gt;</span>Archive</a>\n"
+            "    <a href=\"/account\"><span class=\"gt\">&gt;</span>Account</a>\n"
+            "  </nav>\n"
+            "  <hr class=\"nav-line\">\n"
+            "</div>\n"
+            "<p><a href=\"/archive\" class=\"back-link\"><span class=\"gt\">&gt;</span>Back to archive</a></p>\n"
+            "<p style=\"color:#808080;\">Wrong guesses: %d</p>\n"
+            "<p style=\"color:#808080;\">Hint used: %s</p>\n"
+            "<hr class=\"nav-line\">\n"
+            "<p style=\"margin-top:20px;\">The answer was: <span style=\"color:#4ecca3;\">%s</span></p>\n"
+            SHARE_BTN_FMT
+            "<a href=\"/archive\" class=\"action-btn\">\n"
+            "  <span class=\"gt\">&gt;</span>Back to Archive\n"
+            "</a>\n"
+            "</body></html>\n",
+            pnum, TERMINAL_CSS,
+            attempt.incorrect_guesses,
+            attempt.hint_used ? "Yes" : "No",
+            safe_answer,
+            share_text);
+    } else {
+        char time_hhmm[6] = {0};
+        struct tm *tm_utc = gmtime(&(time_t){time(NULL)});
+        strftime(time_hhmm, sizeof(time_hhmm), "%H:%M", tm_utc);
+        char share_text[256];
+        snprintf(share_text, sizeof(share_text),
+            "I solved Daily Puzzle Pause #%d at %s, in 1 guess and 0 hints! "
+            "Check out the puzzle here: %s/archive/%lld",
+            pnum, time_hhmm, base_url, (long long)puzzle_id);
+
+        mg_http_reply(c, 200, "Content-Type: text/html\r\n",
+            "<!DOCTYPE html>\n"
+            "<html><head><title>Puzzle #%d Complete!</title>%s</head>\n"
+            "<body>\n"
+            "<div class=\"page-header\">\n"
+            "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>Puzzle Complete!</div>\n"
+            "  <nav class=\"nav\">\n"
+            "    <a href=\"/puzzle\"><span class=\"gt\">&gt;</span>Daily Puzzle</a>\n"
+            "    <a href=\"/login\"><span class=\"gt\">&gt;</span>Login</a>\n"
+            "  </nav>\n"
+            "  <hr class=\"nav-line\">\n"
+            "</div>\n"
+            "<p><a href=\"/archive\" class=\"back-link\"><span class=\"gt\">&gt;</span>Back to archive</a></p>\n"
+            "<p style=\"margin-top:20px;\">The answer was: <span style=\"color:#4ecca3;\">%s</span></p>\n"
+            "<p style=\"color:#808080;margin-top:15px;\">"
+            "<a href=\"/login\">Log in</a> to track your progress.</p>\n"
+            SHARE_BTN_FMT
+            "<a href=\"/archive\" class=\"action-btn\">\n"
+            "  <span class=\"gt\">&gt;</span>Back to Archive\n"
+            "</a>\n"
+            "<a href=\"/login\" class=\"action-btn\">\n"
+            "  <span class=\"gt\">&gt;</span>Login\n"
+            "</a>\n"
+            "</body></html>\n",
+            pnum, TERMINAL_CSS,
+            safe_answer,
+            share_text);
+    }
+}
+
 static void handle_archive_list(struct mg_connection *c, User *user) {
     Puzzle puzzles[100];
     int count = 0;
@@ -1788,6 +1933,11 @@ static void handle_archive_list(struct mg_connection *c, User *user) {
         mg_http_reply(c, 500, "Content-Type: text/plain\r\n", "Database error\n");
         return;
     }
+
+    const char *nav = user
+        ? "    <a href=\"/leagues\"><span class=\"gt\">&gt;</span>Leagues</a>\n"
+          "    <a href=\"/account\"><span class=\"gt\">&gt;</span>Account</a>\n"
+        : "    <a href=\"/login\"><span class=\"gt\">&gt;</span>Login</a>\n";
 
     mg_printf(c,
         "HTTP/1.1 200 OK\r\n"
@@ -1802,12 +1952,11 @@ static void handle_archive_list(struct mg_connection *c, User *user) {
         "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>Archive</div>\n"
         "  <nav class=\"nav\">\n"
         "    <a href=\"/puzzle\"><span class=\"gt\">&gt;</span>Daily Puzzle</a>\n"
-        "    <a href=\"/leagues\"><span class=\"gt\">&gt;</span>Leagues</a>\n"
-        "    <a href=\"/account\"><span class=\"gt\">&gt;</span>Account</a>\n"
+        "%s"
         "  </nav>\n"
         "  <hr class=\"nav-line\">\n"
         "</div>\n",
-        TERMINAL_CSS);
+        TERMINAL_CSS, nav);
 
     if (count == 0) {
         mg_http_printf_chunk(c, "<p style=\"color:#808080;\">No archived puzzles yet.</p>\n");
@@ -1815,7 +1964,7 @@ static void handle_archive_list(struct mg_connection *c, User *user) {
         for (int i = 0; i < count; i++) {
             Puzzle *p = &puzzles[i];
             Attempt attempt;
-            int solved = (puzzle_get_attempt(user->id, p->id, &attempt) == 0 && attempt.solved);
+            int solved = user && (puzzle_get_attempt(user->id, p->id, &attempt) == 0 && attempt.solved);
 
             int year, month, day;
             sscanf(p->puzzle_date, "%d-%d-%d", &year, &month, &day);
@@ -1857,9 +2006,12 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
     }
 
     char wrong_param[8] = {0};
+    char hint_param[8] = {0};
     struct mg_str query = hm->query;
     mg_http_get_var(&query, "wrong", wrong_param, sizeof(wrong_param));
+    mg_http_get_var(&query, "hint", hint_param, sizeof(hint_param));
     int show_wrong_feedback = (wrong_param[0] == '1');
+    int guest_hint_shown = (!user && hint_param[0] == '1');
 
     Puzzle puzzle;
     if (puzzle_get_by_id(puzzle_id, &puzzle) != 0) {
@@ -1868,7 +2020,7 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
     }
 
     Attempt attempt;
-    int has_attempt = (puzzle_get_attempt(user->id, puzzle_id, &attempt) == 0);
+    int has_attempt = user && (puzzle_get_attempt(user->id, puzzle_id, &attempt) == 0);
     int solved = has_attempt && attempt.solved;
 
     int year, month, day;
@@ -1889,6 +2041,11 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
         "Content-Type: text/html\r\n"
         "Transfer-Encoding: chunked\r\n\r\n");
 
+    const char *nav = user
+        ? "    <a href=\"/leagues\"><span class=\"gt\">&gt;</span>Leagues</a>\n"
+          "    <a href=\"/account\"><span class=\"gt\">&gt;</span>Account</a>\n"
+        : "    <a href=\"/login\"><span class=\"gt\">&gt;</span>Login</a>\n";
+
     int pnum = puzzle_get_number(puzzle_id);
     mg_http_printf_chunk(c,
         "<!DOCTYPE html>\n"
@@ -1898,8 +2055,7 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
         "  <div class=\"page-title\"><span class=\"gt\">&gt;</span>#%d. %s</div>\n"
         "  <nav class=\"nav\">\n"
         "    <a href=\"/puzzle\"><span class=\"gt\">&gt;</span>Daily Puzzle</a>\n"
-        "    <a href=\"/leagues\"><span class=\"gt\">&gt;</span>Leagues</a>\n"
-        "    <a href=\"/account\"><span class=\"gt\">&gt;</span>Account</a>\n"
+        "%s"
         "  </nav>\n"
         "  <hr class=\"nav-line\">\n"
         "</div>\n"
@@ -1908,6 +2064,7 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
         "<p style=\"color:#808080;\">Archived puzzles are for practice only. No points awarded.</p>\n",
         pnum, safe_pname, TERMINAL_CSS,
         pnum, safe_pname,
+        nav,
         day, month, year % 100);
 
     if (strcmp(puzzle.puzzle_type, "ladder") == 0) {
@@ -1945,18 +2102,18 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
     if (solved) {
         mg_http_printf_chunk(c,
             "<div class=\"action-btn\" style=\"text-align:center;color:#4ecca3;\">"
-            "Solved! Answer: %s"
+            "Solved! Answer: %s — <a href=\"/archive/%lld/result\">View result</a>"
             "</div>\n",
-            safe_answer);
+            safe_answer, (long long)puzzle_id);
     } else {
         if (puzzle.has_hint) {
-            if (has_attempt && attempt.hint_used) {
+            if ((has_attempt && attempt.hint_used) || guest_hint_shown) {
                 mg_http_printf_chunk(c,
                     "<div class=\"action-btn\">"
                     "<span class=\"gt\">&gt;</span>Hint: %s"
                     "</div>\n",
                     puzzle.hint);
-            } else {
+            } else if (user) {
                 mg_http_printf_chunk(c,
                     "<form action=\"/archive/%lld/hint\" method=\"POST\">\n"
                     "<button type=\"submit\" class=\"action-btn\">"
@@ -1964,12 +2121,23 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
                     "</button>\n"
                     "</form>\n",
                     (long long)puzzle_id);
+            } else {
+                mg_http_printf_chunk(c,
+                    "<a href=\"/archive/%lld?hint=1%s\" class=\"action-btn\">"
+                    "<span class=\"gt\">&gt;</span>Hint?"
+                    "</a>\n",
+                    (long long)puzzle_id,
+                    show_wrong_feedback ? "&amp;wrong=1" : "");
             }
         }
 
         mg_http_printf_chunk(c,
             "<form action=\"/archive/%lld/attempt\" method=\"POST\">\n",
             (long long)puzzle_id);
+
+        if (!user && guest_hint_shown) {
+            mg_http_printf_chunk(c, "<input type=\"hidden\" name=\"hint_shown\" value=\"1\">\n");
+        }
 
         if (strcmp(puzzle.puzzle_type, "ladder") == 0) {
             LadderStep steps[MAX_LADDER_STEPS];
@@ -2046,9 +2214,10 @@ static void handle_archive_attempt(struct mg_connection *c, struct mg_http_messa
 
     int64_t puzzle_id = atoll(id_str);
 
-    char loc[64], loc_wrong[64];
+    char loc[64], loc_wrong[64], loc_result[80];
     snprintf(loc, sizeof(loc), "Location: /archive/%lld\r\n", (long long)puzzle_id);
     snprintf(loc_wrong, sizeof(loc_wrong), "Location: /archive/%lld?wrong=1\r\n", (long long)puzzle_id);
+    snprintf(loc_result, sizeof(loc_result), "Location: /archive/%lld/result\r\n", (long long)puzzle_id);
 
     char answer[256] = {0};
     Puzzle puzzle;
@@ -2075,12 +2244,28 @@ static void handle_archive_attempt(struct mg_connection *c, struct mg_http_messa
         return;
     }
 
-    int result = puzzle_submit_guess(user->id, puzzle_id, answer, NULL);
+    if (user) {
+        int result = puzzle_submit_guess(user->id, puzzle_id, answer, NULL);
+        if (result == 1)
+            mg_http_reply(c, 302, loc_result, "");
+        else
+            mg_http_reply(c, 302, loc_wrong, "");
+    } else {
+        char hint_shown_str[4] = {0};
+        get_form_var(hm, "hint_shown", hint_shown_str, sizeof(hint_shown_str));
 
-    if (result == 1)
-        mg_http_reply(c, 302, loc, "");
-    else
-        mg_http_reply(c, 302, loc_wrong, "");
+        int result = puzzle_check_answer(puzzle_id, answer);
+        if (result == 1) {
+            mg_http_reply(c, 302, loc_result, "");
+        } else if (hint_shown_str[0] == '1') {
+            char loc_wrong_hint[96];
+            snprintf(loc_wrong_hint, sizeof(loc_wrong_hint),
+                "Location: /archive/%lld?wrong=1&hint=1\r\n", (long long)puzzle_id);
+            mg_http_reply(c, 302, loc_wrong_hint, "");
+        } else {
+            mg_http_reply(c, 302, loc_wrong, "");
+        }
+    }
 }
 
 static void handle_archive_hint(struct mg_connection *c, struct mg_http_message *hm,
@@ -2642,11 +2827,12 @@ static void event_handler(struct mg_connection *c, int ev, void *ev_data) {
             handle_leagues_list(c, &user);
         }
 
+    } else if (mg_match(hm->uri, mg_str("/archive/*/result"), NULL)) {
+        handle_archive_result(c, hm, logged_in ? &user : NULL);
+
     } else if (mg_match(hm->uri, mg_str("/archive/*/attempt"), NULL)) {
-        if (!logged_in) {
-            mg_http_reply(c, 302, "Location: /login\r\n", "");
-        } else if (method_is(hm, "POST")) {
-            handle_archive_attempt(c, hm, &user);
+        if (method_is(hm, "POST")) {
+            handle_archive_attempt(c, hm, logged_in ? &user : NULL);
         } else {
             mg_http_reply(c, 405, "Content-Type: text/plain\r\n", "Method Not Allowed\n");
         }
@@ -2661,18 +2847,10 @@ static void event_handler(struct mg_connection *c, int ev, void *ev_data) {
         }
 
     } else if (mg_match(hm->uri, mg_str("/archive/*"), NULL)) {
-        if (!logged_in) {
-            mg_http_reply(c, 302, "Location: /login\r\n", "");
-        } else {
-            handle_archive_puzzle(c, hm, &user);
-        }
+        handle_archive_puzzle(c, hm, logged_in ? &user : NULL);
 
     } else if (mg_match(hm->uri, mg_str("/archive"), NULL)) {
-        if (!logged_in) {
-            mg_http_reply(c, 302, "Location: /login\r\n", "");
-        } else {
-            handle_archive_list(c, &user);
-        }
+        handle_archive_list(c, logged_in ? &user : NULL);
 
     } else if (mg_match(hm->uri, mg_str("/account"), NULL)) {
         if (!logged_in) {
