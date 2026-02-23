@@ -2072,7 +2072,7 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
         int step_count = puzzle_parse_ladder(puzzle.question, steps, MAX_LADDER_STEPS);
 
         mg_http_printf_chunk(c,
-            "<div class=\"puzzle-box\" style=\"text-align:left;display:block;\">\n"
+            "<div data-testid=\"puzzle-container\" class=\"puzzle-box\" style=\"text-align:left;display:block;\">\n"
             "  <div>\n");
         for (int i = 0; i < step_count; i++) {
             if (steps[i].is_blank) {
@@ -2090,13 +2090,13 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
             char safe_prompt[2048] = {0};
             html_escape(cp.prompt, safe_prompt, sizeof(safe_prompt));
             mg_http_printf_chunk(c,
-                "<div class=\"puzzle-box\">\n"
+                "<div data-testid=\"puzzle-container\" class=\"puzzle-box\">\n"
                 "  <div>%s</div>\n"
                 "</div>\n",
                 safe_prompt);
         }
     } else {
-        mg_http_printf_chunk(c, "<div class=\"puzzle-box\">%s</div>\n", puzzle.question);
+        mg_http_printf_chunk(c, "<div data-testid=\"puzzle-container\" class=\"puzzle-box\">%s</div>\n", puzzle.question);
     }
 
     if (solved) {
@@ -2116,14 +2116,14 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
             } else if (user) {
                 mg_http_printf_chunk(c,
                     "<form action=\"/archive/%lld/hint\" method=\"POST\">\n"
-                    "<button type=\"submit\" class=\"action-btn\">"
+                    "<button data-testid=\"hint-button\" type=\"submit\" class=\"action-btn\">"
                     "<span class=\"gt\">&gt;</span>Hint?"
                     "</button>\n"
                     "</form>\n",
                     (long long)puzzle_id);
             } else {
                 mg_http_printf_chunk(c,
-                    "<a href=\"/archive/%lld?hint=1%s\" class=\"action-btn\">"
+                    "<a data-testid=\"hint-button\" href=\"/archive/%lld?hint=1%s\" class=\"action-btn\">"
                     "<span class=\"gt\">&gt;</span>Hint?"
                     "</a>\n",
                     (long long)puzzle_id,
@@ -2174,18 +2174,18 @@ static void handle_archive_puzzle(struct mg_connection *c, struct mg_http_messag
             mg_http_printf_chunk(c,
                 "<label class=\"action-btn\">\n"
                 "  <span class=\"gt\">&gt;</span>\n"
-                "  <input type=\"number\" step=\"any\" name=\"answer\" placeholder=\"Your answer...\" autocomplete=\"off\">\n"
+                "  <input data-testid=\"answer-input\" type=\"number\" step=\"any\" name=\"answer\" placeholder=\"Your answer...\" autocomplete=\"off\">\n"
                 "</label>\n");
         } else {
             mg_http_printf_chunk(c,
                 "<label class=\"action-btn\">\n"
                 "  <span class=\"gt\">&gt;</span>\n"
-                "  <input type=\"text\" name=\"answer\" placeholder=\"Your answer...\" autocomplete=\"off\">\n"
+                "  <input data-testid=\"answer-input\" type=\"text\" name=\"answer\" placeholder=\"Your answer...\" autocomplete=\"off\">\n"
                 "</label>\n");
         }
 
         mg_http_printf_chunk(c,
-            "<button type=\"submit\" class=\"action-btn\">"
+            "<button data-testid=\"submit-button\" type=\"submit\" class=\"action-btn\">"
             "<span class=\"gt\">&gt;</span>Submit"
             "</button>\n"
             "</form>\n"
