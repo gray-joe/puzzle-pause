@@ -1,62 +1,80 @@
-# Daily Puzzle App
+# Puzzle Pause
 
-A lightweight daily puzzle web application with a C backend, htmx frontend, and SQLite database.
+A daily puzzle web app where users solve word, math, and logic puzzles and compete in mini leagues.
+
+## Tech Stack
+
+- **Backend**: Python (FastAPI, SQLAlchemy, SQLite)
+- **Frontend**: Next.js with Tailwind CSS
+- **Deployment**: fly.io with persistent volume for SQLite
 
 ## Prerequisites
 
-- C compiler (clang or gcc)
-- make
-- curl (for downloading dependencies)
+- Python 3.13
+- Node.js 22
 
 ## Setup
 
-1. Clone the repository:
+1. **Backend**:
    ```bash
-   git clone <repo-url>
-   cd daily_puzzle_app
+   cd backend
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install -r requirements.txt
    ```
 
-2. Download dependencies:
+2. **Frontend**:
    ```bash
-   make deps
+   cd web
+   npm install
    ```
-   This downloads the [Mongoose](https://github.com/cesanta/mongoose) HTTP library.
-
-3. Build the server:
-   ```bash
-   make
-   ```
-
-4. Run the server:
-   ```bash
-   ./puzzle_server
-   ```
-   The server will start on http://localhost:8080
 
 ## Development
 
-- `make` - Build the server
-- `make run` - Build and run
-- `make clean` - Remove build artifacts
-- `make deps` - Download third-party dependencies
+Run the backend and frontend separately:
+
+```bash
+# Backend (from backend/)
+uvicorn app.main:app --reload
+
+# Frontend (from web/)
+npm run dev
+```
+
+## Testing
+
+```bash
+cd backend
+pip install pytest pytest-cov
+python -m pytest
+```
 
 ## Project Structure
 
 ```
 daily_puzzle_app/
-├── src/
-│   ├── main.c         # Server entry point and routing
-│   ├── mongoose.c     # HTTP library (downloaded)
-│   └── mongoose.h     # HTTP library headers (downloaded)
-├── static/            # Static files (CSS, JS)
-├── Makefile
-├── SPEC.md            # Full specification
-└── CLAUDE.md          # AI assistant instructions
+├── backend/
+│   ├── app/
+│   │   ├── main.py        # FastAPI app entry point
+│   │   ├── models.py       # SQLAlchemy models
+│   │   ├── auth.py         # Authentication logic
+│   │   ├── routers/        # API route handlers
+│   │   └── database.py     # Database configuration
+│   ├── tests/
+│   ├── alembic/            # Database migrations
+│   └── requirements.txt
+├── web/                    # Next.js frontend
+├── Dockerfile
+├── supervisord.conf
+├── fly.toml
+├── SPEC.md
+└── CLAUDE.md
 ```
 
-## Tech Stack
+## Deployment
 
-- **Backend**: C with Mongoose HTTP library
-- **Frontend**: HTML + htmx
-- **Database**: SQLite
-- **Deployment**: fly.io
+Deployed on fly.io using a multi-stage Docker build. Supervisord runs both the backend (uvicorn) and frontend (Next.js standalone) in a single container.
+
+```bash
+fly deploy
+```
