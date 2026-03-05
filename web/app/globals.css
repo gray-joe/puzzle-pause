@@ -1,0 +1,181 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #15191e;
+  --text: #e0e0e0;
+  --teal: #4ecca3;
+  --orange: #ff9f43;
+  --error: #ff6b6b;
+  --muted: #808080;
+  --muted-dark: #606060;
+  --border: #3a3a3a;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: Monaco, "Cascadia Code", "Fira Code", Consolas, monospace;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+h1, h2, h3 {
+  color: var(--text);
+  font-family: inherit;
+  font-weight: normal;
+  margin-top: 0;
+}
+
+a {
+  color: var(--text);
+  text-decoration: none;
+}
+a:hover { color: #ffffff; }
+
+.gt { color: var(--teal); }
+a .gt { color: var(--orange); }
+
+/* Header */
+.page-header { margin-bottom: 0; }
+.page-title { font-size: 1.5em; }
+.page-title .gt { color: var(--teal); }
+
+/* Nav */
+.nav { margin-bottom: 15px; }
+.nav a { color: var(--text); text-decoration: none; margin-right: 20px; }
+.nav a:hover { color: #ffffff; }
+.nav a.active { color: var(--teal); }
+.nav .gt { color: var(--orange); }
+.nav a.active .gt { color: var(--teal); }
+.nav-line { border: none; border-top: 1px solid var(--border); margin: 15px 0; }
+
+/* Puzzle box */
+.puzzle-box {
+  border: 2px solid var(--border);
+  border-radius: 15px;
+  padding: 40px 30px;
+  margin: 20px 0;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Action buttons */
+.action-btn {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 15px 20px;
+  margin: 10px 0;
+  color: var(--text);
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-decoration: none;
+}
+.action-btn:hover { border-color: var(--teal); }
+.action-btn .gt { color: var(--teal); margin-right: 15px; }
+.action-btn.secondary .gt { color: var(--orange); }
+.action-btn.active { border-color: var(--teal); color: var(--teal); }
+.action-btn.active .gt { color: var(--teal); }
+
+/* Status */
+.success { color: var(--teal); }
+.error { color: var(--error); }
+.muted { color: var(--muted); }
+.muted-dark { color: var(--muted-dark); }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+th, td { padding: 10px; text-align: left; }
+th { color: var(--muted); }
+td .gt { color: var(--teal); }
+
+/* List rows */
+.list-row { padding: 8px 0; }
+.list-row .gt { color: var(--teal); }
+.list-row a { color: var(--text); }
+.list-row a:hover { color: #ffffff; }
+
+/* Puzzle title */
+.puzzle-title {
+  font-size: 1.4em;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+/* Content meta */
+.content-meta { color: var(--muted); margin-bottom: 15px; }
+
+/* Back link */
+.back-link { margin-bottom: 15px; display: block; }
+.back-link .gt { color: var(--orange); }
+
+/* Inputs */
+input, textarea, select {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 10px 15px;
+  font-family: inherit;
+  font-size: inherit;
+  margin: 5px 5px 5px 0;
+  border-radius: 4px;
+}
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--teal);
+}
+input::placeholder, textarea::placeholder { color: var(--muted-dark); }
+
+button {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 10px 15px;
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border-radius: 4px;
+}
+button:hover { border-color: var(--teal); }
+
+/* Choice puzzle option buttons */
+.choice-option {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 20px;
+  margin: 8px 0;
+  color: var(--text);
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.choice-option:hover { border-color: var(--teal); }
+.choice-option.selected { border-color: var(--teal); color: var(--teal); }
+
+/* Drag handle */
+.drag-item {
+  background: transparent;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 20px;
+  margin: 8px 0;
+  cursor: grab;
+  user-select: none;
+}
+.drag-item:active { cursor: grabbing; }
+.drag-item.dragging { border-color: var(--teal); opacity: 0.8; }

@@ -1,27 +1,39 @@
-FROM alpine:3.19 AS builder
+FROM python:3.13-slim AS backend-deps
+COPY backend/requirements.txt /tmp/requirements.txt
+RUN python -m venv /venv && \
+    /venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
 
-RUN apk add --no-cache gcc musl-dev make
+FROM node:22-alpine AS frontend-builder
+WORKDIR /build
+COPY web/package*.json ./
+RUN npm ci
+COPY web/ .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN mkdir -p public && npm run build
+
+FROM python:3.13-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl supervisor \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && apt-get purge -y --auto-remove curl \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY src/ src/
-COPY Makefile .
 
-RUN make
+COPY --from=backend-deps /venv /venv
+ENV PATH="/venv/bin:$PATH"
 
-FROM alpine:3.19
+COPY backend/ backend/
 
-RUN apk add --no-cache sqlite curl
+COPY --from=frontend-builder /build/.next/standalone/ web/
+COPY --from=frontend-builder /build/.next/static/ web/.next/static/
+COPY --from=frontend-builder /build/public/ web/public/
 
-WORKDIR /app
+COPY supervisord.conf /etc/supervisor/conf.d/app.conf
 
-COPY --from=builder /app/puzzle_server .
+RUN mkdir -p /app/data
 
-COPY data/seed_puzzles.sql data/
-COPY static/ static/
+EXPOSE 3000
 
-# The data directory will be mounted as a persistent volume
-# fly.toml mounts puzzle_data volume to /app/data
-
-EXPOSE 8080
-
-CMD ["./puzzle_server"]
+CMD ["/usr/bin/supervisord", "-n", "-c", "/etc/supervisor/conf.d/app.conf"]

@@ -1,22 +1,54 @@
-# Build artifacts
-puzzle_server
-test_db
-test_auth
-test_puzzle
-test_league
-*.db
-
-# Development files
-data/dev.db
-*.log
-
 # Git
 .git
 .gitignore
 
-# Documentation
-docs/
+# Documentation / planning
 *.md
+docs/
+SPEC.md
+SPEC_V2.md
 
-# Test files
-test_http.sh
+# V1 C build artifacts (not used in V2 image)
+src/
+static/
+scripts/
+puzzle_creator/
+tests/
+puzzle_server
+puzzle_server.dSYM/
+test_db
+test_auth
+test_puzzle
+test_league
+test_admin
+*.dSYM/
+
+# Database files (volume-mounted at runtime)
+*.db
+*.sqlite
+data/
+
+# Python artifacts
+backend/__pycache__/
+backend/.pytest_cache/
+backend/htmlcov/
+backend/.coverage
+backend/pytest.ini
+
+# Node / Next.js artifacts (rebuilt inside Docker)
+web/node_modules/
+web/.next/
+web/out/
+
+# Secrets / local config
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~
