@@ -98,7 +98,9 @@ def _ensure_attempt(user_id: int, puzzle_id: int, db: Session) -> Attempt:
         .first()
     )
     if not attempt:
-        attempt = Attempt(user_id=user_id, puzzle_id=puzzle_id)
+        attempt = Attempt(
+            user_id=user_id, puzzle_id=puzzle_id, opened_at=datetime.now(timezone.utc)
+        )
         db.add(attempt)
         db.commit()
         db.refresh(attempt)
@@ -116,34 +118,29 @@ def today(user=Depends(get_current_user), db: Session = Depends(get_db)):
     data["puzzle_number"] = _get_puzzle_number(puzzle, db)
 
     if user:
-        attempt = (
-            db.query(Attempt)
-            .filter(
-                Attempt.user_id == user.id,
-                Attempt.puzzle_id == puzzle.id,
-            )
-            .first()
-        )
-        if attempt:
-            data["attempt"] = {
-                "solved": bool(attempt.solved),
-                "score": attempt.score,
-                "incorrect_guesses": attempt.incorrect_guesses,
-                "hint_used": bool(attempt.hint_used),
-                "completed_at": (
-                    attempt.completed_at.isoformat() if attempt.completed_at else None
-                ),
-            }
-            if attempt.solved:
-                data["question"] = puzzle.question  # restore target for solved
-                data["answer"] = puzzle.answer
+        attempt = _ensure_attempt(user.id, puzzle.id, db)
+        data["attempt"] = {
+            "solved": bool(attempt.solved),
+            "score": attempt.score,
+            "incorrect_guesses": attempt.incorrect_guesses,
+            "hint_used": bool(attempt.hint_used),
+            "completed_at": (
+                attempt.completed_at.isoformat() if attempt.completed_at else None
+            ),
+        }
+        if attempt.solved:
+            data["question"] = puzzle.question
+            data["answer"] = puzzle.answer
     return data
 
 
 @router.post("/attempt")
 @limiter.limit("10/minute")
 def submit_attempt(
-    request: Request, body: AttemptRequest, user=Depends(get_current_user), db: Session = Depends(get_db)
+    request: Request,
+    body: AttemptRequest,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     puzzle_date = get_puzzle_date()
     puzzle = (
@@ -161,7 +158,7 @@ def submit_attempt(
         correct = check_answer(body.guess, puzzle.answer)
         if correct:
             now = datetime.now(timezone.utc)
-            score = calculate_score(puzzle.puzzle_date, now, 0, False)
+            score = calculate_score(now, now, 0, False)
             return AttemptResponse(
                 correct=True,
                 score=score,
@@ -190,7 +187,7 @@ def submit_attempt(
     if correct:
         now = datetime.now(timezone.utc)
         score = calculate_score(
-            puzzle.puzzle_date, now, attempt.incorrect_guesses, bool(attempt.hint_used)
+            attempt.opened_at, now, attempt.incorrect_guesses, bool(attempt.hint_used)
         )
         attempt.solved = 1
         attempt.score = score
@@ -219,7 +216,10 @@ def submit_attempt(
 @router.post("/hint")
 @limiter.limit("5/minute")
 def reveal_hint(
-    request: Request, body: HintRequest, user=Depends(get_current_user), db: Session = Depends(get_db)
+    request: Request,
+    body: HintRequest,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     puzzle_date = get_puzzle_date()
     puzzle = (
@@ -273,6 +273,9 @@ def result(user=Depends(require_user), db: Session = Depends(get_db)):
             "hint_used": bool(attempt.hint_used),
             "completed_at": (
                 attempt.completed_at.isoformat() if attempt.completed_at else None
+            ),
+            "opened_at": (
+                attempt.opened_at.isoformat() if attempt.opened_at else None
             ),
         },
     }

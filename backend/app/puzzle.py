@@ -34,15 +34,22 @@ def _check_unordered(guess_norm: str, answer_words: str) -> bool:
 
 
 def calculate_score(
-    puzzle_date: str, solved_at: datetime, incorrect_guesses: int, hint_used: bool
+    opened_at: datetime | None,
+    solved_at: datetime,
+    incorrect_guesses: int,
+    hint_used: bool,
 ) -> int:
-    year, month, day = map(int, puzzle_date.split("-"))
-    release = datetime(year, month, day, 9, 0, 0, tzinfo=timezone.utc)
+
+    if opened_at is None:
+        opened_at = solved_at
+
+    if opened_at.tzinfo is None:
+        opened_at = opened_at.replace(tzinfo=timezone.utc)
 
     if solved_at.tzinfo is None:
         solved_at = solved_at.replace(tzinfo=timezone.utc)
 
-    diff = (solved_at - release).total_seconds()
+    diff = (solved_at - opened_at).total_seconds()
     if diff < 0:
         diff = 0
 
@@ -68,8 +75,4 @@ def calculate_score(
 
 def get_puzzle_date() -> str:
     now = datetime.now(timezone.utc)
-    if now.hour < 9:
-        from datetime import timedelta
-
-        now = now - timedelta(days=1)
     return now.strftime("%Y-%m-%d")

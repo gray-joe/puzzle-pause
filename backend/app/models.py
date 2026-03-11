@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (DateTime, ForeignKey, Index, Integer, String, Text,
+                        UniqueConstraint)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .database import Base
@@ -81,6 +82,7 @@ class Attempt(Base):
     puzzle_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("puzzles.id"), nullable=False
     )
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
     incorrect_guesses: Mapped[int] = mapped_column(Integer, default=0)
     hint_used: Mapped[int] = mapped_column(Integer, default=0)

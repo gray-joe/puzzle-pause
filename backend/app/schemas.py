@@ -52,6 +52,7 @@ class AttemptResponse(BaseModel):
     solved: bool
     answer: str | None = None
     streak: int | None = None
+    opened_at: datetime | None = None
 
 
 class HintRequest(BaseModel):
@@ -73,6 +74,7 @@ class AttemptDetailResponse(BaseModel):
     incorrect_guesses: int
     hint_used: bool
     completed_at: datetime | None = None
+    opened_at: datetime | None = None
 
 
 # Archive

@@ -205,3 +205,18 @@ class TestResult:
         user, jwt = _make_user(db)
         resp = client.get("/api/puzzle/result", cookies={"session": jwt})
         assert resp.status_code == 404
+
+    def test_result_includes_opened_at(self, client, db):
+        _make_puzzle(db, answer="hello")
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+
+        client.get("/api/puzzle/today", cookies=cookies)
+        client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": 1, "guess": "hello"},
+            cookies=cookies,
+        )
+        resp = client.get("/api/puzzle/result", cookies=cookies)
+        assert resp.status_code == 200
+        assert resp.json()["attempt"]["opened_at"] is not None

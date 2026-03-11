@@ -211,7 +211,10 @@ def list_leagues(user=Depends(require_user), db: Session = Depends(get_db)):
 @router.post("", status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
 def create_league(
-    request: Request, body: CreateLeagueRequest, user=Depends(require_user), db: Session = Depends(get_db)
+    request: Request,
+    body: CreateLeagueRequest,
+    user=Depends(require_user),
+    db: Session = Depends(get_db),
 ):
     for _ in range(10):
         code = generate_invite_code()
@@ -268,7 +271,10 @@ def get_league(
 @router.post("/join")
 @limiter.limit("10/minute")
 def join_league(
-    request: Request, body: JoinLeagueRequest, user=Depends(require_user), db: Session = Depends(get_db)
+    request: Request,
+    body: JoinLeagueRequest,
+    user=Depends(require_user),
+    db: Session = Depends(get_db),
 ):
     code = body.invite_code.upper()
     league = db.query(League).filter(League.invite_code == code).first()
