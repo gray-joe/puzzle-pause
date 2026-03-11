@@ -13,7 +13,7 @@ RUN mkdir -p public && npm run build
 
 FROM python:3.13-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl supervisor \
+RUN apt-get update && apt-get install -y --no-install-recommends curl supervisor sqlite3 \
     && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && apt-get purge -y --auto-remove curl \
