@@ -22,6 +22,7 @@ export type AttemptDetail = {
   incorrect_guesses: number;
   hint_used: boolean;
   completed_at: string | null;
+  opened_at?: string | null;
 };
 
 export type AttemptResult = {
@@ -144,10 +145,10 @@ export const api = {
     today: (cookieHeader?: string) =>
       apiFetch<Puzzle>("/api/puzzle/today", {}, cookieHeader),
 
-    attempt: (puzzle_id: number, guess: string) =>
+    attempt: (puzzle_id: number, guess: string, opened_at?: string) =>
       apiFetch<AttemptResult>("/api/puzzle/attempt", {
         method: "POST",
-        body: JSON.stringify({ puzzle_id, guess }),
+        body: JSON.stringify({ puzzle_id, guess, opened_at }),
       }),
 
     hint: (puzzle_id: number) =>

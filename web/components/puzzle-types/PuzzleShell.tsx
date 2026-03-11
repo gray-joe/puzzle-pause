@@ -19,7 +19,7 @@ interface Props {
   initialAttempt?: AttemptDetail;
   isArchive?: boolean;
   isLoggedIn?: boolean;
-  onAttempt: (guess: string) => Promise<AttemptResult>;
+  onAttempt: (guess: string, openedAt: string) => Promise<AttemptResult>;
   onHint: () => Promise<string>;
 }
 
@@ -32,6 +32,7 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
   const [answer, setAnswer] = useState<string | null>((puzzle as any).answer ?? null);
   const [streak, setStreak] = useState<number | null>(null);
   const [incorrectGuesses, setIncorrectGuesses] = useState(initialAttempt?.incorrect_guesses ?? 0);
+  const [openedAt] = useState(() => initialAttempt?.opened_at ?? new Date().toISOString());
 
   const solved = attempt?.solved ?? false;
 
@@ -40,7 +41,7 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
     setLoading(true);
     setFeedback("");
     try {
-      const result = await onAttempt(guess);
+      const result = await onAttempt(guess, openedAt);
       if (result.correct) {
         setAttempt({
           solved: true,
@@ -48,6 +49,7 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
           incorrect_guesses: incorrectGuesses,
           hint_used: hintUsed,
           completed_at: new Date().toISOString(),
+          opened_at: openedAt,
         });
         setAnswer(result.answer ?? null);
         setStreak(result.streak ?? null);
@@ -107,7 +109,7 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
       <div className="content-meta muted-dark" data-testid="puzzle-instructions">
         {isArchive
           ? "Archived puzzles are for practice only. No points awarded."
-          : "Solve within 10 mins for up to 100 pts! -5 per wrong guess, -10 for a hint."}
+          : "Solve within 10 mins for 100 pts, 15 mins for 90, 30 mins for 75, 60 mins for 50. -5 per wrong guess, -10 for a hint."}
       </div>
 
       <PuzzleTypeRenderer type={puzzle.puzzle_type} {...puzzleProps} />

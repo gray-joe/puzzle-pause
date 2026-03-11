@@ -57,17 +57,14 @@ def calculate_score(
 
     if minutes <= 10:
         base = 100
-    elif minutes <= 30:
+    elif minutes <= 15:
         base = 90
-    elif minutes <= 60:
-        base = 80
-    elif minutes <= 120:
+    elif minutes <= 30:
         base = 75
-    elif minutes <= 180:
-        base = 70
+    elif minutes <= 60:
+        base = 50
     else:
-        extra_hours = (minutes - 180) // 60
-        base = 70 - (5 * extra_hours)
+        base = 30
 
     score = base - (incorrect_guesses * 5) - (10 if hint_used else 0)
     return max(score, 10)

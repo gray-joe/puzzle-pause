@@ -12,21 +12,27 @@ interface Props {
   isLoggedIn?: boolean;
 }
 
-function getTimeBracket(puzzleDate: string, completedAt: string | null): { base: number; label: string } | null {
-  if (!completedAt) return null;
-  const [year, month, day] = puzzleDate.split("-").map(Number);
-  const release = new Date(Date.UTC(year, month - 1, day, 9, 0, 0));
-  const solved = new Date(completedAt);
-  const diff = Math.max(0, (solved.getTime() - release.getTime()) / 1000);
+function getTimeBracket(openedAt: string | null, completedAt: string | null): { base: number; label: string } | null {
+  if (!openedAt || !completedAt) return null;
+  const diff = Math.max(0, (new Date(completedAt).getTime() - new Date(openedAt).getTime()) / 1000);
   const minutes = Math.floor(diff / 60);
 
   if (minutes <= 10) return { base: 100, label: "under 10 mins" };
-  if (minutes <= 30) return { base: 90, label: "10-30 mins" };
-  if (minutes <= 60) return { base: 80, label: "30-60 mins" };
-  if (minutes <= 120) return { base: 75, label: "1-2 hours" };
-  if (minutes <= 180) return { base: 70, label: "2-3 hours" };
-  const extraHours = Math.floor((minutes - 180) / 60);
-  return { base: 70 - 5 * extraHours, label: "3+ hours" };
+  if (minutes <= 15) return { base: 90, label: "10-15 mins" };
+  if (minutes <= 30) return { base: 75, label: "15-30 mins" };
+  if (minutes <= 60) return { base: 50, label: "30-60 mins" };
+  return { base: 30, label: "over 60 mins" };
+}
+
+function formatDuration(openedAt: string | null | undefined, completedAt: string | null): string | null {
+  if (!openedAt || !completedAt) return null;
+  const seconds = Math.max(0, Math.floor((new Date(completedAt).getTime() - new Date(openedAt).getTime()) / 1000));
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 
 function formatAnswers(answer: string): string[] {
@@ -42,7 +48,7 @@ export default function ResultPanel({ puzzle, attempt, answer, streak, isArchive
     ? `${solvedAt.getUTCFullYear()}-${String(solvedAt.getUTCMonth() + 1).padStart(2, "0")}-${String(solvedAt.getUTCDate()).padStart(2, "0")} ${String(solvedAt.getUTCHours()).padStart(2, "0")}:${String(solvedAt.getUTCMinutes()).padStart(2, "0")}:${String(solvedAt.getUTCSeconds()).padStart(2, "0")}`
     : null;
 
-  const rawTimeBracket = getTimeBracket(puzzle.puzzle_date, attempt.completed_at);
+  const rawTimeBracket = getTimeBracket(attempt.opened_at ?? null, attempt.completed_at);
   const timeBracket = rawTimeBracket
     ? { base: Math.max(0, rawTimeBracket.base), label: rawTimeBracket.base <= 0 ? "solved after 24h+" : rawTimeBracket.label }
     : null;
@@ -50,13 +56,15 @@ export default function ResultPanel({ puzzle, attempt, answer, streak, isArchive
   const hintPenalty = attempt.hint_used ? 10 : 0;
 
   const puzzleName = puzzle.puzzle_name || puzzle.puzzle_type;
+  const duration = formatDuration(attempt.opened_at, attempt.completed_at);
+  const timeStr = duration ? ` in ${duration}` : "";
   const shareText = isLoggedIn
     ? isArchive
-      ? `I scored ${attempt.score} on Puzzle Pause #${puzzle.puzzle_number ?? puzzle.id}! puzzlepause.app/archive/${puzzle.id}`
-      : `I scored ${attempt.score} on today's Puzzle Pause! puzzlepause.app`
+      ? `I scored ${attempt.score} on Puzzle Pause #${puzzle.puzzle_number ?? puzzle.id}${timeStr}! puzzlepause.app/archive/${puzzle.id}`
+      : `I scored ${attempt.score} on today's Puzzle Pause${timeStr}! puzzlepause.app`
     : isArchive
       ? `I solved ${puzzleName} on Puzzle Pause! puzzlepause.app/archive/${puzzle.id}`
-      : `I solved ${puzzleName} on Puzzle Pause! puzzlepause.app`;
+      : `I solved ${puzzleName} on Puzzle Pause${timeStr}! puzzlepause.app`;
 
   function share() {
     navigator.clipboard.writeText(shareText).catch(() => { });

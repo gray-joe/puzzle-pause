@@ -127,6 +127,9 @@ def today(user=Depends(get_current_user), db: Session = Depends(get_db)):
             "completed_at": (
                 attempt.completed_at.isoformat() if attempt.completed_at else None
             ),
+            "opened_at": (
+                attempt.opened_at.isoformat() if attempt.opened_at else None
+            ),
         }
         if attempt.solved:
             data["question"] = puzzle.question

@@ -65,12 +65,19 @@ class TestCalculateScore:
         solved = release + timedelta(minutes=5)
         assert calculate_score(release, solved, 0, False) == 100
 
-    def test_10_to_30_min(self):
+    def test_10_to_15_min(self):
+        release = self._release("2024-01-01")
+        from datetime import timedelta
+
+        solved = release + timedelta(minutes=12)
+        assert calculate_score(release, solved, 0, False) == 90
+
+    def test_15_to_30_min(self):
         release = self._release("2024-01-01")
         from datetime import timedelta
 
         solved = release + timedelta(minutes=20)
-        assert calculate_score(release, solved, 0, False) == 90
+        assert calculate_score(release, solved, 0, False) == 75
 
     def test_incorrect_guess_deducts_5(self):
         release = self._release("2024-01-01")
@@ -98,21 +105,14 @@ class TestCalculateScore:
         from datetime import timedelta
 
         solved = release + timedelta(minutes=45)
-        assert calculate_score(release, solved, 0, False) == 80
+        assert calculate_score(release, solved, 0, False) == 50
 
-    def test_1_to_2_hours(self):
+    def test_over_60_min(self):
         release = self._release("2024-01-01")
         from datetime import timedelta
 
-        solved = release + timedelta(hours=1, minutes=30)
-        assert calculate_score(release, solved, 0, False) == 75
-
-    def test_2_to_3_hours(self):
-        release = self._release("2024-01-01")
-        from datetime import timedelta
-
-        solved = release + timedelta(hours=2, minutes=30)
-        assert calculate_score(release, solved, 0, False) == 70
+        solved = release + timedelta(hours=2)
+        assert calculate_score(release, solved, 0, False) == 30
 
     def test_none_opened_at_gives_max_base(self):
         from datetime import timedelta

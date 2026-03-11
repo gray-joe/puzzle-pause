@@ -9,7 +9,7 @@ export default function PuzzleActions({ puzzle, isLoggedIn }: { puzzle: Puzzle; 
       puzzle={puzzle}
       initialAttempt={puzzle.attempt}
       isLoggedIn={isLoggedIn}
-      onAttempt={(guess) => api.puzzle.attempt(puzzle.id, guess)}
+      onAttempt={(guess, openedAt) => api.puzzle.attempt(puzzle.id, guess, openedAt)}
       onHint={() => api.puzzle.hint(puzzle.id).then((r) => r.hint)}
     />
   );
