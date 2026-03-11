@@ -158,7 +158,7 @@ def submit_attempt(
         correct = check_answer(body.guess, puzzle.answer)
         if correct:
             now = datetime.now(timezone.utc)
-            score = calculate_score(now, now, 0, False)
+            score = calculate_score(body.opened_at, now, 0, False)
             return AttemptResponse(
                 correct=True,
                 score=score,

@@ -43,6 +43,7 @@ class PuzzleAdminResponse(PuzzleResponse):
 class AttemptRequest(BaseModel):
     puzzle_id: int
     guess: str = Field(max_length=1000)
+    opened_at: datetime | None = None
 
 
 class AttemptResponse(BaseModel):

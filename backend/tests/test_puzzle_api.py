@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
@@ -94,6 +94,18 @@ class TestAttempt:
         data = resp.json()
         assert data["correct"] is True
         assert data["score"] is not None
+
+    def test_guest_score_uses_opened_at(self, client, db):
+        _make_puzzle(db, answer="hello")
+        opened_at = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
+        resp = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": 1, "guess": "hello", "opened_at": opened_at},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["correct"] is True
+        assert data["score"] <= 75  # 2 hours → base 75
 
     def test_guest_wrong_answer(self, client, db):
         _make_puzzle(db, answer="hello")
