@@ -129,7 +129,7 @@ async def verify(
         value=jwt_token,
         httponly=True,
         secure=is_prod,
-        samesite="strict",
+        samesite="lax",
         max_age=SESSION_EXPIRY_DAYS * 86400,
     )
 
