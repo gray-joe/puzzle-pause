@@ -10,11 +10,28 @@ def normalize_answer(s: str) -> str:
     return s
 
 
+def _normalize_groups(s: str) -> frozenset:
+    """Normalize a pipe-separated, comma-separated index answer (e.g. connections/order).
+    Groups are order-independent; indices within each group are order-independent."""
+    return frozenset(
+        frozenset(item.strip() for item in group.split(","))
+        for group in s.split("|")
+    )
+
+
+def _looks_like_groups(s: str) -> bool:
+    return "|" in s and re.fullmatch(r"[\d,| ]+", s.strip()) is not None
+
+
 def check_answer(guess: str, answer: str) -> bool:
     """
     ~prefix: unordered word match
     | separator: alternative answers
+    For index-group answers (connections), groups and their contents are order-independent.
     """
+    if _looks_like_groups(answer) and _looks_like_groups(guess):
+        return _normalize_groups(guess) == _normalize_groups(answer)
+
     guess_norm = normalize_answer(guess)
 
     if answer.startswith("~"):
@@ -37,7 +54,7 @@ def calculate_score(
     opened_at: datetime | None,
     solved_at: datetime,
     incorrect_guesses: int,
-    hint_used: bool,
+    hints_used: int,
 ) -> int:
 
     if opened_at is None:
@@ -66,7 +83,7 @@ def calculate_score(
     else:
         base = 30
 
-    score = base - (incorrect_guesses * 5) - (10 if hint_used else 0)
+    score = base - (incorrect_guesses * 5) - (hints_used * 10)
     return max(score, 10)
 
 

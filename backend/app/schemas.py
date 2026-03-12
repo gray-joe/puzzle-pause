@@ -52,6 +52,7 @@ class AttemptResponse(BaseModel):
     incorrect_guesses: int
     solved: bool
     answer: str | None = None
+    question: str | None = None
     streak: int | None = None
     opened_at: datetime | None = None
 

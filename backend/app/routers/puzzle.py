@@ -24,28 +24,43 @@ def _puzzle_to_response(puzzle: Puzzle, include_answer: bool = False) -> dict:
         "puzzle_type": puzzle.puzzle_type,
         "puzzle_name": puzzle.puzzle_name,
         "question": (
-            _strip_target(puzzle.question, puzzle.puzzle_type)
+            _strip_sensitive(puzzle.question, puzzle.puzzle_type)
             if not include_answer
             else puzzle.question
         ),
         "hint": puzzle.hint if puzzle.hint else None,
-        "has_hint": bool(puzzle.hint),
+        "has_hint": bool(puzzle.hint) or puzzle.puzzle_type == "connections",
     }
     if include_answer:
         data["answer"] = puzzle.answer
     return data
 
 
-def _strip_target(question: str, puzzle_type: str) -> str:
-    """Remove 'target' from image-tap JSON before sending to client."""
-    if puzzle_type != "image-tap":
+def _strip_sensitive(question: str, puzzle_type: str) -> str:
+    """Remove sensitive fields from puzzle JSON before sending to client."""
+    if puzzle_type not in ("image-tap", "connections"):
         return question
     try:
         data = json.loads(question)
-        data.pop("target", None)
+        if puzzle_type == "image-tap":
+            data.pop("target", None)
+        elif puzzle_type == "connections":
+            data.pop("categories", None)
         return json.dumps(data)
     except (json.JSONDecodeError, AttributeError):
         return question
+
+
+def _connections_hint(question: str) -> str | None:
+    """Extract categories from a connections question JSON as the hint."""
+    try:
+        data = json.loads(question)
+        categories = data.get("categories")
+        if categories:
+            return "|".join(categories)
+    except (json.JSONDecodeError, AttributeError):
+        pass
+    return None
 
 
 def _get_puzzle_number(puzzle: Puzzle, db: Session) -> int:
@@ -161,13 +176,14 @@ def submit_attempt(
         correct = check_answer(body.guess, puzzle.answer)
         if correct:
             now = datetime.now(timezone.utc)
-            score = calculate_score(body.opened_at, now, 0, False)
+            score = calculate_score(body.opened_at, now, 0, 0)
             return AttemptResponse(
                 correct=True,
                 score=score,
                 incorrect_guesses=0,
                 solved=True,
                 answer=puzzle.answer,
+                question=puzzle.question,
             )
         return AttemptResponse(
             correct=False, score=None, incorrect_guesses=0, solved=False
@@ -182,6 +198,7 @@ def submit_attempt(
             incorrect_guesses=attempt.incorrect_guesses,
             solved=True,
             answer=puzzle.answer,
+            question=puzzle.question,
             streak=_get_streak(user.id, db),
         )
 
@@ -190,7 +207,7 @@ def submit_attempt(
     if correct:
         now = datetime.now(timezone.utc)
         score = calculate_score(
-            attempt.opened_at, now, attempt.incorrect_guesses, bool(attempt.hint_used)
+            attempt.opened_at, now, attempt.incorrect_guesses, attempt.hint_used
         )
         attempt.solved = 1
         attempt.score = score
@@ -203,6 +220,7 @@ def submit_attempt(
             incorrect_guesses=attempt.incorrect_guesses,
             solved=True,
             answer=puzzle.answer,
+            question=puzzle.question,
             streak=streak,
         )
     else:
@@ -233,16 +251,20 @@ def reveal_hint(
         )
         .first()
     )
-    if not puzzle or not puzzle.hint:
+    if puzzle and puzzle.puzzle_type == "connections":
+        hint_text = _connections_hint(puzzle.question)
+    else:
+        hint_text = puzzle.hint if puzzle else None
+
+    if not puzzle or not hint_text:
         raise HTTPException(status_code=404, detail="No hint available")
 
     if user:
         attempt = _ensure_attempt(user.id, puzzle.id, db)
-        if not attempt.hint_used:
-            attempt.hint_used = 1
-            db.commit()
+        attempt.hint_used += 1
+        db.commit()
 
-    return HintResponse(hint=puzzle.hint)
+    return HintResponse(hint=hint_text)
 
 
 @router.get("/result")

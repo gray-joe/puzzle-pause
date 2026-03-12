@@ -51,6 +51,18 @@ function formatOrderAnswer(answer: string, question: string): string[] | null {
   }
 }
 
+function formatConnectionsAnswer(answer: string, question: string): { category: string; items: string[] }[] | null {
+  try {
+    const { items, categories } = JSON.parse(question) as { items: string[]; categories?: string[] };
+    return answer.split("|").map((group, i) => ({
+      category: categories?.[i] ?? `Group ${i + 1}`,
+      items: group.split(",").map((idx) => items[Number(idx)]).filter(Boolean),
+    }));
+  } catch {
+    return null;
+  }
+}
+
 export default function ResultPanel({ puzzle, attempt, answer, streak, isArchive, isLoggedIn }: Props) {
   const solvedAt = attempt.completed_at ? new Date(attempt.completed_at) : null;
   const completedStr = solvedAt
@@ -62,7 +74,7 @@ export default function ResultPanel({ puzzle, attempt, answer, streak, isArchive
     ? { base: Math.max(0, rawTimeBracket.base), label: rawTimeBracket.base <= 0 ? "solved after 24h+" : rawTimeBracket.label }
     : null;
   const wrongPenalty = attempt.incorrect_guesses * 5;
-  const hintPenalty = attempt.hint_used ? 10 : 0;
+  const hintPenalty = attempt.hint_used * 10;
 
   const puzzleName = puzzle.puzzle_name || puzzle.puzzle_type;
   const duration = formatDuration(attempt.opened_at, attempt.completed_at);
@@ -80,6 +92,8 @@ export default function ResultPanel({ puzzle, attempt, answer, streak, isArchive
   }
 
   const isOrderPuzzle = puzzle.puzzle_type === "order";
+  const isConnectionsPuzzle = puzzle.puzzle_type === "connections";
+  const connectionsGroups = isConnectionsPuzzle && answer ? formatConnectionsAnswer(answer, puzzle.question) : null;
   const displayAnswers = answer
     ? isOrderPuzzle
       ? (formatOrderAnswer(answer, puzzle.question) ?? formatAnswers(answer))
@@ -88,7 +102,17 @@ export default function ResultPanel({ puzzle, attempt, answer, streak, isArchive
 
   return (
     <div style={{ marginTop: 24 }} data-testid="result-panel">
-      {displayAnswers.length > 0 && (
+      {connectionsGroups ? (
+        <div style={{ marginBottom: 16 }} data-testid="result-answer">
+          <div style={{ marginBottom: 8 }}>Congratulations! The groups were:</div>
+          {connectionsGroups.map((group, i) => (
+            <div key={i} style={{ marginBottom: 4 }}>
+              <span style={{ color: "var(--teal)" }}>{group.category}:</span>{" "}
+              {group.items.join(", ")}
+            </div>
+          ))}
+        </div>
+      ) : displayAnswers.length > 0 && (
         <div style={{ marginBottom: 16 }} data-testid="result-answer">
           Congratulations! The correct {isOrderPuzzle ? "order" : "answer"} was{" "}
           <span style={{ color: "var(--teal)" }}>
@@ -123,7 +147,7 @@ export default function ResultPanel({ puzzle, attempt, answer, streak, isArchive
             Wrong guesses: {wrongPenalty > 0 ? `-${wrongPenalty}` : "0"} pts
           </div>
           <div className="muted" style={{ marginBottom: 8 }}>
-            Hint: {hintPenalty > 0 ? `-${hintPenalty}` : "0"} pts
+            Hints: {hintPenalty > 0 ? `-${hintPenalty}` : "0"} pts
           </div>
 
           <hr className="nav-line" />

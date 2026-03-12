@@ -142,7 +142,7 @@ def archive_attempt(
         if correct:
             return AttemptResponse(
                 correct=True, score=0, incorrect_guesses=0, solved=True,
-                answer=puzzle.answer,
+                answer=puzzle.answer, question=puzzle.question,
             )
         return AttemptResponse(
             correct=False, score=None, incorrect_guesses=0, solved=False
@@ -157,6 +157,7 @@ def archive_attempt(
             incorrect_guesses=attempt.incorrect_guesses,
             solved=True,
             answer=puzzle.answer,
+            question=puzzle.question,
         )
 
     correct = check_answer(body.guess, puzzle.answer)
@@ -172,6 +173,7 @@ def archive_attempt(
             incorrect_guesses=attempt.incorrect_guesses,
             solved=True,
             answer=puzzle.answer,
+            question=puzzle.question,
         )
     else:
         attempt.incorrect_guesses += 1

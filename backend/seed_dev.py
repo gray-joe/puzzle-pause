@@ -170,11 +170,11 @@ def seed():
         if not existing:
             today_puzzle = Puzzle(
                 puzzle_date=today,
-                puzzle_type="math",
-                puzzle_name="Quick Maths",
-                question="1+1=?",
-                answer="2",
-                hint="Count on your fingers",
+                puzzle_type="connections",
+                puzzle_name="Group Think",
+                question='{"prompt":"Group these 12 words into 3 categories of 4:","items":["Cobra","Mamba","Adder","Python","Boa","Viper","Asp","Anaconda","Java","Ruby","Perl","Swift"],"categories":["Venomous snakes","Constrictor snakes","Programming languages"]}',
+                answer="0,1,2,5|3,4,6,7|8,9,10,11",
+                hint="One category is also a tech term",
             )
             db.add(today_puzzle)
             db.flush()

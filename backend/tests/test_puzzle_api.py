@@ -41,6 +41,94 @@ def _make_puzzle(db, puzzle_date=None, answer="hello"):
     return puzzle
 
 
+def _make_connections_puzzle(db, puzzle_date=None, hint=None):
+    if puzzle_date is None:
+        puzzle_date = date.today().isoformat()
+    question = '{"prompt":"Group these:","items":["Cobra","Mamba","Java","Ruby"],"categories":["Snakes","Languages"]}'
+    puzzle = Puzzle(
+        puzzle_date=puzzle_date,
+        puzzle_type="connections",
+        puzzle_name="Test Connections",
+        question=question,
+        answer="0,1|2,3",
+        hint=hint,
+    )
+    db.add(puzzle)
+    db.commit()
+    db.refresh(puzzle)
+    return puzzle
+
+
+class TestConnections:
+    def test_categories_stripped_from_question(self, client, db):
+        _make_connections_puzzle(db)
+        resp = client.get("/api/puzzle/today")
+        assert resp.status_code == 200
+        import json
+        question = json.loads(resp.json()["question"])
+        assert "categories" not in question
+        assert "items" in question
+
+    def test_has_hint_true_without_text_hint(self, client, db):
+        _make_connections_puzzle(db, hint=None)
+        resp = client.get("/api/puzzle/today")
+        assert resp.json()["has_hint"] is True
+
+    def test_hint_returns_categories(self, client, db):
+        _make_connections_puzzle(db)
+        resp = client.post("/api/puzzle/hint", json={"puzzle_id": 1})
+        assert resp.status_code == 200
+        assert resp.json()["hint"] == "Snakes|Languages"
+
+    def test_hint_returns_categories_ignoring_text_hint(self, client, db):
+        _make_connections_puzzle(db, hint="Some text hint")
+        resp = client.post("/api/puzzle/hint", json={"puzzle_id": 1})
+        assert resp.status_code == 200
+        assert resp.json()["hint"] == "Snakes|Languages"
+
+    def test_each_hint_increments_count(self, client, db):
+        _make_connections_puzzle(db, hint=None)
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+
+        client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+
+        # Solve and check score deducted 2 × 10 = 20
+        resp = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": 1, "guess": "0,1|2,3"},
+            cookies=cookies,
+        )
+        assert resp.json()["correct"] is True
+        assert resp.json()["score"] <= 80  # base 100 − 20 hints
+
+    def test_solve_returns_full_question_with_categories(self, client, db):
+        _make_connections_puzzle(db)
+        resp = client.post(
+            "/api/puzzle/attempt", json={"puzzle_id": 1, "guess": "0,1|2,3"}
+        )
+        assert resp.status_code == 200
+        assert resp.json()["correct"] is True
+        import json
+        question = json.loads(resp.json()["question"])
+        assert "categories" in question
+        assert question["categories"] == ["Snakes", "Languages"]
+
+    def test_auth_solve_returns_full_question(self, client, db):
+        _make_connections_puzzle(db)
+        user, jwt = _make_user(db)
+        resp = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": 1, "guess": "0,1|2,3"},
+            cookies={"session": jwt},
+        )
+        assert resp.json()["correct"] is True
+        import json
+        question = json.loads(resp.json()["question"])
+        assert "categories" in question
+
+
 class TestTodayPuzzle:
     def test_returns_today_puzzle(self, client, db):
         _make_puzzle(db)

@@ -28,8 +28,10 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
   const [feedback, setFeedback] = useState<string>("");
   const [hint, setHint] = useState<string | null>(null);
   const [hintUsed, setHintUsed] = useState(initialAttempt?.hint_used ?? false);
+  const [hintsRevealed, setHintsRevealed] = useState(0);
   const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState<string | null>((puzzle as any).answer ?? null);
+  const [puzzleQuestion, setPuzzleQuestion] = useState(puzzle.question);
   const [streak, setStreak] = useState<number | null>(null);
   const [incorrectGuesses, setIncorrectGuesses] = useState(initialAttempt?.incorrect_guesses ?? 0);
   const [openedAt] = useState(() => initialAttempt?.opened_at ?? new Date().toISOString());
@@ -52,6 +54,7 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
           opened_at: openedAt,
         });
         setAnswer(result.answer ?? null);
+        if (result.question) setPuzzleQuestion(result.question);
         setStreak(result.streak ?? null);
         setFeedback("");
       } else {
@@ -67,12 +70,17 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
   }
 
   async function revealHint() {
-    if (hintUsed || loading) return;
+    if (loading) return;
+    const isConnections = puzzle.puzzle_type === "connections";
+    if (!isConnections && hintUsed) return;
     setLoading(true);
     try {
       const h = await onHint();
-      setHint(h);
+      if (!hint) setHint(h);
       setHintUsed(true);
+      if (isConnections) {
+        setHintsRevealed((n) => n + 1);
+      }
     } catch (err: any) {
       setFeedback(err.message ?? "No hint available");
     } finally {
@@ -80,7 +88,13 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
     }
   }
 
-  const puzzleProps = { puzzle, solved, onSubmit: submitGuess, loading };
+  const isConnections = puzzle.puzzle_type === "connections";
+  const numHintCategories = hint ? hint.split("|").length : 3;
+  const showHintBtn = isConnections
+    ? !solved && hintsRevealed < numHintCategories
+    : puzzle.has_hint && !hintUsed;
+
+  const puzzleProps = { puzzle, solved, onSubmit: submitGuess, loading, hint, hintsRevealed };
 
   if (solved && attempt) {
     return (
@@ -92,7 +106,7 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
           </div>
         )}
         <ResultPanel
-          puzzle={puzzle}
+          puzzle={{ ...puzzle, question: puzzleQuestion }}
           attempt={attempt}
           answer={answer}
           streak={streak}
@@ -115,12 +129,12 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
       <PuzzleTypeRenderer type={puzzle.puzzle_type} {...puzzleProps} />
 
       <div style={{ marginTop: 8 }}>
-        {puzzle.has_hint && !hintUsed && (
+        {showHintBtn && (
           <button className="action-btn secondary" onClick={revealHint} disabled={loading} data-testid="hint-btn">
             <span className="gt">&gt;</span>Reveal hint{!isArchive && <span className="muted"> (-10 pts)</span>}
           </button>
         )}
-        {hint && (
+        {hint && !isConnections && (
           <div className="content-meta" style={{ marginTop: 8 }} data-testid="hint">
             Hint: {hint}
           </div>
@@ -140,6 +154,8 @@ function PuzzleTypeRenderer(props: {
   solved: boolean;
   onSubmit: (guess: string) => void;
   loading: boolean;
+  hint: string | null;
+  hintsRevealed: number;
 }) {
   switch (props.type) {
     case "math": return <MathPuzzle {...props} />;

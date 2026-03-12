@@ -20,7 +20,7 @@ export type AttemptDetail = {
   solved: boolean;
   score: number | null;
   incorrect_guesses: number;
-  hint_used: boolean;
+  hint_used: number;
   completed_at: string | null;
   opened_at?: string | null;
 };
@@ -31,6 +31,7 @@ export type AttemptResult = {
   incorrect_guesses: number;
   solved: boolean;
   answer: string | null;
+  question?: string | null;
   streak?: number | null;
 };
 
