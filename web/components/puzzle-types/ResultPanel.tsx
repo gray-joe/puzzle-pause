@@ -42,6 +42,15 @@ function formatAnswers(answer: string): string[] {
     .filter(Boolean);
 }
 
+function formatOrderAnswer(answer: string, question: string): string[] | null {
+  try {
+    const { items } = JSON.parse(question) as { items: string[] };
+    return answer.split(",").map((idx) => items[Number(idx)]).filter(Boolean);
+  } catch {
+    return null;
+  }
+}
+
 export default function ResultPanel({ puzzle, attempt, answer, streak, isArchive, isLoggedIn }: Props) {
   const solvedAt = attempt.completed_at ? new Date(attempt.completed_at) : null;
   const completedStr = solvedAt
@@ -70,15 +79,24 @@ export default function ResultPanel({ puzzle, attempt, answer, streak, isArchive
     navigator.clipboard.writeText(shareText).catch(() => { });
   }
 
-  const displayAnswers = answer ? formatAnswers(answer) : [];
+  const isOrderPuzzle = puzzle.puzzle_type === "order";
+  const displayAnswers = answer
+    ? isOrderPuzzle
+      ? (formatOrderAnswer(answer, puzzle.question) ?? formatAnswers(answer))
+      : formatAnswers(answer)
+    : [];
 
   return (
     <div style={{ marginTop: 24 }} data-testid="result-panel">
       {displayAnswers.length > 0 && (
         <div style={{ marginBottom: 16 }} data-testid="result-answer">
-          Congratulations! The correct answer was{" "}
+          Congratulations! The correct {isOrderPuzzle ? "order" : "answer"} was{" "}
           <span style={{ color: "var(--teal)" }}>
-            {displayAnswers.join(", ")}
+            {isOrderPuzzle
+              ? displayAnswers.map((item, i) => (
+                  <span key={i}>{i + 1}. {item}{i < displayAnswers.length - 1 ? ", " : ""}</span>
+                ))
+              : displayAnswers.join(", ")}
           </span>
         </div>
       )}
