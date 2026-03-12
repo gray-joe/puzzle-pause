@@ -85,6 +85,15 @@ class TestGetAccount:
         resp = client.get("/api/account", cookies={"session": jwt})
         assert resp.json()["stats"]["streak"] == 1
 
+    def test_streak_excludes_archive_puzzles(self, client, db):
+        user, jwt = _make_user(db)
+        _make_solved_attempt(db, user, days_ago=1, score=80)
+        # Archive puzzle (score=0) on day 2 should not extend the streak
+        _make_solved_attempt(db, user, days_ago=2, score=0)
+
+        resp = client.get("/api/account", cookies={"session": jwt})
+        assert resp.json()["stats"]["streak"] == 1
+
     def test_requires_auth(self, client):
         resp = client.get("/api/account")
         assert resp.status_code == 401

@@ -71,7 +71,7 @@ def _get_stats(user_id: int, db: Session) -> AccountStatsResponse:
         text(
             "SELECT DISTINCT p.puzzle_date FROM attempts a "
             "JOIN puzzles p ON a.puzzle_id = p.id "
-            "WHERE a.user_id = :uid AND a.solved = 1 "
+            "WHERE a.user_id = :uid AND a.solved = 1 AND a.score > 0 "
             "ORDER BY p.puzzle_date DESC "
             "LIMIT 365"
         ),
