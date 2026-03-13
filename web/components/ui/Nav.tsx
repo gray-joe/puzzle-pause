@@ -39,6 +39,20 @@ export default function Nav({ isAdmin, isLoggedIn, title }: { isAdmin?: boolean;
             >
               <span className="gt">&gt;</span>Puzzles
             </Link>
+            <Link
+              href="/admin/attempts"
+              className={pathname.startsWith("/admin/attempts") ? "active" : ""}
+              data-testid="admin-attempts-nav-link"
+            >
+              <span className="gt">&gt;</span>Attempts
+            </Link>
+            <Link
+              href="/admin/users"
+              className={pathname.startsWith("/admin/users") ? "active" : ""}
+              data-testid="admin-users-nav-link"
+            >
+              <span className="gt">&gt;</span>Users
+            </Link>
           </>
         ) : (
           <>

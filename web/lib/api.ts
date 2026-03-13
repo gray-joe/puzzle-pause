@@ -77,6 +77,30 @@ export type AdminPuzzle = Puzzle & { answer: string };
 
 export type AdminStats = { puzzles: number; players: number; attempts: number };
 
+export type AdminUser = {
+  id: number;
+  email: string;
+  display_name: string | null;
+  created_at: string;
+};
+
+export type AdminAttempt = {
+  id: number;
+  user_id: number;
+  user_email: string;
+  user_display_name: string | null;
+  puzzle_id: number;
+  puzzle_date: string;
+  puzzle_name: string;
+  puzzle_type: string;
+  opened_at: string | null;
+  completed_at: string | null;
+  solved: boolean;
+  score: number | null;
+  incorrect_guesses: number;
+  hint_used: boolean;
+};
+
 class ApiError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -249,6 +273,12 @@ export const api = {
 
     deletePuzzle: (id: number) =>
       apiFetch<void>(`/api/admin/puzzles/${id}`, { method: "DELETE" }),
+
+    listAttempts: (cookieHeader?: string) =>
+      apiFetch<AdminAttempt[]>("/api/admin/attempts", {}, cookieHeader),
+
+    listUsers: (cookieHeader?: string) =>
+      apiFetch<AdminUser[]>("/api/admin/users", {}, cookieHeader),
   },
 };
 

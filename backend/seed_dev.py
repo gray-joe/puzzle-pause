@@ -70,6 +70,22 @@ SEED_PUZZLES = [
         "hint": "Damn, Murky, Dagger, Circle",
     },
     {
+        "days_ago": 8,
+        "puzzle_type": "numgrid",
+        "puzzle_name": "Missing Piece",
+        "question": '{"prompt":"What number is missing from this grid?","grid":[1,2,3,4,5,6,7,8,9,10,null,12,13,14,15,16]}',
+        "answer": "11",
+        "hint": "Count the rows",
+    },
+    {
+        "days_ago": 7,
+        "puzzle_type": "match",
+        "puzzle_name": "Capital Cities",
+        "question": '{"prompt":"Match each country to its capital city:","left":["France","Japan","Brazil","Australia"],"right":["Canberra","Paris","Brasília","Tokyo"]}',
+        "answer": "1,3,2,0",
+        "hint": "One of these capitals is not the largest city in its country",
+    },
+    {
         "days_ago": 6,
         "puzzle_type": "math",
         "puzzle_name": "Symbol Solver",

@@ -19,6 +19,7 @@ VALID_TYPES = {
     "connections",
     "image-tap",
     "image-order",
+    "numgrid",
 }
 
 
@@ -33,6 +34,50 @@ def _to_admin_response(puzzle: Puzzle) -> PuzzleAdminResponse:
         hint=puzzle.hint,
         has_hint=bool(puzzle.hint),
     )
+
+
+@router.get("/attempts")
+def list_attempts(admin=Depends(require_admin), db: Session = Depends(get_db)):
+    rows = (
+        db.query(Attempt, User, Puzzle)
+        .join(User, Attempt.user_id == User.id)
+        .join(Puzzle, Attempt.puzzle_id == Puzzle.id)
+        .order_by(Attempt.id.desc())
+        .all()
+    )
+    return [
+        {
+            "id": attempt.id,
+            "user_id": user.id,
+            "user_email": user.email,
+            "user_display_name": user.display_name,
+            "puzzle_id": puzzle.id,
+            "puzzle_date": puzzle.puzzle_date,
+            "puzzle_name": puzzle.puzzle_name,
+            "puzzle_type": puzzle.puzzle_type,
+            "opened_at": attempt.opened_at,
+            "completed_at": attempt.completed_at,
+            "solved": bool(attempt.solved),
+            "score": attempt.score,
+            "incorrect_guesses": attempt.incorrect_guesses,
+            "hint_used": bool(attempt.hint_used),
+        }
+        for attempt, user, puzzle in rows
+    ]
+
+
+@router.get("/users")
+def list_users(admin=Depends(require_admin), db: Session = Depends(get_db)):
+    users = db.query(User).order_by(User.id.desc()).all()
+    return [
+        {
+            "id": u.id,
+            "email": u.email,
+            "display_name": u.display_name,
+            "created_at": u.created_at,
+        }
+        for u in users
+    ]
 
 
 @router.get("/stats")

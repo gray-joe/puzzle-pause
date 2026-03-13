@@ -12,6 +12,7 @@ import MatchPuzzle from "./MatchPuzzle";
 import ConnectionsPuzzle from "./ConnectionsPuzzle";
 import ImageTapPuzzle from "./ImageTapPuzzle";
 import ImageOrderPuzzle from "./ImageOrderPuzzle";
+import NumGridPuzzle from "./NumGridPuzzle";
 import ResultPanel from "./ResultPanel";
 
 interface Props {
@@ -27,7 +28,7 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
   const [attempt, setAttempt] = useState<AttemptDetail | undefined>(initialAttempt);
   const [feedback, setFeedback] = useState<string>("");
   const [hint, setHint] = useState<string | null>(null);
-  const [hintUsed, setHintUsed] = useState(initialAttempt?.hint_used ?? false);
+  const [hintUsed, setHintUsed] = useState(!!initialAttempt?.hint_used);
   const [hintsRevealed, setHintsRevealed] = useState(0);
   const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState<string | null>((puzzle as any).answer ?? null);
@@ -49,7 +50,7 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
           solved: true,
           score: result.score,
           incorrect_guesses: incorrectGuesses,
-          hint_used: hintUsed,
+          hint_used: isConnections ? hintsRevealed : (hintUsed ? 1 : 0),
           completed_at: new Date().toISOString(),
           opened_at: openedAt,
         });
@@ -167,6 +168,7 @@ function PuzzleTypeRenderer(props: {
     case "connections": return <ConnectionsPuzzle {...props} />;
     case "image-tap": return <ImageTapPuzzle {...props} />;
     case "image-order": return <ImageOrderPuzzle {...props} />;
+    case "numgrid": return <NumGridPuzzle {...props} />;
     default: return <WordPuzzle {...props} />;
   }
 }

@@ -51,6 +51,15 @@ function formatOrderAnswer(answer: string, question: string): string[] | null {
   }
 }
 
+function formatMatchAnswer(answer: string, question: string): { left: string; right: string }[] | null {
+  try {
+    const { left, right } = JSON.parse(question) as { left: string[]; right: string[] };
+    return answer.split(",").map((idx, i) => ({ left: left[i], right: right[Number(idx)] })).filter((p) => p.left && p.right);
+  } catch {
+    return null;
+  }
+}
+
 function formatConnectionsAnswer(answer: string, question: string): { category: string; items: string[] }[] | null {
   try {
     const { items, categories } = JSON.parse(question) as { items: string[]; categories?: string[] };
@@ -93,7 +102,9 @@ export default function ResultPanel({ puzzle, attempt, answer, streak, isArchive
 
   const isOrderPuzzle = puzzle.puzzle_type === "order";
   const isConnectionsPuzzle = puzzle.puzzle_type === "connections";
+  const isMatchPuzzle = puzzle.puzzle_type === "match";
   const connectionsGroups = isConnectionsPuzzle && answer ? formatConnectionsAnswer(answer, puzzle.question) : null;
+  const matchPairs = isMatchPuzzle && answer ? formatMatchAnswer(answer, puzzle.question) : null;
   const displayAnswers = answer
     ? isOrderPuzzle
       ? (formatOrderAnswer(answer, puzzle.question) ?? formatAnswers(answer))
@@ -102,7 +113,18 @@ export default function ResultPanel({ puzzle, attempt, answer, streak, isArchive
 
   return (
     <div style={{ marginTop: 24 }} data-testid="result-panel">
-      {connectionsGroups ? (
+      {matchPairs ? (
+        <div style={{ marginBottom: 16 }} data-testid="result-answer">
+          <div style={{ marginBottom: 8 }}>Congratulations! The correct matches were:</div>
+          {matchPairs.map((pair, i) => (
+            <div key={i} style={{ marginBottom: 4 }}>
+              <span style={{ color: "var(--teal)" }}>{pair.left}</span>
+              {" → "}
+              {pair.right}
+            </div>
+          ))}
+        </div>
+      ) : connectionsGroups ? (
         <div style={{ marginBottom: 16 }} data-testid="result-answer">
           <div style={{ marginBottom: 8 }}>Congratulations! The groups were:</div>
           {connectionsGroups.map((group, i) => (
