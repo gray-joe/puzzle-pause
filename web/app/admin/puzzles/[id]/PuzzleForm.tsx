@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, AdminPuzzle } from "@/lib/api";
 
-const PUZZLE_TYPES = ["word", "math", "ladder", "choice", "wordsearch", "order", "match", "connections", "image-tap", "image-order"];
+const PUZZLE_TYPES = ["word", "math", "ladder", "choice", "wordsearch", "order", "match", "connections", "image-tap", "image-order", "numgrid"];
 
 const QUESTION_HINTS: Record<string, string> = {
   word: "Plain text or HTML. e.g. What word means...?",
@@ -16,6 +16,7 @@ const QUESTION_HINTS: Record<string, string> = {
   connections: '{"prompt":"Find the groups:","items":["a","b","c","d"],"groups":[...]}',
   "image-tap": '{"prompt":"Tap the target","image_url":"https://...","target":{"x":0.5,"y":0.5,"radius":0.1}}',
   "image-order": '{"prompt":"Order these images:","images":["url1","url2"]}',
+  numgrid: '{"prompt":"What number is missing?","grid":[1,2,null,4,5,6,7,8,9,10,11,12,13,14,15,16]}',
 };
 
 interface Props { puzzle?: AdminPuzzle }
