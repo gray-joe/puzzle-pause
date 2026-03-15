@@ -5,6 +5,7 @@ import { DndContext, closestCenter, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Puzzle } from "@/lib/api";
+import { parseQuestion } from "./parseQuestion";
 
 interface Props { puzzle: Puzzle; solved: boolean; onSubmit: (g: string) => void; loading: boolean; }
 interface ImageOrderData { prompt: string; images: string[] }
@@ -33,8 +34,8 @@ function SortableImage({ id, src }: { id: string; src: string }) {
 }
 
 export default function ImageOrderPuzzle({ puzzle, solved, onSubmit, loading }: Props) {
-  const data: ImageOrderData = JSON.parse(puzzle.question);
-  const [order, setOrder] = useState(() => data.images.map((_, i) => String(i)));
+  const data = parseQuestion<ImageOrderData>(puzzle.question);
+  const [order, setOrder] = useState(() => data?.images.map((_, i) => String(i)) ?? []);
 
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
@@ -50,6 +51,8 @@ export default function ImageOrderPuzzle({ puzzle, solved, onSubmit, loading }: 
   function handleSubmit() {
     onSubmit(order.join(","));
   }
+
+  if (!data) return <div className="error" data-testid="puzzle-question">Invalid puzzle data.</div>;
 
   return (
     <>

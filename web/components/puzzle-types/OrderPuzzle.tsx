@@ -5,6 +5,7 @@ import { DndContext, closestCenter, DragEndEvent, PointerSensor, TouchSensor, us
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Puzzle } from "@/lib/api";
+import { parseQuestion } from "./parseQuestion";
 
 interface Props { puzzle: Puzzle; solved: boolean; onSubmit: (g: string) => void; loading: boolean; }
 
@@ -47,8 +48,8 @@ function SortableItem({ id, label, isFirst, isLast, onMoveUp, onMoveDown, solved
 }
 
 export default function OrderPuzzle({ puzzle, solved, onSubmit, loading }: Props) {
-  const data: OrderData = JSON.parse(puzzle.question);
-  const [order, setOrder] = useState(() => data.items.map((_, i) => String(i)));
+  const data = parseQuestion<OrderData>(puzzle.question);
+  const [order, setOrder] = useState(() => data?.items.map((_, i) => String(i)) ?? []);
 
   const pointerSensor = useSensor(PointerSensor, { activationConstraint: { distance: 5 } });
   const touchSensor = useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 5 } });
@@ -72,6 +73,8 @@ export default function OrderPuzzle({ puzzle, solved, onSubmit, loading }: Props
   function handleSubmit() {
     onSubmit(order.join(","));
   }
+
+  if (!data) return <div className="error" data-testid="puzzle-question">Invalid puzzle data.</div>;
 
   return (
     <>

@@ -20,6 +20,7 @@ VALID_TYPES = {
     "image-tap",
     "image-order",
     "numgrid",
+    "scrabble",
 }
 
 

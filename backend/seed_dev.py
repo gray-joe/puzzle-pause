@@ -111,9 +111,9 @@ SEED_PUZZLES = [
     },
     {
         "days_ago": 3,
-        "puzzle_type": "word",
+        "puzzle_type": "scrabble",
         "puzzle_name": "Happy Valentine's Day!",
-        "question": "<style>.t{display:inline-block;border:2px solid #4ecca3;border-radius:4px;padding:5px 10px;margin:2px;font-size:1.2em}</style>In Scrabble, what is the highest scoring word achievable with these letters, and what is the score? e.g. more 6<br><br><span class=t>C</span><span class=t>O</span><span class=t>R</span><span class=t>M</span><span class=t>A</span><span class=t>N</span><span class=t>E</span>",
+        "question": '{"prompt":"What is the highest scoring word achievable with these letters, and what is the score? e.g. more 6","board":[],"rack":["C","O","R","M","A","N","E"]}',
         "answer": "romance 11",
         "hint": "Use all 7 letters.",
     },

@@ -2,12 +2,13 @@
 
 import { useState, useRef } from "react";
 import { Puzzle } from "@/lib/api";
+import { parseQuestion } from "./parseQuestion";
 
 interface Props { puzzle: Puzzle; solved: boolean; onSubmit: (g: string) => void; loading: boolean; }
 interface ImageTapData { prompt: string; image_url: string; target?: { x: number; y: number; radius: number } }
 
 export default function ImageTapPuzzle({ puzzle, solved, onSubmit, loading }: Props) {
-  const data: ImageTapData = JSON.parse(puzzle.question);
+  const data = parseQuestion<ImageTapData>(puzzle.question);
   const [tapped, setTapped] = useState<{ x: number; y: number } | null>(null);
   const imgRef = useRef<HTMLImageElement>(null);
 
@@ -23,6 +24,8 @@ export default function ImageTapPuzzle({ puzzle, solved, onSubmit, loading }: Pr
     if (!tapped) return;
     onSubmit(`${tapped.x.toFixed(4)},${tapped.y.toFixed(4)}`);
   }
+
+  if (!data) return <div className="error" data-testid="puzzle-question">Invalid puzzle data.</div>;
 
   return (
     <>

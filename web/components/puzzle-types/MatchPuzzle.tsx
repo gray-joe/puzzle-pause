@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { Puzzle } from "@/lib/api";
+import { parseQuestion } from "./parseQuestion";
 
 interface Props { puzzle: Puzzle; solved: boolean; onSubmit: (g: string) => void; loading: boolean; }
 interface MatchData { prompt: string; left: string[]; right: string[] }
 
 export default function MatchPuzzle({ puzzle, solved, onSubmit, loading }: Props) {
-  const data: MatchData = JSON.parse(puzzle.question);
+  const data = parseQuestion<MatchData>(puzzle.question);
   // mapping[leftIdx] = rightIdx | null
-  const [mapping, setMapping] = useState<(number | null)[]>(() => data.left.map(() => null));
+  const [mapping, setMapping] = useState<(number | null)[]>(() => data?.left.map(() => null) ?? []);
   const [selectedLeft, setSelectedLeft] = useState<number | null>(null);
 
   function selectLeft(i: number) {
@@ -36,6 +37,8 @@ export default function MatchPuzzle({ puzzle, solved, onSubmit, loading }: Props
   }
 
   const allMatched = mapping.every((v) => v !== null);
+
+  if (!data) return <div className="error" data-testid="puzzle-question">Invalid puzzle data.</div>;
 
   return (
     <>

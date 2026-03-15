@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { Puzzle } from "@/lib/api";
+import { parseQuestion } from "./parseQuestion";
 
 interface Props { puzzle: Puzzle; solved: boolean; onSubmit: (g: string) => void; loading: boolean; }
 interface GridData { prompt: string; grid: (number | null)[] }
 
 export default function NumGridPuzzle({ puzzle, solved, onSubmit, loading }: Props) {
-  const data: GridData = JSON.parse(puzzle.question);
+  const data = parseQuestion<GridData>(puzzle.question);
   const [guess, setGuess] = useState("");
 
   function handleSubmit(e: React.FormEvent) {
@@ -16,6 +17,8 @@ export default function NumGridPuzzle({ puzzle, solved, onSubmit, loading }: Pro
     onSubmit(guess.trim());
     setGuess("");
   }
+
+  if (!data) return <div className="error" data-testid="puzzle-question">Invalid puzzle data.</div>;
 
   return (
     <>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Puzzle } from "@/lib/api";
+import { parseQuestion } from "./parseQuestion";
 
 interface Props { puzzle: Puzzle; solved: boolean; onSubmit: (g: string) => void; loading: boolean; hint: string | null; hintsRevealed: number; }
 interface ConnectionsData { prompt: string; items: string[]; categories?: string[] }
@@ -9,8 +10,8 @@ interface ConnectionsData { prompt: string; items: string[]; categories?: string
 const CATEGORY_COLORS = ["var(--teal)", "var(--orange)", "#a29bfe", "#fd79a8"];
 
 export default function ConnectionsPuzzle({ puzzle, solved, onSubmit, loading, hint, hintsRevealed }: Props) {
-  const data: ConnectionsData = JSON.parse(puzzle.question);
-  const allCategories = hint ? hint.split("|") : data.categories ?? [];
+  const data = parseQuestion<ConnectionsData>(puzzle.question);
+  const allCategories = hint ? hint.split("|") : data?.categories ?? [];
   const numGroups = allCategories.length || 3;
   // groups[categoryIdx] = Set of item indices
   const [groups, setGroups] = useState<Set<number>[]>(() => Array.from({ length: numGroups }, () => new Set<number>()));
@@ -39,6 +40,8 @@ export default function ConnectionsPuzzle({ puzzle, solved, onSubmit, loading, h
     const answer = groups.map((g) => Array.from(g).sort((a, b) => a - b).join(",")).join("|");
     onSubmit(answer);
   }
+
+  if (!data) return <div className="error" data-testid="puzzle-question">Invalid puzzle data.</div>;
 
   const allAssigned = data.items.every((_, i) => getItemCategory(i) !== null);
 
