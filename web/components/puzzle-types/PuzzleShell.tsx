@@ -14,6 +14,7 @@ import ImageTapPuzzle from "./ImageTapPuzzle";
 import ImageOrderPuzzle from "./ImageOrderPuzzle";
 import NumGridPuzzle from "./NumGridPuzzle";
 import ScrabblePuzzle from "./ScrabblePuzzle";
+import WordWheelPuzzle from "./WordWheelPuzzle";
 import ResultPanel from "./ResultPanel";
 
 interface Props {
@@ -171,6 +172,7 @@ function PuzzleTypeRenderer(props: {
     case "image-order": return <ImageOrderPuzzle {...props} />;
     case "numgrid": return <NumGridPuzzle {...props} />;
     case "scrabble": return <ScrabblePuzzle {...props} />;
+    case "word-wheel": return <WordWheelPuzzle {...props} />;
     default: return <WordPuzzle {...props} />;
   }
 }

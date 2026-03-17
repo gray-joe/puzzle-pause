@@ -149,6 +149,14 @@ SEED_PUZZLES = [
         "answer": "42",
         "hint": "The answer to everything",
     },
+    {
+        "days_ago": 15,
+        "puzzle_type": "word-wheel",
+        "puzzle_name": "Spin to Win",
+        "question": '{"prompt":"Find the 8-letter word hidden in each wheel. Letters can be read clockwise or anticlockwise.","wheels":[{"letters":["S","T",null,"R","L","I",null,"G"]},{"letters":[null,"L","I","M",null,"I","N","G"]}]}',
+        "answer": "starling climbing",
+        "hint": "Both words are activities or things you might do outdoors.",
+    },
 ]
 
 SEED_USERS = [

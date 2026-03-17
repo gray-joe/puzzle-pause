@@ -21,6 +21,7 @@ VALID_TYPES = {
     "image-order",
     "numgrid",
     "scrabble",
+    "word-wheel",
 }
 
 
