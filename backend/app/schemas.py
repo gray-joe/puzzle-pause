@@ -151,6 +151,16 @@ class UpdateAccountRequest(BaseModel):
     display_name: str = Field(max_length=40)
 
 
+# Admin attempt
+class UpdateAttemptRequest(BaseModel):
+    solved: bool | None = None
+    score: int | None = None
+    incorrect_guesses: int | None = None
+    hint_used: bool | None = None
+    opened_at: datetime | None = None
+    completed_at: datetime | None = None
+
+
 # Admin puzzle
 class CreatePuzzleRequest(BaseModel):
     puzzle_date: str = Field(max_length=10)

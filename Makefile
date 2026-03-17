@@ -33,10 +33,13 @@ web-run:
 web-build:
 	cd web && npm run build
 
+web-test:
+	cd web && npm run test:e2e -- $(ARGS)
+
 v2-install: backend-install web-install
 
 v2-test: backend-test
 
 .PHONY: all clean run run-prod seed deps test test-db test-auth test-puzzle test-league test-admin \
         backend-install backend-run backend-run-prod backend-test verify-db seed-dev \
-        web-install web-run web-build v2-install v2-test
+        web-install web-run web-build web-test v2-install v2-test

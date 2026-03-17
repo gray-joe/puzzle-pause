@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { requireUser, getCookieHeader } from "@/lib/auth";
 import PageShell from "@/components/ui/PageShell";
@@ -32,6 +33,7 @@ export default async function AdminAttemptsPage() {
               <th>Score</th>
               <th>Wrong</th>
               <th>Hint</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -50,6 +52,7 @@ export default async function AdminAttemptsPage() {
                 <td>{a.score ?? <span className="muted">—</span>}</td>
                 <td className="muted">{a.incorrect_guesses}</td>
                 <td>{a.hint_used ? <span className="muted">yes</span> : "no"}</td>
+                <td><Link href={`/admin/attempts/${a.id}`} className="back-link"><span className="gt">&gt;</span>edit</Link></td>
               </tr>
             ))}
           </tbody>

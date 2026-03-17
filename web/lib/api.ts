@@ -277,6 +277,15 @@ export const api = {
     listAttempts: (cookieHeader?: string) =>
       apiFetch<AdminAttempt[]>("/api/admin/attempts", {}, cookieHeader),
 
+    getAttempt: (id: number, cookieHeader?: string) =>
+      apiFetch<AdminAttempt>(`/api/admin/attempts/${id}`, {}, cookieHeader),
+
+    updateAttempt: (id: number, data: Partial<Pick<AdminAttempt, "solved" | "score" | "incorrect_guesses" | "hint_used" | "opened_at" | "completed_at">>) =>
+      apiFetch<AdminAttempt>(`/api/admin/attempts/${id}`, {
+        method: "PUT",
+        body: JSON.stringify(data),
+      }),
+
     listUsers: (cookieHeader?: string) =>
       apiFetch<AdminUser[]>("/api/admin/users", {}, cookieHeader),
   },

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from ..auth import require_admin
 from ..database import get_db
 from ..models import Attempt, Puzzle, User
-from ..schemas import CreatePuzzleRequest, PuzzleAdminResponse, UpdatePuzzleRequest
+from ..schemas import CreatePuzzleRequest, PuzzleAdminResponse, UpdateAttemptRequest, UpdatePuzzleRequest
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -65,6 +65,88 @@ def list_attempts(admin=Depends(require_admin), db: Session = Depends(get_db)):
         }
         for attempt, user, puzzle in rows
     ]
+
+
+@router.get("/attempts/{attempt_id}")
+def get_attempt(attempt_id: int, admin=Depends(require_admin), db: Session = Depends(get_db)):
+    row = (
+        db.query(Attempt, User, Puzzle)
+        .join(User, Attempt.user_id == User.id)
+        .join(Puzzle, Attempt.puzzle_id == Puzzle.id)
+        .filter(Attempt.id == attempt_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+    attempt, user, puzzle = row
+    return {
+        "id": attempt.id,
+        "user_id": user.id,
+        "user_email": user.email,
+        "user_display_name": user.display_name,
+        "puzzle_id": puzzle.id,
+        "puzzle_date": puzzle.puzzle_date,
+        "puzzle_name": puzzle.puzzle_name,
+        "puzzle_type": puzzle.puzzle_type,
+        "opened_at": attempt.opened_at,
+        "completed_at": attempt.completed_at,
+        "solved": bool(attempt.solved),
+        "score": attempt.score,
+        "incorrect_guesses": attempt.incorrect_guesses,
+        "hint_used": bool(attempt.hint_used),
+    }
+
+
+@router.put("/attempts/{attempt_id}")
+def update_attempt(
+    attempt_id: int,
+    body: UpdateAttemptRequest,
+    admin=Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    row = (
+        db.query(Attempt, User, Puzzle)
+        .join(User, Attempt.user_id == User.id)
+        .join(Puzzle, Attempt.puzzle_id == Puzzle.id)
+        .filter(Attempt.id == attempt_id)
+        .first()
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Attempt not found")
+    attempt, user, puzzle = row
+
+    fields = body.model_fields_set
+    if "solved" in fields and body.solved is not None:
+        attempt.solved = int(body.solved)
+    if "score" in fields:
+        attempt.score = body.score
+    if "incorrect_guesses" in fields and body.incorrect_guesses is not None:
+        attempt.incorrect_guesses = body.incorrect_guesses
+    if "hint_used" in fields and body.hint_used is not None:
+        attempt.hint_used = int(body.hint_used)
+    if "opened_at" in fields:
+        attempt.opened_at = body.opened_at
+    if "completed_at" in fields:
+        attempt.completed_at = body.completed_at
+
+    db.commit()
+    db.refresh(attempt)
+    return {
+        "id": attempt.id,
+        "user_id": user.id,
+        "user_email": user.email,
+        "user_display_name": user.display_name,
+        "puzzle_id": puzzle.id,
+        "puzzle_date": puzzle.puzzle_date,
+        "puzzle_name": puzzle.puzzle_name,
+        "puzzle_type": puzzle.puzzle_type,
+        "opened_at": attempt.opened_at,
+        "completed_at": attempt.completed_at,
+        "solved": bool(attempt.solved),
+        "score": attempt.score,
+        "incorrect_guesses": attempt.incorrect_guesses,
+        "hint_used": bool(attempt.hint_used),
+    }
 
 
 @router.get("/users")
