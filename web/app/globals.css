@@ -114,7 +114,7 @@ td .gt { color: var(--teal); }
 }
 
 /* Content meta */
-.content-meta { color: var(--muted); margin-bottom: 15px; }
+.content-meta { color: #ffffff; font-size: 1.1em; margin-bottom: 15px; }
 
 /* Back link */
 .back-link { margin-bottom: 15px; display: block; }
