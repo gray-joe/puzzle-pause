@@ -42,7 +42,7 @@ export default function MatchPuzzle({ puzzle, solved, onSubmit, loading }: Props
 
   return (
     <>
-      <div className="content-meta" data-testid="puzzle-question">{data.prompt}</div>
+      <div className="puzzle-prompt" data-testid="puzzle-question">{data.prompt}</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, margin: "16px 0" }}>
         <div>
           {data.left.map((item, i) => (

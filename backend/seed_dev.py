@@ -113,8 +113,8 @@ SEED_PUZZLES = [
         "days_ago": 3,
         "puzzle_type": "scrabble",
         "puzzle_name": "Happy Valentine's Day!",
-        "question": '{"prompt":"What is the highest scoring word achievable with these letters, and what is the score? e.g. more 6","board":[],"rack":["C","O","R","M","A","N","E"]}',
-        "answer": "romance 11",
+        "question": '{"prompt":"What is the highest scoring word achievable with these letters, and what is the score? e.g. more 6","board":[null,null,null,null,null,null,null],"modifiers":[null,null,"tl",null,null,"dw",null],"rack":["C","O","R","M","A","N","E"]}',
+        "answer": "romance 34",
         "hint": "Use all 7 letters.",
     },
     {
@@ -134,6 +134,14 @@ SEED_PUZZLES = [
         "hint": "White to move and win.",
     },
     {
+        "days_ago": 0,
+        "puzzle_type": "math",
+        "puzzle_name": "Quick Maths",
+        "question": "1+1=?",
+        "answer": "2",
+        "hint": "Count on your fingers",
+    },
+    {
         "days_ago": -4,
         "puzzle_type": "order",
         "puzzle_name": "Solar System",
@@ -148,6 +156,14 @@ SEED_PUZZLES = [
         "question": "This puzzle is in the future",
         "answer": "42",
         "hint": "The answer to everything",
+    },
+    {
+        "days_ago": 9,
+        "puzzle_type": "wordsearch",
+        "puzzle_name": "Hidden Words",
+        "question": "A B C D E\nF G H I J\nE A R T H\nK L M N O\nP Q R S T\nFind: EARTH",
+        "answer": "EARTH",
+        "hint": "The third planet from the Sun",
     },
     {
         "days_ago": 15,

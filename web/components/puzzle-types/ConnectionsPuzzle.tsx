@@ -47,7 +47,7 @@ export default function ConnectionsPuzzle({ puzzle, solved, onSubmit, loading, h
 
   return (
     <>
-      <div className="content-meta" data-testid="puzzle-question">{data.prompt}</div>
+      <div className="puzzle-prompt" data-testid="puzzle-question">{data.prompt}</div>
 
       {/* Category selector */}
       <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>

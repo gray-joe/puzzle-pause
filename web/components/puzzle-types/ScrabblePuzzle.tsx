@@ -55,7 +55,7 @@ export default function ScrabblePuzzle({ puzzle, solved, onSubmit, loading }: Pr
 
   return (
     <>
-      <div className="content-meta" data-testid="puzzle-question">{data.prompt}</div>
+      <div className="puzzle-prompt" data-testid="puzzle-question">{data.prompt}</div>
 
       {/* Board row */}
       <div style={{ margin: "16px 0 8px", display: "flex", flexWrap: "wrap" }}>

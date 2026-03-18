@@ -96,7 +96,7 @@ export default function WordWheelPuzzle({ puzzle, solved, onSubmit, loading }: P
 
   return (
     <>
-      <div className="content-meta" data-testid="puzzle-question">{data.prompt}</div>
+      <div className="puzzle-prompt" data-testid="puzzle-question">{data.prompt}</div>
 
       <div style={{ display: "flex", gap: 24, justifyContent: "center", flexWrap: "wrap", marginBottom: 20 }}>
         {data.wheels.map((wheel, wi) => (

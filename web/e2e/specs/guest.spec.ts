@@ -22,7 +22,7 @@ test("Puzzle page loads correctly for guest user", async ({ page }) => {
   await expect(puzzle.shell).toBeVisible();
 
   await expect(page.locator("body")).toContainText(
-    "Solve within 10 mins for up to 100 pts!",
+    "Solve within 10 mins for 100 pts",
   );
 
   await puzzle.expectQuestion("1+1=?");
@@ -59,12 +59,12 @@ test("Guests can complete daily puzzle", async ({ page }) => {
 
   // Scoring explanation should be hidden on result view
   await expect(page.locator("body")).not.toContainText(
-    "Solve within 10 mins",
+    "Solve within 10 mins for 100 pts",
   );
 
   await result.mockClipboard();
   const shareText = await result.shareAndGetText();
-  expect(shareText).toContain("I solved Quick Maths on Puzzle Pause!");
+  expect(shareText).toContain("I solved Quick Maths on Puzzle Pause");
   expect(shareText).toContain("puzzlepause.app");
 });
 

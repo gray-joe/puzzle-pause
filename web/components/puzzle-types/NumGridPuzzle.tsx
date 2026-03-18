@@ -22,7 +22,7 @@ export default function NumGridPuzzle({ puzzle, solved, onSubmit, loading }: Pro
 
   return (
     <>
-      <div className="content-meta" data-testid="puzzle-question">{data.prompt}</div>
+      <div className="puzzle-prompt" data-testid="puzzle-question">{data.prompt}</div>
 
       <div style={{
         display: "grid",
