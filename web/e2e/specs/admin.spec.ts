@@ -1,6 +1,5 @@
 import { test, expect } from "@playwright/test";
 import { loginAs } from "../helpers/db";
-import { NavPage } from "../pages/NavPage";
 import { PuzzlePage } from "../pages/PuzzlePage";
 
 const ADMIN_EMAIL = "admin@example.com";
@@ -9,8 +8,7 @@ test.describe("Admin dashboard", () => {
   test.describe.configure({ mode: "serial" });
   test("Non-admin user is redirected away from /admin", async ({ page }) => {
     await loginAs(page, "nonadmin@example.com");
-    const res = await page.goto("/admin");
-    // Should not see admin dashboard content
+    await page.goto("/admin");
     await expect(page.locator("text=Admin — Dashboard")).not.toBeVisible();
   });
 
@@ -25,7 +23,7 @@ test.describe("Admin dashboard", () => {
   test("Unauthenticated user is redirected away from /admin", async ({
     page,
   }) => {
-    const res = await page.goto("/admin");
+    await page.goto("/admin");
     await expect(page.locator("text=Admin — Dashboard")).not.toBeVisible();
   });
 
@@ -36,12 +34,10 @@ test.describe("Admin dashboard", () => {
     await expect(page.locator("text=Admin — Dashboard")).toBeVisible();
     await expect(page.getByTestId("title")).toContainText("Admin");
 
-    // Stats table should show 3 metrics
     await expect(page.locator("td:text-is('Puzzles')")).toBeVisible();
     await expect(page.locator("td:text-is('Players')")).toBeVisible();
     await expect(page.locator("td:text-is('Attempts')")).toBeVisible();
 
-    // Counts should be non-zero numbers
     const rows = page.locator("tbody tr");
     await expect(rows).toHaveCount(3);
     for (let i = 0; i < 3; i++) {
@@ -57,9 +53,7 @@ test.describe("Admin dashboard", () => {
     await loginAs(page, ADMIN_EMAIL);
     await page.goto("/admin");
 
-    await expect(
-      page.getByTestId("admin-dashboard-nav-link"),
-    ).toBeVisible();
+    await expect(page.getByTestId("admin-dashboard-nav-link")).toBeVisible();
     await expect(page.getByTestId("admin-puzzles-nav-link")).toBeVisible();
   });
 
@@ -67,12 +61,10 @@ test.describe("Admin dashboard", () => {
     await loginAs(page, ADMIN_EMAIL);
     await page.goto("/admin");
 
-    // Click Puzzles link
     await page.getByTestId("admin-puzzles-nav-link").click();
     await expect(page).toHaveURL(/\/admin\/puzzles/);
     await expect(page.locator("text=Admin — Puzzles")).toBeVisible();
 
-    // Click Dashboard link
     await page.getByTestId("admin-dashboard-nav-link").click();
     await expect(page).toHaveURL(/\/admin$/);
     await expect(page.locator("text=Admin — Dashboard")).toBeVisible();
@@ -86,9 +78,7 @@ test.describe("Admin dashboard", () => {
     await expect(
       page.getByTestId("admin-dashboard-nav-link"),
     ).not.toBeVisible();
-    await expect(
-      page.getByTestId("admin-puzzles-nav-link"),
-    ).not.toBeVisible();
+    await expect(page.getByTestId("admin-puzzles-nav-link")).not.toBeVisible();
   });
 
   test("Admin pages only show admin nav links, not normal links", async ({
@@ -97,11 +87,9 @@ test.describe("Admin dashboard", () => {
     await loginAs(page, ADMIN_EMAIL);
     await page.goto("/admin");
 
-    // Admin links visible
     await expect(page.getByTestId("admin-dashboard-nav-link")).toBeVisible();
     await expect(page.getByTestId("admin-puzzles-nav-link")).toBeVisible();
 
-    // Normal links hidden
     await expect(page.getByTestId("puzzle-nav-link")).not.toBeVisible();
     await expect(page.getByTestId("puzzle-nav-link-active")).not.toBeVisible();
     await expect(page.getByTestId("archive-nav-link")).not.toBeVisible();
@@ -120,7 +108,10 @@ test.describe("Admin puzzle preview", () => {
     const firstRow = page.locator("tbody tr").first();
     const previewLink = firstRow.locator("a", { hasText: "preview" });
     await expect(previewLink).toBeVisible();
-    await expect(previewLink).toHaveAttribute("href", /\/admin\/puzzles\/\d+\/preview/);
+    await expect(previewLink).toHaveAttribute(
+      "href",
+      /\/admin\/puzzles\/\d+\/preview/,
+    );
   });
 
   test("Preview link navigates from puzzle list", async ({ page }) => {
@@ -135,11 +126,12 @@ test.describe("Admin puzzle preview", () => {
     await expect(page.getByTestId("puzzle-shell")).toBeVisible();
   });
 
-  test("Preview page renders puzzle with question and answer", async ({ page }) => {
+  test("Preview page renders puzzle with question and answer", async ({
+    page,
+  }) => {
     await loginAs(page, ADMIN_EMAIL);
     await page.goto("/admin/puzzles");
 
-    // Click preview on first puzzle
     const firstRow = page.locator("tbody tr").first();
     await firstRow.locator("a", { hasText: "preview" }).click();
 
@@ -147,7 +139,6 @@ test.describe("Admin puzzle preview", () => {
     await expect(puzzle.shell).toBeVisible();
     await expect(puzzle.question).toBeVisible();
 
-    // Answer should be visible below the puzzle (admin preview feature)
     await expect(page.locator("text=Answer:")).toBeVisible();
   });
 
@@ -156,14 +147,15 @@ test.describe("Admin puzzle preview", () => {
     await page.goto("/admin/puzzles");
 
     const firstRow = page.locator("tbody tr").first();
-    const previewHref = await firstRow.locator("a", { hasText: "preview" }).getAttribute("href");
+    const previewHref = await firstRow
+      .locator("a", { hasText: "preview" })
+      .getAttribute("href");
     await page.goto(previewHref!);
 
     const backLink = page.locator("a", { hasText: "Back to edit" });
     await expect(backLink).toBeVisible();
 
     await backLink.click();
-    // Should navigate to the edit page (without /preview)
     await expect(page).toHaveURL(/\/admin\/puzzles\/\d+$/);
   });
 
@@ -171,14 +163,16 @@ test.describe("Admin puzzle preview", () => {
     await loginAs(page, ADMIN_EMAIL);
     await page.goto("/admin/puzzles");
 
-    // Navigate to edit page of first puzzle
     const firstRow = page.locator("tbody tr").first();
     await firstRow.locator("a", { hasText: "edit" }).click();
     await expect(page).toHaveURL(/\/admin\/puzzles\/\d+$/);
 
     const previewLink = page.locator("a", { hasText: "Preview" });
     await expect(previewLink).toBeVisible();
-    await expect(previewLink).toHaveAttribute("href", /\/admin\/puzzles\/\d+\/preview/);
+    await expect(previewLink).toHaveAttribute(
+      "href",
+      /\/admin\/puzzles\/\d+\/preview/,
+    );
   });
 
   test("New puzzle page does not have preview link", async ({ page }) => {
@@ -189,7 +183,9 @@ test.describe("Admin puzzle preview", () => {
     await expect(previewLink).not.toBeVisible();
   });
 
-  test("Submitting a guess in preview always shows wrong feedback", async ({ page }) => {
+  test("Submitting a guess in preview always shows wrong feedback", async ({
+    page,
+  }) => {
     await loginAs(page, ADMIN_EMAIL);
     await page.goto("/admin/puzzles");
 
@@ -199,7 +195,6 @@ test.describe("Admin puzzle preview", () => {
     const puzzle = new PuzzlePage(page);
     await expect(puzzle.shell).toBeVisible();
 
-    // Only try submitting if there's an answer input (some puzzle types differ)
     if (await puzzle.answerInput.isVisible()) {
       await puzzle.submitAnswer("anything");
       await puzzle.expectFeedback("Wrong");
@@ -222,12 +217,12 @@ test.describe("Admin puzzle CRUD", () => {
 
     await page.locator("input[type=date]").fill("2099-12-31");
     await page.locator("select").selectOption("math");
-    await page.locator("input[placeholder='Puzzle display name']").fill("E2E Test Puzzle");
+    await page
+      .locator("input[placeholder='Puzzle display name']")
+      .fill("E2E Test Puzzle");
     await page.locator("textarea").fill("What is 1+1?");
     await page.locator("input[type=text]").last().fill(""); // clear hint
-    // Fill answer field (second text input)
     const answerInput = page.locator("input[type=text]").first();
-    // Name is first text input, answer is second
     await page.locator("input[required][type=text]").fill("2");
     await page.locator("button[type=submit]").click();
 
@@ -240,12 +235,10 @@ test.describe("Admin puzzle CRUD", () => {
     await loginAs(page, ADMIN_EMAIL);
     await page.goto("/admin/puzzles");
 
-    // Find the row with our created puzzle and click edit
     const row = page.locator("tbody tr", { hasText: "E2E Test Puzzle" });
     await row.locator("a", { hasText: "edit" }).click();
     await expect(page).toHaveURL(/\/admin\/puzzles\/\d+$/);
 
-    // Change the name
     const nameInput = page.locator("input[placeholder='Puzzle display name']");
     await nameInput.clear();
     await nameInput.fill("E2E Updated Puzzle");

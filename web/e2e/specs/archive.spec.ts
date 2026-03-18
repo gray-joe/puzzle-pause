@@ -25,11 +25,9 @@ test("Users can see previous puzzle results in the archive", async ({
   await loginAs(page, "bob@example.com");
   await archive.goto();
 
-  // Bob has solved puzzles at days_ago 14-10, 6, 5 → IDs 1, 2, 3, 4, 5, 8, 9
   for (const id of [1, 2, 3, 4, 5, 8, 9]) {
     await archive.expectSolved(id);
   }
-  // Puzzles at days_ago 8, 7, 4, 3 → IDs 6, 7, 10, 11 are unsolved
   for (const id of [6, 7, 10, 11]) {
     await archive.expectUnsolved(id);
   }
@@ -63,7 +61,6 @@ test("Users can see solve a previously unsolved puzzle, but does not recieve poi
 test("User can reveal a hint on archive puzzle", async ({ page }) => {
   const puzzle = new PuzzlePage(page);
 
-  // charlie has not solved puzzle 11 ("Happy Valentine's Day!"), which has hint "Use all 7 letters."
   await loginAs(page, "charlie@example.com");
   await page.goto("/archive/11");
 
@@ -91,15 +88,12 @@ test("Users can see previous puzzles result and their points for that puzzle", a
   await expect(result.panel).toContainText("Final score: 100 pts");
   await expect(result.panel).toContainText("Wrong guesses: 0 pts");
 
-  // Congratulations message with answer should be visible
   await result.expectAnswer("45");
 
-  // Archive explanation should still be visible on result view
   await expect(page.locator("body")).toContainText(
     "Archived puzzles are for practice only",
   );
 
-  // Multi-answer puzzle should list all accepted answers
   await page.goto("/archive/4");
 
   await result.expectVisible();

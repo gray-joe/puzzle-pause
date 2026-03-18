@@ -3,13 +3,11 @@ import { PuzzlePage } from "../pages/PuzzlePage";
 import { ResultPage } from "../pages/ResultPage";
 import { loginAs } from "../helpers/db";
 
-// Wordsearch puzzle is archive ID 17 (days_ago=9, "Hidden Words") — uses charlie@example.com
-// Grid has "EARTH" hidden in row 3; Find: EARTH
-// Answer: "EARTH"
-
 test.describe.configure({ mode: "serial" });
 
-test("wordsearch puzzle renders grid, find line, and answer input", async ({ page }) => {
+test("wordsearch puzzle renders grid, find line, and answer input", async ({
+  page,
+}) => {
   const puzzle = new PuzzlePage(page);
 
   await loginAs(page, "charlie@example.com");
@@ -17,14 +15,17 @@ test("wordsearch puzzle renders grid, find line, and answer input", async ({ pag
 
   await expect(puzzle.shell).toBeVisible();
 
-  // Grid letters are visible
   await expect(page.getByTestId("puzzle-question")).toContainText("E A R T H");
 
-  // "Find:" line is highlighted separately
-  await expect(page.getByTestId("puzzle-question")).toContainText("Find: EARTH");
+  await expect(page.getByTestId("puzzle-question")).toContainText(
+    "Find: EARTH",
+  );
 
   await expect(puzzle.answerInput).toBeVisible();
-  await expect(puzzle.answerInput).toHaveAttribute("placeholder", "Found word...");
+  await expect(puzzle.answerInput).toHaveAttribute(
+    "placeholder",
+    "Found word...",
+  );
   await expect(puzzle.submitBtn).toBeVisible();
 });
 

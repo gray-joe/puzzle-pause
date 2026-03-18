@@ -8,7 +8,6 @@ test.describe("Authenticated puzzle solving", () => {
     const puzzle = new PuzzlePage(page);
     const result = new ResultPage(page);
 
-    // admin@example.com has no daily attempts in seed data
     await loginAs(page, "admin@example.com");
     await page.goto("/puzzle");
 

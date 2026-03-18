@@ -57,7 +57,6 @@ test("Guests can complete daily puzzle", async ({ page }) => {
   await expect(result.score).not.toHaveText("0");
   await result.expectGuestCTAs();
 
-  // Scoring explanation should be hidden on result view
   await expect(page.locator("body")).not.toContainText(
     "Solve within 10 mins for 100 pts",
   );
@@ -101,7 +100,6 @@ test("Guests can view and complete archived puzzles", async ({ page }) => {
   await expect(result.score).toHaveText("0");
   await result.expectGuestCTAs();
 
-  // Archive explanation should still be visible on result view
   await expect(page.locator("body")).toContainText(
     "Archived puzzles are for practice only",
   );
@@ -119,6 +117,3 @@ test("Guest can reveal a hint on daily puzzle", async ({ page }) => {
   await expect(puzzle.hint).toContainText("Count on your fingers");
   await expect(puzzle.hintBtn).not.toBeVisible();
 });
-
-// ToDo: Puzzle result is persisted
-// test("Guests can login after completing a puzzle", async ({ page }) => {});
