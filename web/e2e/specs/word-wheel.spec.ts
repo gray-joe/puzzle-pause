@@ -9,7 +9,7 @@ test("word wheel puzzle renders with both wheels and inputs", async ({
   page,
 }) => {
   await loginAs(page, "alice@example.com");
-  await page.goto("/archive/18");
+  await page.goto("/archive/19");
 
   await expect(page.getByTestId("puzzle-shell")).toBeVisible();
   await expect(page.getByTestId("puzzle-question")).toContainText(
@@ -30,7 +30,7 @@ test("submitting a wrong answer shows feedback", async ({ page }) => {
   const puzzle = new PuzzlePage(page);
 
   await loginAs(page, "alice@example.com");
-  await page.goto("/archive/18");
+  await page.goto("/archive/19");
 
   await page.getByTestId("word-input-0").fill("STARTING");
   await page.getByTestId("word-input-1").fill("CLIMBING");
@@ -44,7 +44,7 @@ test("hint can be revealed", async ({ page }) => {
   const puzzle = new PuzzlePage(page);
 
   await loginAs(page, "alice@example.com");
-  await page.goto("/archive/18");
+  await page.goto("/archive/19");
 
   await expect(puzzle.hintBtn).toBeVisible();
   await puzzle.revealHint();
@@ -58,7 +58,7 @@ test("submit button is disabled until both inputs are filled", async ({
   page,
 }) => {
   await loginAs(page, "alice@example.com");
-  await page.goto("/archive/18");
+  await page.goto("/archive/19");
 
   await expect(page.getByTestId("submit-btn")).toBeDisabled();
 
@@ -74,7 +74,7 @@ test("submit button is disabled until both inputs are filled", async ({
 
 test("inputs auto-uppercase typed text", async ({ page }) => {
   await loginAs(page, "alice@example.com");
-  await page.goto("/archive/18");
+  await page.goto("/archive/19");
 
   await page.getByTestId("word-input-0").fill("starling");
   await page.getByTestId("word-input-1").fill("climbing");
@@ -89,7 +89,7 @@ test("pressing Enter on the last input submits the answer", async ({
   const puzzle = new PuzzlePage(page);
 
   await loginAs(page, "alice@example.com");
-  await page.goto("/archive/18");
+  await page.goto("/archive/19");
 
   await page.getByTestId("word-input-0").fill("STARTING");
   await page.getByTestId("word-input-1").fill("CLIMBING");
@@ -102,7 +102,7 @@ test("submitting the correct answer solves the puzzle", async ({ page }) => {
   const result = new ResultPage(page);
 
   await loginAs(page, "alice@example.com");
-  await page.goto("/archive/18");
+  await page.goto("/archive/19");
 
   await page.getByTestId("word-input-0").fill("STARLING");
   await page.getByTestId("word-input-1").fill("CLIMBING");

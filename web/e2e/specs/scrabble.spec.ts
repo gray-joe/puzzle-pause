@@ -10,7 +10,7 @@ test("scrabble puzzle renders with rack tiles, board slots, and modifier legend"
 }) => {
   const puzzle = new PuzzlePage(page);
 
-  await loginAs(page, "alice@example.com");
+  await loginAs(page, "scrabble-user@example.com");
   await page.goto("/archive/11");
 
   await expect(puzzle.shell).toBeVisible();
@@ -34,7 +34,7 @@ test("scrabble puzzle renders with rack tiles, board slots, and modifier legend"
 test("submitting a wrong answer shows feedback", async ({ page }) => {
   const puzzle = new PuzzlePage(page);
 
-  await loginAs(page, "alice@example.com");
+  await loginAs(page, "scrabble-user@example.com");
   await page.goto("/archive/11");
 
   await puzzle.submitAnswer("corman 8");
@@ -46,7 +46,7 @@ test("submitting a wrong answer shows feedback", async ({ page }) => {
 test("hint can be revealed", async ({ page }) => {
   const puzzle = new PuzzlePage(page);
 
-  await loginAs(page, "alice@example.com");
+  await loginAs(page, "scrabble-user@example.com");
   await page.goto("/archive/11");
 
   await expect(puzzle.hintBtn).toBeVisible();
@@ -62,7 +62,7 @@ test("submitting the correct answer with modifier bonuses solves the puzzle", as
 }) => {
   const result = new ResultPage(page);
 
-  await loginAs(page, "alice@example.com");
+  await loginAs(page, "scrabble-user@example.com");
   await page.goto("/archive/11");
 
   await page.getByTestId("answer-input").fill("romance 34");
