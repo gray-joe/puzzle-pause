@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, AdminPuzzle } from "@/lib/api";
 
-const PUZZLE_TYPES = ["word", "math", "ladder", "choice", "wordsearch", "order", "match", "connections", "image-tap", "image-order", "numgrid", "scrabble", "word-wheel"];
+const PUZZLE_TYPES = ["word", "math", "ladder", "choice", "wordsearch", "order", "match", "connections", "image-tap", "image-order", "image-word", "numgrid", "scrabble", "word-wheel"];
 
 const QUESTION_HINTS: Record<string, string> = {
   word: "Plain text or HTML. e.g. What word means...?",
@@ -16,6 +16,7 @@ const QUESTION_HINTS: Record<string, string> = {
   connections: '{"prompt":"Find the groups:","items":["a","b","c","d"],"groups":[...]}',
   "image-tap": '{"prompt":"Tap the target","image_url":"https://...","target":{"x":0.5,"y":0.5,"radius":0.1}}',
   "image-order": '{"prompt":"Order these images:","images":["url1","url2"]}',
+  "image-word": '{"prompt":"What is shown in this image?","image_url":"https://..."}',
   numgrid: '{"prompt":"What number is missing?","grid":[1,2,null,4,5,6,7,8,9,10,11,12,13,14,15,16]}',
   scrabble: '{"prompt":"What is the highest score possible? e.g. mask 10","board":[null,null,null,"M",null,null,null,null],"modifiers":[null,null,null,"dw",null,null,null,null],"rack":["C","O","R","H","A","S","K"]}',
   "word-wheel": '{"prompt":"Find the 8-letter word in each wheel","wheels":[{"letters":["S","T",null,"R","L","I",null,"G"]},{"letters":[null,"L","I","M",null,"I","N","G"]}]}',
