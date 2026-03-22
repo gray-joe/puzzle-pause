@@ -12,6 +12,7 @@ import MatchPuzzle from "./MatchPuzzle";
 import ConnectionsPuzzle from "./ConnectionsPuzzle";
 import ImageTapPuzzle from "./ImageTapPuzzle";
 import ImageOrderPuzzle from "./ImageOrderPuzzle";
+import ImageWordPuzzle from "./ImageWordPuzzle";
 import NumGridPuzzle from "./NumGridPuzzle";
 import ScrabblePuzzle from "./ScrabblePuzzle";
 import WordWheelPuzzle from "./WordWheelPuzzle";
@@ -102,7 +103,7 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
   if (solved && attempt) {
     return (
       <div data-testid="puzzle-shell">
-        <div className="content-meta" data-testid="puzzle-date">{puzzle.puzzle_date}</div>
+        <div className="content-meta" data-testid="puzzle-date">{puzzle.puzzle_date}{isArchive && <span data-testid={`puzzle-type-${puzzle.puzzle_type}`} style={{ display: "none" }}>{puzzle.puzzle_type}</span>}</div>
         {isArchive && (
           <div className="content-meta muted-dark">
             Archived puzzles are for practice only. No points awarded.
@@ -122,7 +123,7 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
 
   return (
     <div data-testid="puzzle-shell">
-      <div className="content-meta" data-testid="puzzle-date">{puzzle.puzzle_date}</div>
+      <div className="content-meta" data-testid="puzzle-date">{puzzle.puzzle_date}{isArchive && <span data-testid={`puzzle-type-${puzzle.puzzle_type}`} style={{ display: "none" }}>{puzzle.puzzle_type}</span>}</div>
       <div className="content-meta muted-dark" data-testid="puzzle-instructions">
         {isArchive
           ? "Archived puzzles are for practice only. No points awarded."
@@ -170,6 +171,7 @@ function PuzzleTypeRenderer(props: {
     case "connections": return <ConnectionsPuzzle {...props} />;
     case "image-tap": return <ImageTapPuzzle {...props} />;
     case "image-order": return <ImageOrderPuzzle {...props} />;
+    case "image-word": return <ImageWordPuzzle {...props} />;
     case "numgrid": return <NumGridPuzzle {...props} />;
     case "scrabble": return <ScrabblePuzzle {...props} />;
     case "word-wheel": return <WordWheelPuzzle {...props} />;
