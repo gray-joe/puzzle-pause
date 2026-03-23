@@ -16,6 +16,7 @@ import ImageWordPuzzle from "./ImageWordPuzzle";
 import NumGridPuzzle from "./NumGridPuzzle";
 import ScrabblePuzzle from "./ScrabblePuzzle";
 import WordWheelPuzzle from "./WordWheelPuzzle";
+import CountdownPuzzle from "./CountdownPuzzle";
 import ResultPanel from "./ResultPanel";
 
 interface Props {
@@ -94,11 +95,13 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
 
   const isConnections = puzzle.puzzle_type === "connections";
   const numHintCategories = hint ? hint.split("|").length : 3;
-  const showHintBtn = isConnections
-    ? !solved && hintsRevealed < numHintCategories
-    : puzzle.has_hint && !hintUsed;
+  const showHintBtn = puzzle.puzzle_type === "countdown"
+    ? false
+    : isConnections
+      ? !solved && hintsRevealed < numHintCategories
+      : puzzle.has_hint && !hintUsed;
 
-  const puzzleProps = { puzzle, solved, onSubmit: submitGuess, loading, hint, hintsRevealed };
+  const puzzleProps = { puzzle, solved, onSubmit: submitGuess, onHint: revealHint, loading, hint, hintsRevealed };
 
   if (solved && attempt) {
     return (
@@ -138,7 +141,7 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
             <span className="gt">&gt;</span>Reveal hint{!isArchive && <span className="muted"> (-10 pts)</span>}
           </button>
         )}
-        {hint && !isConnections && (
+        {hint && !isConnections && puzzle.puzzle_type !== "countdown" && (
           <div className="content-meta" style={{ marginTop: 8 }} data-testid="hint">
             Hint: {hint}
           </div>
@@ -157,6 +160,7 @@ function PuzzleTypeRenderer(props: {
   puzzle: Puzzle;
   solved: boolean;
   onSubmit: (guess: string) => void;
+  onHint: () => void;
   loading: boolean;
   hint: string | null;
   hintsRevealed: number;
@@ -175,6 +179,7 @@ function PuzzleTypeRenderer(props: {
     case "numgrid": return <NumGridPuzzle {...props} />;
     case "scrabble": return <ScrabblePuzzle {...props} />;
     case "word-wheel": return <WordWheelPuzzle {...props} />;
+    case "countdown": return <CountdownPuzzle {...props} />;
     default: return <WordPuzzle {...props} />;
   }
 }

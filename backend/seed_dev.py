@@ -215,6 +215,14 @@ SEED_PUZZLES = [
     },
     {
         "days_ago": 24,
+        "puzzle_type": "countdown",
+        "puzzle_name": "Countdown",
+        "question": '{"prompt":"Reach the target using the numbers and operators below:","target":306,"numbers":[75,50,6,3,2,1],"operators":["+","-","×","÷"]}',
+        "answer": "306",
+        "hint": "50 × 6 is a great start",
+    },
+    {
+        "days_ago": 25,
         "puzzle_type": "image-word",
         "puzzle_name": "Cube Puzzle",
         "question": '{"prompt":"Which cube cannot be made from the net shown?","image_url":"https://falling-snow-3855.t3.storage.dev/cube_puzzle.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=tid_XOHnXBJLbAfjzvRKvOmwCZCKTUztWEPodnZIDWhGZvGngqMPca%2F20260322%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20260322T100720Z&X-Amz-Expires=7776000&X-Amz-SignedHeaders=host&X-Amz-Signature=76f1433d84493d2026e1c59fc3c2c668e9ec9bdc5b86e4c3c15f3e4346a43f47"}',

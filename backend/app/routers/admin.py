@@ -19,9 +19,11 @@ VALID_TYPES = {
     "connections",
     "image-tap",
     "image-order",
+    "image-word",
     "numgrid",
     "scrabble",
     "word-wheel",
+    "countdown",
 }
 
 
