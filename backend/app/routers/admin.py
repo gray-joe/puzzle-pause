@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from ..auth import require_admin
 from ..database import get_db
 from ..models import Attempt, Puzzle, User
+from ..puzzle_validation import validate_puzzle
 from ..schemas import CreatePuzzleRequest, PuzzleAdminResponse, UpdateAttemptRequest, UpdatePuzzleRequest
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -192,6 +193,11 @@ def create_puzzle(
             status_code=400, detail=f"Invalid puzzle_type: {body.puzzle_type}"
         )
 
+    try:
+        validate_puzzle(body.puzzle_type, body.question, body.answer)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
     existing = db.query(Puzzle).filter(Puzzle.puzzle_date == body.puzzle_date).first()
     if existing:
         raise HTTPException(
@@ -237,6 +243,14 @@ def update_puzzle(
         raise HTTPException(
             status_code=400, detail=f"Invalid puzzle_type: {body.puzzle_type}"
         )
+
+    effective_type = body.puzzle_type if body.puzzle_type is not None else puzzle.puzzle_type
+    effective_question = body.question if body.question is not None else puzzle.question
+    effective_answer = body.answer if body.answer is not None else puzzle.answer
+    try:
+        validate_puzzle(effective_type, effective_question, effective_answer)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
     if body.puzzle_date is not None:
         puzzle.puzzle_date = body.puzzle_date

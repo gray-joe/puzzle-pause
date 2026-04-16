@@ -110,28 +110,33 @@ class TestAdminCreatePuzzle:
         assert resp.status_code == 400
 
     def test_all_valid_types_accepted(self, client, db):
-        valid_types = [
-            "word",
-            "math",
-            "ladder",
-            "choice",
-            "wordsearch",
-            "order",
-            "match",
-            "connections",
-            "image-tap",
-            "image-order",
+        # Each entry: (puzzle_type, question, answer)
+        valid_puzzles = [
+            ("word", "What is a four-letter word for happy?", "glad"),
+            ("math", "What is 2 + 2?", "4"),
+            ("ladder", "C_T, C_P, C_R", "a, u, a"),
+            ("choice", "What is 1+1?|One|Two|Three", "B"),
+            ("wordsearch", "A B C\nD E F\nG H I\nFind: ABC", "ABC"),
+            ("order", '{"prompt":"Sort:","items":["B","A"]}', "1,0"),
+            ("match", '{"prompt":"Match:","left":["A","B"],"right":["X","Y"]}', "0,1"),
+            (
+                "connections",
+                '{"prompt":"Group:","items":["a","b","c","d"],"categories":["X","Y"]}',
+                "0,1|2,3",
+            ),
+            ("image-tap", '{"prompt":"Click:","image_url":"/img.jpg"}', "0.5,0.5"),
+            ("image-order", '{"prompt":"Sort:","images":["/a.jpg","/b.jpg"]}', "0,1"),
         ]
         cookies = _admin_cookies(db)
-        for i, ptype in enumerate(valid_types):
+        for i, (ptype, question, answer) in enumerate(valid_puzzles):
             resp = client.post(
                 "/api/admin/puzzles",
                 json={
                     "puzzle_date": f"2030-01-{i+1:02d}",
                     "puzzle_type": ptype,
                     "puzzle_name": ptype,
-                    "question": "Q",
-                    "answer": "A",
+                    "question": question,
+                    "answer": answer,
                 },
                 cookies=cookies,
             )
