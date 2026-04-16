@@ -1,5 +1,8 @@
 import re
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
+
+_LONDON = ZoneInfo("Europe/London")
 
 
 def normalize_answer(s: str) -> str:
@@ -88,5 +91,5 @@ def calculate_score(
 
 
 def get_puzzle_date() -> str:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(_LONDON)
     return now.strftime("%Y-%m-%d")

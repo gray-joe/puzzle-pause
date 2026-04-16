@@ -1,5 +1,8 @@
 import json
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
+_LONDON = ZoneInfo("Europe/London")
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from slowapi import Limiter
@@ -85,7 +88,7 @@ def _get_streak(user_id: int, db: Session) -> int:
         {"uid": user_id},
     ).fetchall()
     streak = 0
-    today = date.today()
+    today = datetime.now(_LONDON).date()
     expected = None
     for (d,) in rows:
         puzzle_day = date.fromisoformat(d)
