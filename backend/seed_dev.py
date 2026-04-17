@@ -222,6 +222,13 @@ SEED_PUZZLES = [
         "hint": "50 × 6 is a great start",
     },
     {
+        "days_ago": 26,
+        "puzzle_type": "clue-reveal",
+        "puzzle_name": "Who Am I?",
+        "question": '{"prompt":"Who am I?","clues":["I was born in 1564 in Stratford-upon-Avon, England.","I wrote approximately 37 plays and 154 sonnets during my lifetime.","Two of my most famous works are Hamlet and Romeo and Juliet."]}',
+        "answer": "William Shakespeare|Shakespeare",
+    },
+    {
         "days_ago": 25,
         "puzzle_type": "image-word",
         "puzzle_name": "Cube Puzzle",

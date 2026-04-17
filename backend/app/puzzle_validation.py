@@ -29,6 +29,7 @@ def validate_puzzle(puzzle_type: str, question: str, answer: str) -> None:
         "image-order": _validate_image_order,
         "image-word": _validate_image_word,
         "wordsearch": _validate_wordsearch,
+        "clue-reveal": _validate_clue_reveal,
     }
     validator = validators.get(puzzle_type)
     if validator:
@@ -255,3 +256,17 @@ def _validate_wordsearch(question: str, answer: str) -> None:
         raise ValueError("wordsearch question must contain 'Find: WORD' specifying the target word(s)")
     if not answer.strip():
         raise ValueError("wordsearch answer must not be empty")
+
+
+def _validate_clue_reveal(question: str, answer: str) -> None:
+    """clue-reveal — JSON with prompt and clues array (min 2); answer is freeform text."""
+    data = _parse_json_question(question, ["prompt", "clues"])
+    clues = data["clues"]
+    if not isinstance(clues, list):
+        raise ValueError("clue-reveal question 'clues' must be an array")
+    if len(clues) < 2:
+        raise ValueError("clue-reveal question must have at least 2 clues (first shown automatically, rest revealed for -10 pts each)")
+    if any(not isinstance(c, str) or not c.strip() for c in clues):
+        raise ValueError("clue-reveal question 'clues' must be an array of non-empty strings")
+    if not answer.strip():
+        raise ValueError("clue-reveal answer must not be empty")

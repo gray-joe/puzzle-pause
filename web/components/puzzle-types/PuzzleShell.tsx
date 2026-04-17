@@ -17,6 +17,7 @@ import NumGridPuzzle from "./NumGridPuzzle";
 import ScrabblePuzzle from "./ScrabblePuzzle";
 import WordWheelPuzzle from "./WordWheelPuzzle";
 import CountdownPuzzle from "./CountdownPuzzle";
+import ClueRevealPuzzle from "./ClueRevealPuzzle";
 import ResultPanel from "./ResultPanel";
 
 interface Props {
@@ -54,7 +55,7 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
           solved: true,
           score: result.score,
           incorrect_guesses: incorrectGuesses,
-          hint_used: isConnections ? hintsRevealed : (hintUsed ? 1 : 0),
+          hint_used: isMultiHint ? hintsRevealed : (hintUsed ? 1 : 0),
           completed_at: new Date().toISOString(),
           opened_at: openedAt,
         });
@@ -77,13 +78,15 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
   async function revealHint() {
     if (loading) return;
     const isConnections = puzzle.puzzle_type === "connections";
-    if (!isConnections && hintUsed) return;
+    const isClueReveal = puzzle.puzzle_type === "clue-reveal";
+    const isMultiHint = isConnections || isClueReveal;
+    if (!isMultiHint && hintUsed) return;
     setLoading(true);
     try {
       const h = await onHint();
       if (!hint) setHint(h);
       setHintUsed(true);
-      if (isConnections) {
+      if (isMultiHint) {
         setHintsRevealed((n) => n + 1);
       }
     } catch (err: any) {
@@ -94,10 +97,12 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
   }
 
   const isConnections = puzzle.puzzle_type === "connections";
+  const isClueReveal = puzzle.puzzle_type === "clue-reveal";
+  const isMultiHint = isConnections || isClueReveal;
   const numHintCategories = hint ? hint.split("|").length : 3;
   const showHintBtn = puzzle.puzzle_type === "countdown"
     ? false
-    : isConnections
+    : isMultiHint
       ? !solved && hintsRevealed < numHintCategories
       : puzzle.has_hint && !hintUsed;
 
@@ -138,10 +143,10 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
       <div style={{ marginTop: 8 }}>
         {showHintBtn && (
           <button className="action-btn secondary" onClick={revealHint} disabled={loading} data-testid="hint-btn">
-            <span className="gt">&gt;</span>Reveal hint{!isArchive && <span className="muted"> (-10 pts)</span>}
+            <span className="gt">&gt;</span>{isClueReveal ? "Reveal next clue" : "Reveal hint"}{!isArchive && <span className="muted"> (-10 pts)</span>}
           </button>
         )}
-        {hint && !isConnections && puzzle.puzzle_type !== "countdown" && (
+        {hint && !isConnections && !isClueReveal && puzzle.puzzle_type !== "countdown" && (
           <div className="content-meta" style={{ marginTop: 8 }} data-testid="hint">
             Hint: {hint}
           </div>
@@ -180,6 +185,7 @@ function PuzzleTypeRenderer(props: {
     case "scrabble": return <ScrabblePuzzle {...props} />;
     case "word-wheel": return <WordWheelPuzzle {...props} />;
     case "countdown": return <CountdownPuzzle {...props} />;
+    case "clue-reveal": return <ClueRevealPuzzle {...props} />;
     default: return <WordPuzzle {...props} />;
   }
 }

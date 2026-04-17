@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, AdminPuzzle } from "@/lib/api";
 
-const PUZZLE_TYPES = ["word", "math", "ladder", "choice", "wordsearch", "order", "match", "connections", "image-tap", "image-order", "image-word", "numgrid", "scrabble", "word-wheel", "countdown"];
+const PUZZLE_TYPES = ["word", "math", "ladder", "choice", "wordsearch", "order", "match", "connections", "image-tap", "image-order", "image-word", "numgrid", "scrabble", "word-wheel", "countdown", "clue-reveal"];
 
 const QUESTION_HINTS: Record<string, string> = {
   word: "Plain text or HTML. e.g. What word means...?",
@@ -21,6 +21,7 @@ const QUESTION_HINTS: Record<string, string> = {
   scrabble: '{"prompt":"What is the highest score possible? e.g. mask 10","board":[null,null,null,"M",null,null,null,null],"modifiers":[null,null,null,"dw",null,null,null,null],"rack":["C","O","R","H","A","S","K"]}',
   "word-wheel": '{"prompt":"Find the 8-letter word in each wheel","wheels":[{"letters":["S","T",null,"R","L","I",null,"G"]},{"letters":[null,"L","I","M",null,"I","N","G"]}]}',
   countdown: '{"prompt":"Reach the target using the numbers and operators below:","target":473,"numbers":[75,50,8,3,6,2],"operators":["+","-","×","÷"]}',
+  "clue-reveal": '{"prompt":"Who am I?","clues":["First clue (always visible)","Second clue (-10 pts to reveal)","Third clue (-10 pts to reveal)"]}',
 };
 
 interface Props { puzzle?: AdminPuzzle }

@@ -25,6 +25,7 @@ VALID_TYPES = {
     "scrabble",
     "word-wheel",
     "countdown",
+    "clue-reveal",
 }
 
 

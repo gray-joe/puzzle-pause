@@ -32,7 +32,7 @@ def _puzzle_to_response(puzzle: Puzzle, include_answer: bool = False) -> dict:
             else puzzle.question
         ),
         "hint": puzzle.hint if puzzle.hint else None,
-        "has_hint": bool(puzzle.hint) or puzzle.puzzle_type == "connections",
+        "has_hint": bool(puzzle.hint) or puzzle.puzzle_type in ("connections", "clue-reveal"),
     }
     if include_answer:
         data["answer"] = puzzle.answer
@@ -41,7 +41,7 @@ def _puzzle_to_response(puzzle: Puzzle, include_answer: bool = False) -> dict:
 
 def _strip_sensitive(question: str, puzzle_type: str) -> str:
     """Remove sensitive fields from puzzle JSON before sending to client."""
-    if puzzle_type not in ("image-tap", "connections"):
+    if puzzle_type not in ("image-tap", "connections", "clue-reveal"):
         return question
     try:
         data = json.loads(question)
@@ -49,6 +49,10 @@ def _strip_sensitive(question: str, puzzle_type: str) -> str:
             data.pop("target", None)
         elif puzzle_type == "connections":
             data.pop("categories", None)
+        elif puzzle_type == "clue-reveal":
+            clues = data.get("clues", [])
+            if len(clues) > 1:
+                data["clues"] = clues[:1]
         return json.dumps(data)
     except (json.JSONDecodeError, AttributeError):
         return question
@@ -61,6 +65,18 @@ def _connections_hint(question: str) -> str | None:
         categories = data.get("categories")
         if categories:
             return "|".join(categories)
+    except (json.JSONDecodeError, AttributeError):
+        pass
+    return None
+
+
+def _clue_reveal_hint(question: str) -> str | None:
+    """Extract additional clues (index 1+) from a clue-reveal question JSON."""
+    try:
+        data = json.loads(question)
+        clues = data.get("clues", [])
+        if len(clues) > 1:
+            return "|".join(clues[1:])
     except (json.JSONDecodeError, AttributeError):
         pass
     return None
@@ -256,6 +272,8 @@ def reveal_hint(
     )
     if puzzle and puzzle.puzzle_type == "connections":
         hint_text = _connections_hint(puzzle.question)
+    elif puzzle and puzzle.puzzle_type == "clue-reveal":
+        hint_text = _clue_reveal_hint(puzzle.question)
     else:
         hint_text = puzzle.hint if puzzle else None
 
