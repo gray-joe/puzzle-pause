@@ -13,3 +13,6 @@ blob-report/
 
 # Playwright
 .auth/
+
+# Local environment — contains secrets, never commit
+.env.local

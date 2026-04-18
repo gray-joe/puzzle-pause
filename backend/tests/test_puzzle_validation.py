@@ -274,6 +274,54 @@ class TestWordsearchValidation:
 
 
 # ---------------------------------------------------------------------------
+# clue-reveal
+# ---------------------------------------------------------------------------
+
+class TestClueRevealValidation:
+    QUESTION = '{"prompt":"Who am I?","clues":["Born in 1564","Wrote Hamlet","Wrote Romeo and Juliet"]}'
+
+    def test_valid(self):
+        validate_puzzle("clue-reveal", self.QUESTION, "Shakespeare")
+
+    def test_invalid_json(self):
+        with pytest.raises(ValueError, match="valid JSON"):
+            validate_puzzle("clue-reveal", "not json", "answer")
+
+    def test_missing_prompt(self):
+        with pytest.raises(ValueError, match="missing required field"):
+            validate_puzzle("clue-reveal", '{"clues":["Clue 1","Clue 2"]}', "answer")
+
+    def test_missing_clues(self):
+        with pytest.raises(ValueError, match="missing required field"):
+            validate_puzzle("clue-reveal", '{"prompt":"Who?"}', "answer")
+
+    def test_clues_must_be_array(self):
+        with pytest.raises(ValueError, match="must be an array"):
+            validate_puzzle("clue-reveal", '{"prompt":"Who?","clues":"not an array"}', "answer")
+
+    def test_requires_at_least_two_clues(self):
+        with pytest.raises(ValueError, match="at least 2 clues"):
+            validate_puzzle("clue-reveal", '{"prompt":"Who?","clues":["Only one clue"]}', "answer")
+
+    def test_clues_must_be_non_empty_strings(self):
+        with pytest.raises(ValueError, match="non-empty strings"):
+            validate_puzzle("clue-reveal", '{"prompt":"Who?","clues":["Valid clue",""]}', "answer")
+
+    def test_empty_answer_rejected(self):
+        with pytest.raises(ValueError, match="must not be empty"):
+            validate_puzzle("clue-reveal", self.QUESTION, "   ")
+
+    def test_two_clues_is_valid_minimum(self):
+        validate_puzzle("clue-reveal", '{"prompt":"Who?","clues":["Clue 1","Clue 2"]}', "answer")
+
+    def test_many_clues_accepted(self):
+        clues = [f"Clue {i}" for i in range(10)]
+        import json
+        q = json.dumps({"prompt": "Who?", "clues": clues})
+        validate_puzzle("clue-reveal", q, "answer")
+
+
+# ---------------------------------------------------------------------------
 # Unvalidated types pass through without error
 # ---------------------------------------------------------------------------
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Puzzle } from "@/lib/api";
+import { sanitizePuzzleHtml } from "@/lib/sanitize";
 
 interface Props { puzzle: Puzzle; solved: boolean; onSubmit: (g: string) => void; loading: boolean; }
 
@@ -18,7 +19,7 @@ export default function WordPuzzle({ puzzle, solved, onSubmit, loading }: Props)
   return (
     <>
       <div className="puzzle-box" data-testid="puzzle-question">
-        <div style={{ fontSize: "1.1em" }} dangerouslySetInnerHTML={{ __html: puzzle.question }} />
+        <div style={{ fontSize: "1.1em" }} dangerouslySetInnerHTML={{ __html: sanitizePuzzleHtml(puzzle.question) }} />
       </div>
       {!solved && (
         <form onSubmit={handleSubmit}>

@@ -18,7 +18,9 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 @router.get("")
+@limiter.limit("30/minute")
 def list_archive(
+    request: Request,
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
     limit: int = Query(default=50, ge=1, le=100),
@@ -70,8 +72,9 @@ def list_archive(
 
 
 @router.get("/{puzzle_id}")
+@limiter.limit("60/minute")
 def get_archive_puzzle(
-    puzzle_id: int, user=Depends(get_current_user), db: Session = Depends(get_db)
+    request: Request, puzzle_id: int, user=Depends(get_current_user), db: Session = Depends(get_db)
 ):
     puzzle_date = get_puzzle_date()
     puzzle = (

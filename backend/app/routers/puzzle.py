@@ -21,6 +21,7 @@ limiter = Limiter(key_func=get_remote_address)
 
 
 def _puzzle_to_response(puzzle: Puzzle, include_answer: bool = False) -> dict:
+    items = _hint_items(puzzle.puzzle_type, puzzle.question, puzzle.hint)
     data = {
         "id": puzzle.id,
         "puzzle_date": puzzle.puzzle_date,
@@ -32,7 +33,8 @@ def _puzzle_to_response(puzzle: Puzzle, include_answer: bool = False) -> dict:
             else puzzle.question
         ),
         "hint": puzzle.hint if puzzle.hint else None,
-        "has_hint": bool(puzzle.hint) or puzzle.puzzle_type in ("connections", "clue-reveal"),
+        "has_hint": bool(items),
+        "total_hints": len(items),
     }
     if include_answer:
         data["answer"] = puzzle.answer
@@ -58,28 +60,16 @@ def _strip_sensitive(question: str, puzzle_type: str) -> str:
         return question
 
 
-def _connections_hint(question: str) -> str | None:
-    """Extract categories from a connections question JSON as the hint."""
+def _hint_items(puzzle_type: str, question: str, hint: str | None) -> list[str]:
+    """Return the ordered list of hintable items for a puzzle type."""
     try:
-        data = json.loads(question)
-        categories = data.get("categories")
-        if categories:
-            return "|".join(categories)
+        if puzzle_type == "connections":
+            return json.loads(question).get("categories", [])
+        if puzzle_type == "clue-reveal":
+            return json.loads(question).get("clues", [])[1:]
     except (json.JSONDecodeError, AttributeError):
         pass
-    return None
-
-
-def _clue_reveal_hint(question: str) -> str | None:
-    """Extract additional clues (index 1+) from a clue-reveal question JSON."""
-    try:
-        data = json.loads(question)
-        clues = data.get("clues", [])
-        if len(clues) > 1:
-            return "|".join(clues[1:])
-    except (json.JSONDecodeError, AttributeError):
-        pass
-    return None
+    return [hint] if hint else []
 
 
 def _get_puzzle_number(puzzle: Puzzle, db: Session) -> int:
@@ -142,7 +132,8 @@ def _ensure_attempt(user_id: int, puzzle_id: int, db: Session) -> Attempt:
 
 
 @router.get("/today")
-def today(user=Depends(get_current_user), db: Session = Depends(get_db)):
+@limiter.limit("60/minute")
+def today(request: Request, user=Depends(get_current_user), db: Session = Depends(get_db)):
     puzzle_date = get_puzzle_date()
     puzzle = db.query(Puzzle).filter(Puzzle.puzzle_date == puzzle_date).first()
     if not puzzle:
@@ -168,6 +159,11 @@ def today(user=Depends(get_current_user), db: Session = Depends(get_db)):
         if attempt.solved:
             data["question"] = puzzle.question
             data["answer"] = puzzle.answer
+        elif attempt.hint_used > 0:
+            items = _hint_items(puzzle.puzzle_type, puzzle.question, puzzle.hint)
+            revealed = items[:attempt.hint_used]
+            if revealed:
+                data["revealed_hint"] = "|".join(revealed)
     return data
 
 
@@ -270,22 +266,27 @@ def reveal_hint(
         )
         .first()
     )
-    if puzzle and puzzle.puzzle_type == "connections":
-        hint_text = _connections_hint(puzzle.question)
-    elif puzzle and puzzle.puzzle_type == "clue-reveal":
-        hint_text = _clue_reveal_hint(puzzle.question)
-    else:
-        hint_text = puzzle.hint if puzzle else None
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="No hint available")
 
-    if not puzzle or not hint_text:
+    items = _hint_items(puzzle.puzzle_type, puzzle.question, puzzle.hint)
+    total_hints = len(items)
+
+    if total_hints == 0:
         raise HTTPException(status_code=404, detail="No hint available")
 
     if user:
         attempt = _ensure_attempt(user.id, puzzle.id, db)
+        idx = attempt.hint_used
+        if idx >= total_hints:
+            raise HTTPException(status_code=404, detail="No more hints available")
         attempt.hint_used += 1
         db.commit()
+        hint_text = items[idx]
+    else:
+        hint_text = items[0]
 
-    return HintResponse(hint=hint_text)
+    return HintResponse(hint=hint_text, total_hints=total_hints)
 
 
 @router.get("/result")

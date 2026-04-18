@@ -11,7 +11,7 @@ export default function ArchivePuzzleActions({ puzzle, isLoggedIn }: { puzzle: P
       isArchive
       isLoggedIn={isLoggedIn}
       onAttempt={(guess) => api.archive.attempt(puzzle.id, guess)}
-      onHint={() => api.archive.hint(puzzle.id).then((r) => r.hint)}
+      onHint={() => api.archive.hint(puzzle.id)}
     />
   );
 }

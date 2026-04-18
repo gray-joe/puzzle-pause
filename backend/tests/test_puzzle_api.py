@@ -41,6 +41,23 @@ def _make_puzzle(db, puzzle_date=None, answer="hello"):
     return puzzle
 
 
+def _make_clue_reveal_puzzle(db, puzzle_date=None):
+    if puzzle_date is None:
+        puzzle_date = date.today().isoformat()
+    question = '{"prompt":"Who am I?","clues":["Born in 1564","Wrote Hamlet","Wrote Romeo and Juliet"]}'
+    puzzle = Puzzle(
+        puzzle_date=puzzle_date,
+        puzzle_type="clue-reveal",
+        puzzle_name="Test Clue Reveal",
+        question=question,
+        answer="Shakespeare",
+    )
+    db.add(puzzle)
+    db.commit()
+    db.refresh(puzzle)
+    return puzzle
+
+
 def _make_connections_puzzle(db, puzzle_date=None, hint=None):
     if puzzle_date is None:
         puzzle_date = date.today().isoformat()
@@ -74,17 +91,30 @@ class TestConnections:
         resp = client.get("/api/puzzle/today")
         assert resp.json()["has_hint"] is True
 
-    def test_hint_returns_categories(self, client, db):
+    def test_first_hint_returns_first_category(self, client, db):
         _make_connections_puzzle(db)
         resp = client.post("/api/puzzle/hint", json={"puzzle_id": 1})
         assert resp.status_code == 200
-        assert resp.json()["hint"] == "Snakes|Languages"
+        assert resp.json()["hint"] == "Snakes"
+        assert resp.json()["total_hints"] == 2
 
-    def test_hint_returns_categories_ignoring_text_hint(self, client, db):
-        _make_connections_puzzle(db, hint="Some text hint")
-        resp = client.post("/api/puzzle/hint", json={"puzzle_id": 1})
+    def test_second_hint_returns_second_category(self, client, db):
+        _make_connections_puzzle(db)
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+        client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        resp = client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
         assert resp.status_code == 200
-        assert resp.json()["hint"] == "Snakes|Languages"
+        assert resp.json()["hint"] == "Languages"
+
+    def test_hint_exhausted_returns_404(self, client, db):
+        _make_connections_puzzle(db)
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+        client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        resp = client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        assert resp.status_code == 404
 
     def test_each_hint_increments_count(self, client, db):
         _make_connections_puzzle(db, hint=None)
@@ -320,3 +350,109 @@ class TestResult:
         resp = client.get("/api/puzzle/result", cookies=cookies)
         assert resp.status_code == 200
         assert resp.json()["attempt"]["opened_at"] is not None
+
+
+class TestClueReveal:
+    def test_additional_clues_stripped_from_question(self, client, db):
+        _make_clue_reveal_puzzle(db)
+        resp = client.get("/api/puzzle/today")
+        assert resp.status_code == 200
+        import json
+
+        question = json.loads(resp.json()["question"])
+        assert len(question["clues"]) == 1
+        assert question["clues"][0] == "Born in 1564"
+
+    def test_prompt_not_stripped(self, client, db):
+        _make_clue_reveal_puzzle(db)
+        resp = client.get("/api/puzzle/today")
+        import json
+
+        question = json.loads(resp.json()["question"])
+        assert question["prompt"] == "Who am I?"
+
+    def test_has_hint_true(self, client, db):
+        _make_clue_reveal_puzzle(db)
+        resp = client.get("/api/puzzle/today")
+        assert resp.json()["has_hint"] is True
+
+    def test_first_hint_returns_first_extra_clue(self, client, db):
+        _make_clue_reveal_puzzle(db)
+        resp = client.post("/api/puzzle/hint", json={"puzzle_id": 1})
+        assert resp.status_code == 200
+        assert resp.json()["hint"] == "Wrote Hamlet"
+        assert resp.json()["total_hints"] == 2
+
+    def test_second_hint_returns_second_extra_clue(self, client, db):
+        _make_clue_reveal_puzzle(db)
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+        client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        resp = client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        assert resp.status_code == 200
+        assert resp.json()["hint"] == "Wrote Romeo and Juliet"
+
+    def test_clue_hint_exhausted_returns_404(self, client, db):
+        _make_clue_reveal_puzzle(db)
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+        client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        resp = client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        assert resp.status_code == 404
+
+    def test_revealed_hint_included_in_today_response(self, client, db):
+        _make_clue_reveal_puzzle(db)
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+        client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        resp = client.get("/api/puzzle/today", cookies=cookies)
+        assert resp.json()["revealed_hint"] == "Wrote Hamlet"
+
+    def test_each_hint_increments_hint_used(self, client, db):
+        _make_clue_reveal_puzzle(db)
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+
+        client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+
+        resp = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": 1, "guess": "Shakespeare"},
+            cookies=cookies,
+        )
+        assert resp.json()["correct"] is True
+        assert resp.json()["score"] <= 80  # base 100 − 2 × 10 hints
+
+    def test_correct_answer_accepted(self, client, db):
+        _make_clue_reveal_puzzle(db)
+        resp = client.post(
+            "/api/puzzle/attempt", json={"puzzle_id": 1, "guess": "Shakespeare"}
+        )
+        assert resp.status_code == 200
+        assert resp.json()["correct"] is True
+
+    def test_solve_reveals_full_question_with_all_clues(self, client, db):
+        _make_clue_reveal_puzzle(db)
+        resp = client.post(
+            "/api/puzzle/attempt", json={"puzzle_id": 1, "guess": "Shakespeare"}
+        )
+        assert resp.json()["correct"] is True
+        import json
+
+        question = json.loads(resp.json()["question"])
+        assert len(question["clues"]) == 3
+
+    def test_wrong_answer_increments_incorrect_guesses(self, client, db):
+        _make_clue_reveal_puzzle(db)
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+
+        resp = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": 1, "guess": "Marlowe"},
+            cookies=cookies,
+        )
+        assert resp.json()["correct"] is False
+        assert resp.json()["incorrect_guesses"] == 1

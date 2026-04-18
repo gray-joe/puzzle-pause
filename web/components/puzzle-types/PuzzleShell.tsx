@@ -26,15 +26,20 @@ interface Props {
   isArchive?: boolean;
   isLoggedIn?: boolean;
   onAttempt: (guess: string, openedAt: string) => Promise<AttemptResult>;
-  onHint: () => Promise<string>;
+  onHint: () => Promise<{ hint: string; total_hints: number }>;
 }
 
 export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLoggedIn, onAttempt, onHint }: Props) {
   const [attempt, setAttempt] = useState<AttemptDetail | undefined>(initialAttempt);
   const [feedback, setFeedback] = useState<string>("");
-  const [hint, setHint] = useState<string | null>(null);
+  const [hint, setHint] = useState<string | null>(puzzle.revealed_hint ?? null);
   const [hintUsed, setHintUsed] = useState(!!initialAttempt?.hint_used);
-  const [hintsRevealed, setHintsRevealed] = useState(0);
+  const [hintsRevealed, setHintsRevealed] = useState(() =>
+    ["connections", "clue-reveal"].includes(puzzle.puzzle_type)
+      ? (initialAttempt?.hint_used ?? 0)
+      : 0
+  );
+  const [totalHints, setTotalHints] = useState<number>(puzzle.total_hints ?? 0);
   const [loading, setLoading] = useState(false);
   const [answer, setAnswer] = useState<string | null>((puzzle as any).answer ?? null);
   const [puzzleQuestion, setPuzzleQuestion] = useState(puzzle.question);
@@ -83,9 +88,10 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
     if (!isMultiHint && hintUsed) return;
     setLoading(true);
     try {
-      const h = await onHint();
-      if (!hint) setHint(h);
+      const { hint: h, total_hints } = await onHint();
+      setHint((prev) => (prev ? `${prev}|${h}` : h));
       setHintUsed(true);
+      setTotalHints(total_hints);
       if (isMultiHint) {
         setHintsRevealed((n) => n + 1);
       }
@@ -99,11 +105,10 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
   const isConnections = puzzle.puzzle_type === "connections";
   const isClueReveal = puzzle.puzzle_type === "clue-reveal";
   const isMultiHint = isConnections || isClueReveal;
-  const numHintCategories = hint ? hint.split("|").length : 3;
   const showHintBtn = puzzle.puzzle_type === "countdown"
     ? false
     : isMultiHint
-      ? !solved && hintsRevealed < numHintCategories
+      ? !solved && hintsRevealed < totalHints
       : puzzle.has_hint && !hintUsed;
 
   const puzzleProps = { puzzle, solved, onSubmit: submitGuess, onHint: revealHint, loading, hint, hintsRevealed };

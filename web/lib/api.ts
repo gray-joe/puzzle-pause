@@ -11,6 +11,8 @@ export type Puzzle = {
   question: string;
   hint: string | null;
   has_hint: boolean;
+  total_hints: number;
+  revealed_hint?: string | null;
   puzzle_number: number | null;
   attempt?: AttemptDetail;
   solved?: boolean;
@@ -177,7 +179,7 @@ export const api = {
       }),
 
     hint: (puzzle_id: number) =>
-      apiFetch<{ hint: string }>("/api/puzzle/hint", {
+      apiFetch<{ hint: string; total_hints: number }>("/api/puzzle/hint", {
         method: "POST",
         body: JSON.stringify({ puzzle_id }),
       }),
@@ -200,7 +202,7 @@ export const api = {
       }),
 
     hint: (puzzle_id: number) =>
-      apiFetch<{ hint: string }>(`/api/archive/${puzzle_id}/hint`, {
+      apiFetch<{ hint: string; total_hints: number }>(`/api/archive/${puzzle_id}/hint`, {
         method: "POST",
       }),
 

@@ -63,6 +63,7 @@ class HintRequest(BaseModel):
 
 class HintResponse(BaseModel):
     hint: str
+    total_hints: int = 1
 
 
 class ResultResponse(BaseModel):
