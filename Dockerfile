@@ -3,7 +3,7 @@ COPY backend/requirements.txt /tmp/requirements.txt
 RUN python -m venv /venv && \
     /venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt
 
-FROM node:22-alpine AS frontend-builder
+FROM node:22.22.2-alpine AS frontend-builder
 WORKDIR /build
 COPY web/package*.json ./
 RUN npm ci
@@ -11,13 +11,14 @@ COPY web/ .
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN mkdir -p public && npm run build
 
+FROM node:22.22.2-slim AS node-provider
+
 FROM python:3.13-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl supervisor sqlite3 \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y --no-install-recommends nodejs \
-    && apt-get purge -y --auto-remove curl \
+RUN apt-get update && apt-get install -y --no-install-recommends supervisor sqlite3 \
     && rm -rf /var/lib/apt/lists/*
+
+COPY --from=node-provider /usr/local/bin/node /usr/local/bin/node
 
 WORKDIR /app
 

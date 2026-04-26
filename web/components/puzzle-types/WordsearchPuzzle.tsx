@@ -6,18 +6,32 @@ import { Puzzle } from "@/lib/api";
 interface Props { puzzle: Puzzle; solved: boolean; onSubmit: (g: string) => void; loading: boolean; }
 
 export default function WordsearchPuzzle({ puzzle, solved, onSubmit, loading }: Props) {
-  const [guess, setGuess] = useState("");
-
-  // question format: "grid_rows\nFind: WORD"
+  // question format: "grid_rows\nFind: N\nTheme: text" (new) or "grid_rows\nFind: WORD" (legacy)
   const lines = puzzle.question.split("\n");
   const findLine = lines.find((l) => l.startsWith("Find:") || l.startsWith("find:"));
-  const gridLines = lines.filter((l) => !l.startsWith("Find:") && !l.startsWith("find:") && l.trim());
+  const themeLine = lines.find((l) => l.startsWith("Theme:") || l.startsWith("theme:"));
+  const gridLines = lines.filter(
+    (l) => !l.startsWith("Find:") && !l.startsWith("find:") && !l.startsWith("Theme:") && !l.startsWith("theme:") && l.trim()
+  );
+  const findValue = findLine?.replace(/^find:\s*/i, "").trim() ?? "";
+  const isCountFormat = /^\d+$/.test(findValue);
+  const wordCount = isCountFormat ? parseInt(findValue, 10) : 1;
+  const theme = themeLine?.replace(/^theme:\s*/i, "").trim();
+
+  const [guesses, setGuesses] = useState<string[]>(() => Array(wordCount).fill(""));
+
+  const allFilled = guesses.every((g) => g.trim().length > 0);
+
+  function handleGuessChange(index: number, val: string) {
+    const upper = val.replace(/[^a-zA-Z]/g, "").toUpperCase();
+    setGuesses((prev) => prev.map((g, i) => (i === index ? upper : g)));
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!guess.trim()) return;
-    onSubmit(guess.trim());
-    setGuess("");
+    if (!allFilled) return;
+    onSubmit(guesses.map((g) => g.trim()).join(" "));
+    setGuesses(Array(wordCount).fill(""));
   }
 
   return (
@@ -30,26 +44,33 @@ export default function WordsearchPuzzle({ puzzle, solved, onSubmit, loading }: 
         ) : (
           <div style={{ fontSize: "1.1em" }}>{puzzle.question}</div>
         )}
-        {findLine && (
+        {isCountFormat ? (
+          <div style={{ marginTop: 12, color: "var(--teal)" }}>
+            Find {wordCount} {wordCount === 1 ? "word" : "words"}
+            {theme && <span style={{ color: "var(--muted)", marginLeft: 8 }}>— {theme}</span>}
+          </div>
+        ) : findLine ? (
           <div style={{ marginTop: 12, color: "var(--teal)" }}>{findLine}</div>
-        )}
+        ) : null}
       </div>
       {!solved && (
         <form onSubmit={handleSubmit}>
-          <div className="action-btn">
-            <span className="gt">&gt;</span>
-            <input
-              type="text"
-              value={guess}
-              onChange={(e) => setGuess(e.target.value.toUpperCase())}
-              placeholder="Found word..."
-              disabled={loading}
-              autoFocus
-              data-testid="answer-input"
-              style={{ background: "transparent", border: "none", width: "calc(100% - 30px)", letterSpacing: "0.1em" }}
-            />
-          </div>
-          <button type="submit" className="action-btn" disabled={loading || !guess.trim()} data-testid="submit-btn">
+          {guesses.map((g, i) => (
+            <div key={i} className="action-btn">
+              <span className="gt">&gt;</span>
+              <input
+                type="text"
+                value={g}
+                onChange={(e) => handleGuessChange(i, e.target.value)}
+                placeholder="Found word..."
+                disabled={loading}
+                autoFocus={i === 0}
+                data-testid={i === 0 ? "answer-input" : undefined}
+                style={{ background: "transparent", border: "none", width: "calc(100% - 30px)", letterSpacing: "0.1em" }}
+              />
+            </div>
+          ))}
+          <button type="submit" className="action-btn" disabled={loading || !allFilled} data-testid="submit-btn">
             <span className="gt">&gt;</span>{loading ? "Checking..." : "Submit"}
           </button>
         </form>

@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { api, AdminPuzzle } from "@/lib/api";
+import WordsearchBuilder from "./WordsearchBuilder";
 
 const PUZZLE_TYPES = ["word", "math", "ladder", "choice", "wordsearch", "order", "match", "connections", "image-tap", "image-order", "image-word", "numgrid", "scrabble", "word-wheel", "countdown", "clue-reveal"];
 
@@ -41,12 +42,34 @@ export default function PuzzleForm({ puzzle }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const handleWordsearchChange = useCallback((question: string, answer: string) => {
+    setForm((prev) => ({ ...prev, question, answer }));
+  }, []);
+
   function set(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (form.puzzle_type === "wordsearch") {
+      const lines = form.question.split("\n").filter((l) => !l.startsWith("Find:") && !l.startsWith("find:") && l.trim());
+      const grid = lines.map((l) => l.trim().split(/\s+/));
+      const directions = [[0,1],[0,-1],[1,0],[-1,0],[1,1],[1,-1],[-1,1],[-1,-1]];
+      const wordList = form.answer.startsWith("~")
+        ? form.answer.slice(1).split(" ").filter(Boolean)
+        : [form.answer.toUpperCase()];
+      for (const word of wordList) {
+        const found = grid.some((_, r) => grid[r].some((__, c) =>
+          directions.some(([dr, dc]) =>
+            Array.from({ length: word.length }).every((_, i) =>
+              (grid[r + dr * i]?.[c + dc * i] ?? "") === word[i]
+            )
+          )
+        ));
+        if (!found) { setError(`Word "${word}" not found in grid — add it before saving`); return; }
+      }
+    }
     setLoading(true); setError("");
     try {
       const data = { ...form, hint: form.hint || undefined };
@@ -84,15 +107,23 @@ export default function PuzzleForm({ puzzle }: Props) {
         <input type="text" value={form.puzzle_name} onChange={(e) => set("puzzle_name", e.target.value)} placeholder="Puzzle display name" style={{ width: "100%" }} />
       </div>
 
-      <div style={fieldStyle}>
-        <label style={labelStyle}><span className="gt">&gt;</span> Question</label>
-        <textarea value={form.question} onChange={(e) => set("question", e.target.value)} required rows={4} style={{ width: "100%", resize: "vertical" }} placeholder={QUESTION_HINTS[form.puzzle_type] ?? ""} />
-      </div>
-
-      <div style={fieldStyle}>
-        <label style={labelStyle}><span className="gt">&gt;</span> Answer <span className="muted">(| for alternatives, ~ prefix for unordered)</span></label>
-        <input type="text" value={form.answer} onChange={(e) => set("answer", e.target.value)} required style={{ width: "100%" }} />
-      </div>
+      {form.puzzle_type === "wordsearch" ? (
+        <div style={fieldStyle}>
+          <label style={labelStyle}><span className="gt">&gt;</span> Grid Builder</label>
+          <WordsearchBuilder question={form.question} answer={form.answer} onChange={handleWordsearchChange} />
+        </div>
+      ) : (
+        <>
+          <div style={fieldStyle}>
+            <label style={labelStyle}><span className="gt">&gt;</span> Question</label>
+            <textarea value={form.question} onChange={(e) => set("question", e.target.value)} required rows={4} style={{ width: "100%", resize: "vertical" }} placeholder={QUESTION_HINTS[form.puzzle_type] ?? ""} />
+          </div>
+          <div style={fieldStyle}>
+            <label style={labelStyle}><span className="gt">&gt;</span> Answer <span className="muted">(| for alternatives, ~ prefix for unordered)</span></label>
+            <input type="text" value={form.answer} onChange={(e) => set("answer", e.target.value)} required style={{ width: "100%" }} />
+          </div>
+        </>
+      )}
 
       <div style={fieldStyle}>
         <label style={labelStyle}><span className="gt">&gt;</span> Hint <span className="muted">(optional)</span></label>
