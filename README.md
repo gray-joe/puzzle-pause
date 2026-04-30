@@ -43,11 +43,66 @@ npm run dev
 
 ## Testing
 
+### Backend
+
 ```bash
-cd backend
-pip install pytest pytest-cov
-python -m pytest
+# Install dev dependencies
+pip install -r backend/requirements-dev.txt
+
+# Run tests (with coverage — output to terminal and htmlcov/)
+cd backend && python -m pytest
+
+# Via Makefile
+make backend-test
 ```
+
+Coverage report is written to `backend/htmlcov/`.
+
+### Frontend — unit tests (Vitest)
+
+```bash
+cd web && npm test
+
+# Watch mode
+cd web && npm test -- --watch
+```
+
+Tests run in a `happy-dom` environment and exclude the `e2e/` directory.
+
+### Frontend — end-to-end tests (Playwright / Chromium)
+
+The e2e suite requires the dev servers to be running first.
+
+```bash
+# 1. Start backend and frontend (in separate terminals)
+make backend-run
+make web-run
+
+# 2. Run Playwright tests
+make web-test
+# or with extra Playwright args, e.g. --headed
+make web-test ARGS="--headed"
+# or directly
+cd web && npm run test:e2e
+```
+
+Reports land in `web/playwright-report/`.
+
+## Linting
+
+### Frontend (ESLint via Next.js)
+
+```bash
+cd web && npm run lint
+```
+
+### Backend (Pyright type checking)
+
+```bash
+cd backend && pyright
+```
+
+`pyrightconfig.json` points Pyright at the `.venv` virtualenv.
 
 ## Project Structure
 

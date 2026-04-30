@@ -105,11 +105,9 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
   const isConnections = puzzle.puzzle_type === "connections";
   const isClueReveal = puzzle.puzzle_type === "clue-reveal";
   const isMultiHint = isConnections || isClueReveal;
-  const showHintBtn = puzzle.puzzle_type === "countdown"
-    ? false
-    : isMultiHint
-      ? !solved && hintsRevealed < totalHints
-      : puzzle.has_hint && !hintUsed;
+  const showHintBtn = isMultiHint
+    ? !solved && hintsRevealed < totalHints
+    : puzzle.has_hint && !hintUsed;
 
   const puzzleProps = { puzzle, solved, onSubmit: submitGuess, onHint: revealHint, loading, hint, hintsRevealed };
 
@@ -151,7 +149,7 @@ export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLogge
             <span className="gt">&gt;</span>{isClueReveal ? "Reveal next clue" : "Reveal hint"}{!isArchive && <span className="muted"> (-10 pts)</span>}
           </button>
         )}
-        {hint && !isConnections && !isClueReveal && puzzle.puzzle_type !== "countdown" && (
+        {hint && !isConnections && !isClueReveal && (
           <div className="content-meta" style={{ marginTop: 8 }} data-testid="hint">
             Hint: {hint}
           </div>

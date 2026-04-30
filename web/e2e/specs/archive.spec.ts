@@ -12,7 +12,7 @@ test("Users can only see previous puzzles in the archive", async ({ page }) => {
   await loginAs(page, "alice@example.com");
   await archive.goto();
 
-  await archive.expectPuzzleCount(20);
+  await archive.expectPuzzleCount(23);
   await expect(page.getByText("Quick Maths")).not.toBeVisible();
   await expect(page.getByText("Future Puzzle")).not.toBeVisible();
 });
@@ -54,7 +54,7 @@ test("Users can see solve a previously unsolved puzzle, but does not recieve poi
   await result.mockClipboard();
   const shareText = await result.shareAndGetText();
   expect(shareText).toContain("I scored 0");
-  expect(shareText).toContain("Puzzle Pause #17");
+  expect(shareText).toContain("Puzzle Pause #20");
   expect(shareText).toContain("puzzlepause.app/archive/10");
 });
 

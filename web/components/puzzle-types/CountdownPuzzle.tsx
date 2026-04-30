@@ -191,7 +191,7 @@ export default function CountdownPuzzle({ puzzle, solved, onSubmit, onHint, load
               <span className="gt">&gt;</span>Clear
             </button>
             {!showTotal && (
-              <button className="action-btn secondary" onClick={() => { setShowTotal(true); onHint(); }} data-testid="show-total-btn" style={{ flex: 1 }}>
+              <button className="action-btn secondary" onClick={() => setShowTotal(true)} data-testid="show-total-btn" style={{ flex: 1 }}>
                 <span className="gt">&gt;</span>Show total<span className="muted"> (-10 pts)</span>
               </button>
             )}
