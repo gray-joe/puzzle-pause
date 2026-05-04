@@ -1,194 +1,256 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { Puzzle, AttemptDetail, AttemptResult } from "@/lib/api";
-import WordPuzzle from "./WordPuzzle";
-import MathPuzzle from "./MathPuzzle";
-import LadderPuzzle from "./LadderPuzzle";
-import ChoicePuzzle from "./ChoicePuzzle";
-import WordsearchPuzzle from "./WordsearchPuzzle";
-import OrderPuzzle from "./OrderPuzzle";
-import MatchPuzzle from "./MatchPuzzle";
-import ConnectionsPuzzle from "./ConnectionsPuzzle";
-import ImageTapPuzzle from "./ImageTapPuzzle";
-import ImageOrderPuzzle from "./ImageOrderPuzzle";
-import ImageWordPuzzle from "./ImageWordPuzzle";
-import NumGridPuzzle from "./NumGridPuzzle";
-import ScrabblePuzzle from "./ScrabblePuzzle";
-import WordWheelPuzzle from "./WordWheelPuzzle";
-import CountdownPuzzle from "./CountdownPuzzle";
-import ClueRevealPuzzle from "./ClueRevealPuzzle";
-import ResultPanel from "./ResultPanel";
+import { useState } from 'react';
+import { Puzzle, AttemptDetail, AttemptResult } from '@/lib/api';
+import WordPuzzle from './WordPuzzle';
+import MathPuzzle from './MathPuzzle';
+import LadderPuzzle from './LadderPuzzle';
+import ChoicePuzzle from './ChoicePuzzle';
+import WordsearchPuzzle from './WordsearchPuzzle';
+import OrderPuzzle from './OrderPuzzle';
+import MatchPuzzle from './MatchPuzzle';
+import ConnectionsPuzzle from './ConnectionsPuzzle';
+import ImageTapPuzzle from './ImageTapPuzzle';
+import ImageOrderPuzzle from './ImageOrderPuzzle';
+import ImageWordPuzzle from './ImageWordPuzzle';
+import NumGridPuzzle from './NumGridPuzzle';
+import ScrabblePuzzle from './ScrabblePuzzle';
+import WordWheelPuzzle from './WordWheelPuzzle';
+import CountdownPuzzle from './CountdownPuzzle';
+import ClueRevealPuzzle from './ClueRevealPuzzle';
+import ResultPanel from './ResultPanel';
 
 interface Props {
-  puzzle: Puzzle;
-  initialAttempt?: AttemptDetail;
-  isArchive?: boolean;
-  isLoggedIn?: boolean;
-  onAttempt: (guess: string, openedAt: string) => Promise<AttemptResult>;
-  onHint: () => Promise<{ hint: string; total_hints: number }>;
+    puzzle: Puzzle;
+    initialAttempt?: AttemptDetail;
+    isArchive?: boolean;
+    isLoggedIn?: boolean;
+    onAttempt: (guess: string, openedAt: string) => Promise<AttemptResult>;
+    onHint: () => Promise<{ hint: string; total_hints: number }>;
 }
 
-export default function PuzzleShell({ puzzle, initialAttempt, isArchive, isLoggedIn, onAttempt, onHint }: Props) {
-  const [attempt, setAttempt] = useState<AttemptDetail | undefined>(initialAttempt);
-  const [feedback, setFeedback] = useState<string>("");
-  const [hint, setHint] = useState<string | null>(puzzle.revealed_hint ?? null);
-  const [hintUsed, setHintUsed] = useState(!!initialAttempt?.hint_used);
-  const [hintsRevealed, setHintsRevealed] = useState(() =>
-    ["connections", "clue-reveal"].includes(puzzle.puzzle_type)
-      ? (initialAttempt?.hint_used ?? 0)
-      : 0
-  );
-  const [totalHints, setTotalHints] = useState<number>(puzzle.total_hints ?? 0);
-  const [loading, setLoading] = useState(false);
-  const [answer, setAnswer] = useState<string | null>((puzzle as any).answer ?? null);
-  const [puzzleQuestion, setPuzzleQuestion] = useState(puzzle.question);
-  const [streak, setStreak] = useState<number | null>(null);
-  const [incorrectGuesses, setIncorrectGuesses] = useState(initialAttempt?.incorrect_guesses ?? 0);
-  const [openedAt] = useState(() => initialAttempt?.opened_at ?? new Date().toISOString());
-
-  const solved = attempt?.solved ?? false;
-
-  async function submitGuess(guess: string) {
-    if (solved || loading) return;
-    setLoading(true);
-    setFeedback("");
-    try {
-      const result = await onAttempt(guess, openedAt);
-      if (result.correct) {
-        setAttempt({
-          solved: true,
-          score: result.score,
-          incorrect_guesses: incorrectGuesses,
-          hint_used: isMultiHint ? hintsRevealed : (hintUsed ? 1 : 0),
-          completed_at: new Date().toISOString(),
-          opened_at: openedAt,
-        });
-        setAnswer(result.answer ?? null);
-        if (result.question) setPuzzleQuestion(result.question);
-        setStreak(result.streak ?? null);
-        setFeedback("");
-      } else {
-        const newCount = incorrectGuesses + 1;
-        setIncorrectGuesses(newCount);
-        setFeedback(`Wrong. ${newCount} incorrect guess${newCount !== 1 ? "es" : ""}.`);
-      }
-    } catch (err: any) {
-      setFeedback(err.message ?? "Error submitting guess");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function revealHint() {
-    if (loading) return;
-    const isConnections = puzzle.puzzle_type === "connections";
-    const isClueReveal = puzzle.puzzle_type === "clue-reveal";
-    const isMultiHint = isConnections || isClueReveal;
-    if (!isMultiHint && hintUsed) return;
-    setLoading(true);
-    try {
-      const { hint: h, total_hints } = await onHint();
-      setHint((prev) => (prev ? `${prev}|${h}` : h));
-      setHintUsed(true);
-      setTotalHints(total_hints);
-      if (isMultiHint) {
-        setHintsRevealed((n) => n + 1);
-      }
-    } catch (err: any) {
-      setFeedback(err.message ?? "No hint available");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const isConnections = puzzle.puzzle_type === "connections";
-  const isClueReveal = puzzle.puzzle_type === "clue-reveal";
-  const isMultiHint = isConnections || isClueReveal;
-  const showHintBtn = isMultiHint
-    ? !solved && hintsRevealed < totalHints
-    : puzzle.has_hint && !hintUsed;
-
-  const puzzleProps = { puzzle, solved, onSubmit: submitGuess, onHint: revealHint, loading, hint, hintsRevealed };
-
-  if (solved && attempt) {
-    return (
-      <div data-testid="puzzle-shell">
-        <div className="content-meta" data-testid="puzzle-date">{puzzle.puzzle_date}{isArchive && <span data-testid={`puzzle-type-${puzzle.puzzle_type}`} style={{ display: "none" }}>{puzzle.puzzle_type}</span>}</div>
-        {isArchive && (
-          <div className="content-meta muted-dark">
-            Archived puzzles are for practice only. No points awarded.
-          </div>
-        )}
-        <ResultPanel
-          puzzle={{ ...puzzle, question: puzzleQuestion }}
-          attempt={attempt}
-          answer={answer}
-          streak={streak}
-          isArchive={isArchive}
-          isLoggedIn={isLoggedIn}
-        />
-      </div>
+export default function PuzzleShell({
+    puzzle,
+    initialAttempt,
+    isArchive,
+    isLoggedIn,
+    onAttempt,
+    onHint,
+}: Props) {
+    const [attempt, setAttempt] = useState<AttemptDetail | undefined>(initialAttempt);
+    const [feedback, setFeedback] = useState<string>('');
+    const [hint, setHint] = useState<string | null>(puzzle.revealed_hint ?? null);
+    const [hintUsed, setHintUsed] = useState(!!initialAttempt?.hint_used);
+    const [hintsRevealed, setHintsRevealed] = useState(() =>
+        ['connections', 'clue-reveal'].includes(puzzle.puzzle_type)
+            ? (initialAttempt?.hint_used ?? 0)
+            : 0
     );
-  }
+    const [totalHints, setTotalHints] = useState<number>(puzzle.total_hints ?? 0);
+    const [loading, setLoading] = useState(false);
+    const [answer, setAnswer] = useState<string | null>((puzzle as any).answer ?? null);
+    const [puzzleQuestion, setPuzzleQuestion] = useState(puzzle.question);
+    const [streak, setStreak] = useState<number | null>(null);
+    const [incorrectGuesses, setIncorrectGuesses] = useState(
+        initialAttempt?.incorrect_guesses ?? 0
+    );
+    const [openedAt] = useState(() => initialAttempt?.opened_at ?? new Date().toISOString());
 
-  return (
-    <div data-testid="puzzle-shell">
-      <div className="content-meta" data-testid="puzzle-date">{puzzle.puzzle_date}{isArchive && <span data-testid={`puzzle-type-${puzzle.puzzle_type}`} style={{ display: "none" }}>{puzzle.puzzle_type}</span>}</div>
-      <div className="content-meta muted-dark" data-testid="puzzle-instructions">
-        {isArchive
-          ? "Archived puzzles are for practice only. No points awarded."
-          : "Solve within 10 mins for 100 pts, 15 mins for 90, 30 mins for 75, 60 mins for 50. -5 per wrong guess, -10 for a hint."}
-      </div>
+    const solved = attempt?.solved ?? false;
 
-      <PuzzleTypeRenderer type={puzzle.puzzle_type} {...puzzleProps} />
+    async function submitGuess(guess: string) {
+        if (solved || loading) return;
+        setLoading(true);
+        setFeedback('');
+        try {
+            const result = await onAttempt(guess, openedAt);
+            if (result.correct) {
+                setAttempt({
+                    solved: true,
+                    score: result.score,
+                    incorrect_guesses: incorrectGuesses,
+                    hint_used: isMultiHint ? hintsRevealed : hintUsed ? 1 : 0,
+                    completed_at: new Date().toISOString(),
+                    opened_at: openedAt,
+                });
+                setAnswer(result.answer ?? null);
+                if (result.question) setPuzzleQuestion(result.question);
+                setStreak(result.streak ?? null);
+                setFeedback('');
+            } else {
+                const newCount = incorrectGuesses + 1;
+                setIncorrectGuesses(newCount);
+                setFeedback(`Wrong. ${newCount} incorrect guess${newCount !== 1 ? 'es' : ''}.`);
+            }
+        } catch (err: any) {
+            setFeedback(err.message ?? 'Error submitting guess');
+        } finally {
+            setLoading(false);
+        }
+    }
 
-      <div style={{ marginTop: 8 }}>
-        {showHintBtn && (
-          <button className="action-btn secondary" onClick={revealHint} disabled={loading} data-testid="hint-btn">
-            <span className="gt">&gt;</span>{isClueReveal ? "Reveal next clue" : "Reveal hint"}{!isArchive && <span className="muted"> (-10 pts)</span>}
-          </button>
-        )}
-        {hint && !isConnections && !isClueReveal && (
-          <div className="content-meta" style={{ marginTop: 8 }} data-testid="hint">
-            Hint: {hint}
-          </div>
-        )}
-      </div>
+    async function revealHint() {
+        if (loading) return;
+        const isConnections = puzzle.puzzle_type === 'connections';
+        const isClueReveal = puzzle.puzzle_type === 'clue-reveal';
+        const isMultiHint = isConnections || isClueReveal;
+        if (!isMultiHint && hintUsed) return;
+        setLoading(true);
+        try {
+            const { hint: h, total_hints } = await onHint();
+            setHint((prev) => (prev ? `${prev}|${h}` : h));
+            setHintUsed(true);
+            setTotalHints(total_hints);
+            if (isMultiHint) {
+                setHintsRevealed((n) => n + 1);
+            }
+        } catch (err: any) {
+            setFeedback(err.message ?? 'No hint available');
+        } finally {
+            setLoading(false);
+        }
+    }
 
-      {feedback && (
-        <div className="error" style={{ marginTop: 12 }} data-testid="puzzle-feedback">{feedback}</div>
-      )}
-    </div>
-  );
+    const isConnections = puzzle.puzzle_type === 'connections';
+    const isClueReveal = puzzle.puzzle_type === 'clue-reveal';
+    const isMultiHint = isConnections || isClueReveal;
+    const showHintBtn = isMultiHint
+        ? !solved && hintsRevealed < totalHints
+        : puzzle.has_hint && !hintUsed;
+
+    const puzzleProps = {
+        puzzle,
+        solved,
+        onSubmit: submitGuess,
+        onHint: revealHint,
+        loading,
+        hint,
+        hintsRevealed,
+    };
+
+    if (solved && attempt) {
+        return (
+            <div data-testid="puzzle-shell">
+                <div className="content-meta" data-testid="puzzle-date">
+                    {puzzle.puzzle_date}
+                    {isArchive && (
+                        <span
+                            data-testid={`puzzle-type-${puzzle.puzzle_type}`}
+                            style={{ display: 'none' }}
+                        >
+                            {puzzle.puzzle_type}
+                        </span>
+                    )}
+                </div>
+                {isArchive && (
+                    <div className="content-meta muted-dark">
+                        Archived puzzles are for practice only. No points awarded.
+                    </div>
+                )}
+                <ResultPanel
+                    puzzle={{ ...puzzle, question: puzzleQuestion }}
+                    attempt={attempt}
+                    answer={answer}
+                    streak={streak}
+                    isArchive={isArchive}
+                    isLoggedIn={isLoggedIn}
+                />
+            </div>
+        );
+    }
+
+    return (
+        <div data-testid="puzzle-shell">
+            <div className="content-meta" data-testid="puzzle-date">
+                {puzzle.puzzle_date}
+                {isArchive && (
+                    <span
+                        data-testid={`puzzle-type-${puzzle.puzzle_type}`}
+                        style={{ display: 'none' }}
+                    >
+                        {puzzle.puzzle_type}
+                    </span>
+                )}
+            </div>
+            <div className="content-meta muted-dark" data-testid="puzzle-instructions">
+                {isArchive
+                    ? 'Archived puzzles are for practice only. No points awarded.'
+                    : 'Solve within 10 mins for 100 pts, 15 mins for 90, 30 mins for 75, 60 mins for 50. -5 per wrong guess, -10 for a hint.'}
+            </div>
+
+            <PuzzleTypeRenderer type={puzzle.puzzle_type} {...puzzleProps} />
+
+            <div style={{ marginTop: 8 }}>
+                {showHintBtn && (
+                    <button
+                        className="action-btn secondary"
+                        onClick={revealHint}
+                        disabled={loading}
+                        data-testid="hint-btn"
+                    >
+                        <span className="gt">&gt;</span>
+                        {isClueReveal ? 'Reveal next clue' : 'Reveal hint'}
+                        {!isArchive && <span className="muted"> (-10 pts)</span>}
+                    </button>
+                )}
+                {hint && !isConnections && !isClueReveal && (
+                    <div className="content-meta" style={{ marginTop: 8 }} data-testid="hint">
+                        Hint: {hint}
+                    </div>
+                )}
+            </div>
+
+            {feedback && (
+                <div className="error" style={{ marginTop: 12 }} data-testid="puzzle-feedback">
+                    {feedback}
+                </div>
+            )}
+        </div>
+    );
 }
 
 function PuzzleTypeRenderer(props: {
-  type: string;
-  puzzle: Puzzle;
-  solved: boolean;
-  onSubmit: (guess: string) => void;
-  onHint: () => void;
-  loading: boolean;
-  hint: string | null;
-  hintsRevealed: number;
+    type: string;
+    puzzle: Puzzle;
+    solved: boolean;
+    onSubmit: (guess: string) => void;
+    onHint: () => void;
+    loading: boolean;
+    hint: string | null;
+    hintsRevealed: number;
 }) {
-  switch (props.type) {
-    case "math": return <MathPuzzle {...props} />;
-    case "ladder": return <LadderPuzzle {...props} />;
-    case "choice": return <ChoicePuzzle {...props} />;
-    case "wordsearch": return <WordsearchPuzzle {...props} />;
-    case "order": return <OrderPuzzle {...props} />;
-    case "match": return <MatchPuzzle {...props} />;
-    case "connections": return <ConnectionsPuzzle {...props} />;
-    case "image-tap": return <ImageTapPuzzle {...props} />;
-    case "image-order": return <ImageOrderPuzzle {...props} />;
-    case "image-word": return <ImageWordPuzzle {...props} />;
-    case "numgrid": return <NumGridPuzzle {...props} />;
-    case "scrabble": return <ScrabblePuzzle {...props} />;
-    case "word-wheel": return <WordWheelPuzzle {...props} />;
-    case "countdown": return <CountdownPuzzle {...props} />;
-    case "clue-reveal": return <ClueRevealPuzzle {...props} />;
-    default: return <WordPuzzle {...props} />;
-  }
+    switch (props.type) {
+        case 'math':
+            return <MathPuzzle {...props} />;
+        case 'ladder':
+            return <LadderPuzzle {...props} />;
+        case 'choice':
+            return <ChoicePuzzle {...props} />;
+        case 'wordsearch':
+            return <WordsearchPuzzle {...props} />;
+        case 'order':
+            return <OrderPuzzle {...props} />;
+        case 'match':
+            return <MatchPuzzle {...props} />;
+        case 'connections':
+            return <ConnectionsPuzzle {...props} />;
+        case 'image-tap':
+            return <ImageTapPuzzle {...props} />;
+        case 'image-order':
+            return <ImageOrderPuzzle {...props} />;
+        case 'image-word':
+            return <ImageWordPuzzle {...props} />;
+        case 'numgrid':
+            return <NumGridPuzzle {...props} />;
+        case 'scrabble':
+            return <ScrabblePuzzle {...props} />;
+        case 'word-wheel':
+            return <WordWheelPuzzle {...props} />;
+        case 'countdown':
+            return <CountdownPuzzle {...props} />;
+        case 'clue-reveal':
+            return <ClueRevealPuzzle {...props} />;
+        default:
+            return <WordPuzzle {...props} />;
+    }
 }

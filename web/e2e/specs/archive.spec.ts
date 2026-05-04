@@ -1,107 +1,101 @@
-import { test, expect } from "@playwright/test";
-import { ArchiveListPage } from "../pages/ArchiveListPage";
+import { test, expect } from '@playwright/test';
+import { ArchiveListPage } from '../pages/ArchiveListPage';
 
-test.describe.configure({ mode: "serial" });
-import { PuzzlePage } from "../pages/PuzzlePage";
-import { ResultPage } from "../pages/ResultPage";
-import { loginAs } from "../helpers/db";
+test.describe.configure({ mode: 'serial' });
+import { PuzzlePage } from '../pages/PuzzlePage';
+import { ResultPage } from '../pages/ResultPage';
+import { loginAs } from '../helpers/db';
 
-test("Users can only see previous puzzles in the archive", async ({ page }) => {
-  const archive = new ArchiveListPage(page);
+test('Users can only see previous puzzles in the archive', async ({ page }) => {
+    const archive = new ArchiveListPage(page);
 
-  await loginAs(page, "alice@example.com");
-  await archive.goto();
+    await loginAs(page, 'alice@example.com');
+    await archive.goto();
 
-  await archive.expectPuzzleCount(23);
-  await expect(page.getByText("Quick Maths")).not.toBeVisible();
-  await expect(page.getByText("Future Puzzle")).not.toBeVisible();
+    await archive.expectPuzzleCount(23);
+    await expect(page.getByText('Quick Maths')).not.toBeVisible();
+    await expect(page.getByText('Future Puzzle')).not.toBeVisible();
 });
 
-test("Users can see previous puzzle results in the archive", async ({
-  page,
+test('Users can see previous puzzle results in the archive', async ({ page }) => {
+    const archive = new ArchiveListPage(page);
+
+    await loginAs(page, 'bob@example.com');
+    await archive.goto();
+
+    for (const id of [1, 2, 3, 4, 5, 8, 9]) {
+        await archive.expectSolved(id);
+    }
+    for (const id of [6, 7, 10, 11]) {
+        await archive.expectUnsolved(id);
+    }
+});
+
+test('Users can see solve a previously unsolved puzzle, but does not recieve points', async ({
+    page,
 }) => {
-  const archive = new ArchiveListPage(page);
+    const puzzle = new PuzzlePage(page);
+    const result = new ResultPage(page);
 
-  await loginAs(page, "bob@example.com");
-  await archive.goto();
+    await loginAs(page, 'charlie@example.com');
 
-  for (const id of [1, 2, 3, 4, 5, 8, 9]) {
-    await archive.expectSolved(id);
-  }
-  for (const id of [6, 7, 10, 11]) {
-    await archive.expectUnsolved(id);
-  }
+    await page.goto('/archive/10');
+    await expect(puzzle.shell).toBeVisible();
+    await puzzle.expectName('Strength in Numbers');
+
+    await puzzle.submitAnswer('10');
+
+    await result.expectVisible();
+    await expect(result.score).toHaveText('0');
+    await result.expectAnswer('10');
+
+    await result.mockClipboard();
+    const shareText = await result.shareAndGetText();
+    expect(shareText).toContain('I scored 0');
+    expect(shareText).toContain('Puzzle Pause #20');
+    expect(shareText).toContain('puzzlepause.app/archive/10');
 });
 
-test("Users can see solve a previously unsolved puzzle, but does not recieve points", async ({
-  page,
-}) => {
-  const puzzle = new PuzzlePage(page);
-  const result = new ResultPage(page);
+test('User can reveal a hint on archive puzzle', async ({ page }) => {
+    const puzzle = new PuzzlePage(page);
 
-  await loginAs(page, "charlie@example.com");
+    await loginAs(page, 'charlie@example.com');
+    await page.goto('/archive/11');
 
-  await page.goto("/archive/10");
-  await expect(puzzle.shell).toBeVisible();
-  await puzzle.expectName("Strength in Numbers");
+    await expect(puzzle.shell).toBeVisible();
+    await expect(puzzle.hintBtn).toBeVisible();
+    await puzzle.revealHint();
 
-  await puzzle.submitAnswer("10");
-
-  await result.expectVisible();
-  await expect(result.score).toHaveText("0");
-  await result.expectAnswer("10");
-
-  await result.mockClipboard();
-  const shareText = await result.shareAndGetText();
-  expect(shareText).toContain("I scored 0");
-  expect(shareText).toContain("Puzzle Pause #20");
-  expect(shareText).toContain("puzzlepause.app/archive/10");
+    await expect(puzzle.hint).toBeVisible();
+    await expect(puzzle.hint).toContainText('Use all 7 letters');
+    await expect(puzzle.hintBtn).not.toBeVisible();
 });
 
-test("User can reveal a hint on archive puzzle", async ({ page }) => {
-  const puzzle = new PuzzlePage(page);
+test('Users can see previous puzzles result and their points for that puzzle', async ({ page }) => {
+    const result = new ResultPage(page);
 
-  await loginAs(page, "charlie@example.com");
-  await page.goto("/archive/11");
+    await loginAs(page, 'bob@example.com');
 
-  await expect(puzzle.shell).toBeVisible();
-  await expect(puzzle.hintBtn).toBeVisible();
-  await puzzle.revealHint();
+    await page.goto('/archive/1');
 
-  await expect(puzzle.hint).toBeVisible();
-  await expect(puzzle.hint).toContainText("Use all 7 letters");
-  await expect(puzzle.hintBtn).not.toBeVisible();
-});
+    await result.expectVisible();
+    await expect(result.score).toHaveText('100');
 
-test("Users can see previous puzzles result and their points for that puzzle", async ({
-  page,
-}) => {
-  const result = new ResultPage(page);
+    await expect(result.panel).toContainText('Final score: 100 pts');
+    await expect(result.panel).toContainText('Wrong guesses: 0 pts');
 
-  await loginAs(page, "bob@example.com");
+    await result.expectAnswer('45');
 
-  await page.goto("/archive/1");
+    await expect(page.locator('body')).toContainText('Archived puzzles are for practice only');
 
-  await result.expectVisible();
-  await expect(result.score).toHaveText("100");
+    await page.goto('/archive/4');
 
-  await expect(result.panel).toContainText("Final score: 100 pts");
-  await expect(result.panel).toContainText("Wrong guesses: 0 pts");
+    await result.expectVisible();
+    await expect(result.score).toHaveText('100');
 
-  await result.expectAnswer("45");
-
-  await expect(page.locator("body")).toContainText(
-    "Archived puzzles are for practice only",
-  );
-
-  await page.goto("/archive/4");
-
-  await result.expectVisible();
-  await expect(result.score).toHaveText("100");
-
-  const answerEl = page.getByTestId("result-answer");
-  await expect(answerEl).toContainText("State capitals");
-  await expect(answerEl).toContainText("US state capitals");
-  await expect(answerEl).toContainText("Capitals of US states");
-  await expect(answerEl).toContainText("American state capitals");
+    const answerEl = page.getByTestId('result-answer');
+    await expect(answerEl).toContainText('State capitals');
+    await expect(answerEl).toContainText('US state capitals');
+    await expect(answerEl).toContainText('Capitals of US states');
+    await expect(answerEl).toContainText('American state capitals');
 });

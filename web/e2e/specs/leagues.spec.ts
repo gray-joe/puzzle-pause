@@ -1,138 +1,136 @@
-import { test, expect } from "@playwright/test";
-import { LeagueListPage } from "../pages/LeagueListPage";
-import { LeagueDetailPage } from "../pages/LeagueDetailPage";
-import { loginAs } from "../helpers/db";
+import { test, expect } from '@playwright/test';
+import { LeagueListPage } from '../pages/LeagueListPage';
+import { LeagueDetailPage } from '../pages/LeagueDetailPage';
+import { loginAs } from '../helpers/db';
 
-test("User can see a list of the leagues they are in", async ({ page }) => {
-  const leagues = new LeagueListPage(page);
+test('User can see a list of the leagues they are in', async ({ page }) => {
+    const leagues = new LeagueListPage(page);
 
-  await loginAs(page, "test@example.com");
-  await leagues.goto();
+    await loginAs(page, 'test@example.com');
+    await leagues.goto();
 
-  await expect(leagues.leagueList).toBeVisible();
-  await leagues.expectLeagueCount(2);
+    await expect(leagues.leagueList).toBeVisible();
+    await leagues.expectLeagueCount(2);
 
-  await expect(leagues.leagueRow(1)).toContainText("Dev League");
-  await expect(leagues.leagueRow(2)).toContainText("Puzzle Pros");
+    await expect(leagues.leagueRow(1)).toContainText('Dev League');
+    await expect(leagues.leagueRow(2)).toContainText('Puzzle Pros');
 });
 
-test("User can see standings, scores and tags of a league", async ({
-  page,
-}) => {
-  const detail = new LeagueDetailPage(page);
+test('User can see standings, scores and tags of a league', async ({ page }) => {
+    const detail = new LeagueDetailPage(page);
 
-  await loginAs(page, "bob@example.com");
-  await page.goto("/leagues/1");
+    await loginAs(page, 'bob@example.com');
+    await page.goto('/leagues/1');
 
-  await expect(detail.name).toContainText("Dev League");
-  await expect(detail.inviteCode).toHaveText("DEV001");
-  await expect(detail.memberCount).toContainText("4 members");
+    await expect(detail.name).toContainText('Dev League');
+    await expect(detail.inviteCode).toHaveText('DEV001');
+    await expect(detail.memberCount).toContainText('4 members');
 
-  await detail.expectLeaderboardEntry("Bob", "95");
-  await detail.expectLeaderboardEntry("Test User", "—");
-  await detail.expectLeaderboardEntry("Alice", "—");
+    await detail.expectLeaderboardEntry('Bob', '95');
+    await detail.expectLeaderboardEntry('Test User', '—');
+    await detail.expectLeaderboardEntry('Alice', '—');
 
-  await detail.tabWeekly.click();
-  const bobWeeklyRow = detail.leaderboardActive.locator("tr", {
-    hasText: "Bob",
-  });
-  await expect(bobWeeklyRow).toBeVisible();
-  await expect(bobWeeklyRow.locator("td").first()).toHaveText("1");
+    await detail.tabWeekly.click();
+    const bobWeeklyRow = detail.leaderboardActive.locator('tr', {
+        hasText: 'Bob',
+    });
+    await expect(bobWeeklyRow).toBeVisible();
+    await expect(bobWeeklyRow.locator('td').first()).toHaveText('1');
 
-  await detail.tabAlltime.click();
-  await detail.expectLeaderboardEntry("Bob", "795");
-  await detail.expectLeaderboardEntry("Test User", "600");
+    await detail.tabAlltime.click();
+    await detail.expectLeaderboardEntry('Bob', '795');
+    await detail.expectLeaderboardEntry('Test User', '600');
 
-  await expect(detail.leaderboardActive).toContainText("The One Shotter");
-  await expect(detail.leaderboardActive).toContainText("The Early Riser");
+    await expect(detail.leaderboardActive).toContainText('The One Shotter');
+    await expect(detail.leaderboardActive).toContainText('The Early Riser');
 });
 
-test("User can create a league", async ({ page }) => {
-  const leagues = new LeagueListPage(page);
-  const detail = new LeagueDetailPage(page);
+test('User can create a league', async ({ page }) => {
+    const leagues = new LeagueListPage(page);
+    const detail = new LeagueDetailPage(page);
 
-  await loginAs(page, "create-league@example.com");
-  await leagues.goto();
-  await leagues.createLeague("Test League");
+    await loginAs(page, 'create-league@example.com');
+    await leagues.goto();
+    await leagues.createLeague('Test League');
 
-  await expect(detail.name).toContainText("Test League");
-  await expect(detail.memberCount).toContainText("1 member");
+    await expect(detail.name).toContainText('Test League');
+    await expect(detail.memberCount).toContainText('1 member');
 });
 
-test("User can leave a league", async ({ page }) => {
-  const detail = new LeagueDetailPage(page);
+test('User can leave a league', async ({ page }) => {
+    const detail = new LeagueDetailPage(page);
 
-  await loginAs(page, "charlie@example.com");
-  await page.goto("/leagues/1");
+    await loginAs(page, 'charlie@example.com');
+    await page.goto('/leagues/1');
 
-  await expect(detail.name).toContainText("Dev League");
+    await expect(detail.name).toContainText('Dev League');
 
-  page.on("dialog", (dialog) => dialog.accept());
-  await detail.leaveBtn.click();
+    page.on('dialog', (dialog) => dialog.accept());
+    await detail.leaveBtn.click();
 
-  await page.waitForURL("/leagues");
-  await expect(page.getByText("Dev League")).not.toBeVisible();
+    await page.waitForURL('/leagues');
+    await expect(page.getByText('Dev League')).not.toBeVisible();
 });
 
-test("User can join a league", async ({ page }) => {
-  const leagues = new LeagueListPage(page);
-  const detail = new LeagueDetailPage(page);
+test('User can join a league', async ({ page }) => {
+    const leagues = new LeagueListPage(page);
+    const detail = new LeagueDetailPage(page);
 
-  await loginAs(page, "join-league@example.com");
-  await leagues.goto();
-  await leagues.joinLeague("PRO002");
+    await loginAs(page, 'join-league@example.com');
+    await leagues.goto();
+    await leagues.joinLeague('PRO002');
 
-  await expect(detail.name).toContainText("Puzzle Pros");
+    await expect(detail.name).toContainText('Puzzle Pros');
 });
 
-test("User cannot join the same league again", async ({ page }) => {
-  const leagues = new LeagueListPage(page);
+test('User cannot join the same league again', async ({ page }) => {
+    const leagues = new LeagueListPage(page);
 
-  await loginAs(page, "alice@example.com");
-  await leagues.goto();
-  await leagues.joinLeague("DEV001");
+    await loginAs(page, 'alice@example.com');
+    await leagues.goto();
+    await leagues.joinLeague('DEV001');
 
-  const detail = new LeagueDetailPage(page);
-  await expect(detail.name).toContainText("Dev League");
+    const detail = new LeagueDetailPage(page);
+    await expect(detail.name).toContainText('Dev League');
 });
 
-test("User can join a league via invite link", async ({ page }) => {
-  const detail = new LeagueDetailPage(page);
+test('User can join a league via invite link', async ({ page }) => {
+    const detail = new LeagueDetailPage(page);
 
-  await loginAs(page, "join-link@example.com");
-  await page.goto("/leagues/join?code=PRO002");
+    await loginAs(page, 'join-link@example.com');
+    await page.goto('/leagues/join?code=PRO002');
 
-  await page.waitForURL(/\/leagues\/2/);
-  await expect(detail.name).toContainText("Puzzle Pros");
+    await page.waitForURL(/\/leagues\/2/);
+    await expect(detail.name).toContainText('Puzzle Pros');
 });
 
-test("Invalid invite link redirects to leagues list", async ({ page }) => {
-  await loginAs(page, "bad-link@example.com");
-  await page.goto("/leagues/join?code=BADCODE");
+test('Invalid invite link redirects to leagues list', async ({ page }) => {
+    await loginAs(page, 'bad-link@example.com');
+    await page.goto('/leagues/join?code=BADCODE');
 
-  await page.waitForURL("/leagues");
+    await page.waitForURL('/leagues');
 });
 
-test("Invite link without code redirects to leagues list", async ({ page }) => {
-  await loginAs(page, "no-code@example.com");
-  await page.goto("/leagues/join");
+test('Invite link without code redirects to leagues list', async ({ page }) => {
+    await loginAs(page, 'no-code@example.com');
+    await page.goto('/leagues/join');
 
-  await page.waitForURL("/leagues");
+    await page.waitForURL('/leagues');
 });
 
-test("Creator can delete a league", async ({ page }) => {
-  const leagues = new LeagueListPage(page);
-  const detail = new LeagueDetailPage(page);
+test('Creator can delete a league', async ({ page }) => {
+    const leagues = new LeagueListPage(page);
+    const detail = new LeagueDetailPage(page);
 
-  await loginAs(page, "create-league@example.com");
-  await leagues.goto();
-  await leagues.createLeague("Doomed League");
+    await loginAs(page, 'create-league@example.com');
+    await leagues.goto();
+    await leagues.createLeague('Doomed League');
 
-  await expect(detail.name).toContainText("Doomed League");
+    await expect(detail.name).toContainText('Doomed League');
 
-  page.on("dialog", (dialog) => dialog.accept());
-  await detail.deleteBtn.click();
+    page.on('dialog', (dialog) => dialog.accept());
+    await detail.deleteBtn.click();
 
-  await page.waitForURL("/leagues");
-  await expect(page.getByText("Doomed League")).not.toBeVisible();
+    await page.waitForURL('/leagues');
+    await expect(page.getByText('Doomed League')).not.toBeVisible();
 });

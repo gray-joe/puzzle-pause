@@ -1,118 +1,108 @@
-import { test, expect } from "@playwright/test";
-import { PuzzlePage } from "../pages/PuzzlePage";
-import { ResultPage } from "../pages/ResultPage";
-import { loginAs } from "../helpers/db";
+import { test, expect } from '@playwright/test';
+import { PuzzlePage } from '../pages/PuzzlePage';
+import { ResultPage } from '../pages/ResultPage';
+import { loginAs } from '../helpers/db';
 
-test.describe.configure({ mode: "serial" });
+test.describe.configure({ mode: 'serial' });
 
-test("word wheel puzzle renders with both wheels and inputs", async ({
-  page,
-}) => {
-  await loginAs(page, "alice@example.com");
-  await page.goto("/archive/19");
+test('word wheel puzzle renders with both wheels and inputs', async ({ page }) => {
+    await loginAs(page, 'alice@example.com');
+    await page.goto('/archive/19');
 
-  await expect(page.getByTestId("puzzle-shell")).toBeVisible();
-  await expect(page.getByTestId("puzzle-question")).toContainText(
-    "Find the 8-letter word",
-  );
+    await expect(page.getByTestId('puzzle-shell')).toBeVisible();
+    await expect(page.getByTestId('puzzle-question')).toContainText('Find the 8-letter word');
 
-  await expect(page.getByTestId("word-input-0")).toBeVisible();
-  await expect(page.getByTestId("word-input-1")).toBeVisible();
+    await expect(page.getByTestId('word-input-0')).toBeVisible();
+    await expect(page.getByTestId('word-input-1')).toBeVisible();
 
-  await expect(page.locator("svg text").filter({ hasText: "?" })).toHaveCount(
-    4,
-  );
+    await expect(page.locator('svg text').filter({ hasText: '?' })).toHaveCount(4);
 
-  await expect(page.getByTestId("submit-btn")).toBeVisible();
+    await expect(page.getByTestId('submit-btn')).toBeVisible();
 });
 
-test("submitting a wrong answer shows feedback", async ({ page }) => {
-  const puzzle = new PuzzlePage(page);
+test('submitting a wrong answer shows feedback', async ({ page }) => {
+    const puzzle = new PuzzlePage(page);
 
-  await loginAs(page, "alice@example.com");
-  await page.goto("/archive/19");
+    await loginAs(page, 'alice@example.com');
+    await page.goto('/archive/19');
 
-  await page.getByTestId("word-input-0").fill("STARTING");
-  await page.getByTestId("word-input-1").fill("CLIMBING");
-  await page.getByTestId("submit-btn").click();
+    await page.getByTestId('word-input-0').fill('STARTING');
+    await page.getByTestId('word-input-1').fill('CLIMBING');
+    await page.getByTestId('submit-btn').click();
 
-  await puzzle.expectFeedback("Wrong");
-  await expect(page.getByTestId("submit-btn")).toBeVisible();
+    await puzzle.expectFeedback('Wrong');
+    await expect(page.getByTestId('submit-btn')).toBeVisible();
 });
 
-test("hint can be revealed", async ({ page }) => {
-  const puzzle = new PuzzlePage(page);
+test('hint can be revealed', async ({ page }) => {
+    const puzzle = new PuzzlePage(page);
 
-  await loginAs(page, "alice@example.com");
-  await page.goto("/archive/19");
+    await loginAs(page, 'alice@example.com');
+    await page.goto('/archive/19');
 
-  await expect(puzzle.hintBtn).toBeVisible();
-  await puzzle.revealHint();
+    await expect(puzzle.hintBtn).toBeVisible();
+    await puzzle.revealHint();
 
-  await expect(puzzle.hint).toBeVisible();
-  await expect(puzzle.hint).toContainText("outdoors");
-  await expect(puzzle.hintBtn).not.toBeVisible();
+    await expect(puzzle.hint).toBeVisible();
+    await expect(puzzle.hint).toContainText('outdoors');
+    await expect(puzzle.hintBtn).not.toBeVisible();
 });
 
-test("submit button is disabled until both inputs are filled", async ({
-  page,
-}) => {
-  await loginAs(page, "alice@example.com");
-  await page.goto("/archive/19");
+test('submit button is disabled until both inputs are filled', async ({ page }) => {
+    await loginAs(page, 'alice@example.com');
+    await page.goto('/archive/19');
 
-  await expect(page.getByTestId("submit-btn")).toBeDisabled();
+    await expect(page.getByTestId('submit-btn')).toBeDisabled();
 
-  await page.getByTestId("word-input-0").fill("STARLING");
-  await expect(page.getByTestId("submit-btn")).toBeDisabled();
+    await page.getByTestId('word-input-0').fill('STARLING');
+    await expect(page.getByTestId('submit-btn')).toBeDisabled();
 
-  await page.getByTestId("word-input-1").fill("CLIMBING");
-  await expect(page.getByTestId("submit-btn")).toBeEnabled();
+    await page.getByTestId('word-input-1').fill('CLIMBING');
+    await expect(page.getByTestId('submit-btn')).toBeEnabled();
 
-  await page.getByTestId("word-input-1").fill("");
-  await expect(page.getByTestId("submit-btn")).toBeDisabled();
+    await page.getByTestId('word-input-1').fill('');
+    await expect(page.getByTestId('submit-btn')).toBeDisabled();
 });
 
-test("inputs auto-uppercase typed text", async ({ page }) => {
-  await loginAs(page, "alice@example.com");
-  await page.goto("/archive/19");
+test('inputs auto-uppercase typed text', async ({ page }) => {
+    await loginAs(page, 'alice@example.com');
+    await page.goto('/archive/19');
 
-  await page.getByTestId("word-input-0").fill("starling");
-  await page.getByTestId("word-input-1").fill("climbing");
+    await page.getByTestId('word-input-0').fill('starling');
+    await page.getByTestId('word-input-1').fill('climbing');
 
-  await expect(page.getByTestId("word-input-0")).toHaveValue("STARLING");
-  await expect(page.getByTestId("word-input-1")).toHaveValue("CLIMBING");
+    await expect(page.getByTestId('word-input-0')).toHaveValue('STARLING');
+    await expect(page.getByTestId('word-input-1')).toHaveValue('CLIMBING');
 });
 
-test("pressing Enter on the last input submits the answer", async ({
-  page,
-}) => {
-  const puzzle = new PuzzlePage(page);
+test('pressing Enter on the last input submits the answer', async ({ page }) => {
+    const puzzle = new PuzzlePage(page);
 
-  await loginAs(page, "alice@example.com");
-  await page.goto("/archive/19");
+    await loginAs(page, 'alice@example.com');
+    await page.goto('/archive/19');
 
-  await page.getByTestId("word-input-0").fill("STARTING");
-  await page.getByTestId("word-input-1").fill("CLIMBING");
-  await page.getByTestId("word-input-1").press("Enter");
+    await page.getByTestId('word-input-0').fill('STARTING');
+    await page.getByTestId('word-input-1').fill('CLIMBING');
+    await page.getByTestId('word-input-1').press('Enter');
 
-  await puzzle.expectFeedback("Wrong");
+    await puzzle.expectFeedback('Wrong');
 });
 
-test("submitting the correct answer solves the puzzle", async ({ page }) => {
-  const result = new ResultPage(page);
+test('submitting the correct answer solves the puzzle', async ({ page }) => {
+    const result = new ResultPage(page);
 
-  await loginAs(page, "alice@example.com");
-  await page.goto("/archive/19");
+    await loginAs(page, 'alice@example.com');
+    await page.goto('/archive/19');
 
-  await page.getByTestId("word-input-0").fill("STARLING");
-  await page.getByTestId("word-input-1").fill("CLIMBING");
-  await page.getByTestId("submit-btn").click();
+    await page.getByTestId('word-input-0').fill('STARLING');
+    await page.getByTestId('word-input-1').fill('CLIMBING');
+    await page.getByTestId('submit-btn').click();
 
-  await result.expectVisible();
-  await expect(result.score).toHaveText("0");
-  await result.expectAnswer("starling climbing");
+    await result.expectVisible();
+    await expect(result.score).toHaveText('0');
+    await result.expectAnswer('starling climbing');
 
-  await expect(page.getByTestId("word-input-0")).not.toBeVisible();
-  await expect(page.getByTestId("word-input-1")).not.toBeVisible();
-  await expect(page.getByTestId("submit-btn")).not.toBeVisible();
+    await expect(page.getByTestId('word-input-0')).not.toBeVisible();
+    await expect(page.getByTestId('word-input-1')).not.toBeVisible();
+    await expect(page.getByTestId('submit-btn')).not.toBeVisible();
 });
