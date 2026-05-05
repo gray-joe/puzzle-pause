@@ -4,15 +4,15 @@ from zoneinfo import ZoneInfo
 
 _LONDON = ZoneInfo("Europe/London")
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..auth import get_current_user, require_user
+from ..auth import get_current_user, get_or_create_guest_session_id, require_user
 from ..database import get_db
-from ..models import Attempt, Puzzle
+from ..models import Attempt, Puzzle, PuzzleCompletionEvent
 from ..puzzle import calculate_score, check_answer, get_puzzle_date
 from ..schemas import AttemptRequest, AttemptResponse, HintRequest, HintResponse
 
@@ -131,6 +131,17 @@ def _ensure_attempt(user_id: int, puzzle_id: int, db: Session) -> Attempt:
     return attempt
 
 
+def _seconds_between(start: datetime | None, end: datetime | None) -> int | None:
+    if not start or not end:
+        return None
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
+    delta = int((end - start).total_seconds())
+    return max(0, delta)
+
+
 @router.get("/today")
 @limiter.limit("60/minute")
 def today(request: Request, user=Depends(get_current_user), db: Session = Depends(get_db)):
@@ -171,6 +182,7 @@ def today(request: Request, user=Depends(get_current_user), db: Session = Depend
 @limiter.limit("10/minute")
 def submit_attempt(
     request: Request,
+    response: Response,
     body: AttemptRequest,
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -192,6 +204,18 @@ def submit_attempt(
         if correct:
             now = datetime.now(timezone.utc)
             score = calculate_score(body.opened_at, now, 0, 0)
+            guest_session_id = get_or_create_guest_session_id(request, response)
+            db.add(
+                PuzzleCompletionEvent(
+                    puzzle_id=puzzle.id,
+                    guest_session_id=guest_session_id,
+                    completed_at=now,
+                    source="daily",
+                    wrong_guess_count=None,
+                    time_to_complete_seconds=_seconds_between(body.opened_at, now),
+                )
+            )
+            db.commit()
             return AttemptResponse(
                 correct=True,
                 score=score,
@@ -207,6 +231,20 @@ def submit_attempt(
     attempt = _ensure_attempt(user.id, puzzle.id, db)
 
     if attempt.solved:
+        now = datetime.now(timezone.utc)
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                user_id=user.id,
+                completed_at=now,
+                source="daily",
+                wrong_guess_count=attempt.incorrect_guesses,
+                time_to_complete_seconds=_seconds_between(
+                    attempt.opened_at, attempt.completed_at or now
+                ),
+            )
+        )
+        db.commit()
         return AttemptResponse(
             correct=True,
             score=attempt.score,
@@ -227,6 +265,16 @@ def submit_attempt(
         attempt.solved = 1
         attempt.score = score
         attempt.completed_at = now
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                user_id=user.id,
+                completed_at=now,
+                source="daily",
+                wrong_guess_count=attempt.incorrect_guesses,
+                time_to_complete_seconds=_seconds_between(attempt.opened_at, now),
+            )
+        )
         db.commit()
         streak = _get_streak(user.id, db)
         return AttemptResponse(

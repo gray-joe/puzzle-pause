@@ -1,7 +1,7 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from app.auth import create_jwt, generate_token
-from app.models import Attempt, Puzzle
+from app.models import Attempt, Puzzle, PuzzleCompletionEvent
 from app.models import Session as SessionModel
 from app.models import User
 
@@ -155,6 +155,12 @@ class TestArchiveAttempt:
         assert resp.status_code == 200
         assert resp.json()["correct"] is True
 
+        event = db.query(PuzzleCompletionEvent).first()
+        assert event is not None
+        assert event.source == "archive"
+        assert event.user_id is None
+        assert event.guest_session_id is not None
+
     def test_guest_wrong_answer(self, client, db):
         puzzle = _make_puzzle(db, days_ago=1, answer="hello")
         resp = client.post(
@@ -163,6 +169,32 @@ class TestArchiveAttempt:
         )
         assert resp.status_code == 200
         assert resp.json()["correct"] is False
+        assert db.query(PuzzleCompletionEvent).count() == 0
+
+    def test_auth_correct_response_logs_each_time(self, client, db):
+        puzzle = _make_puzzle(db, days_ago=1, answer="hello")
+        _, jwt = _make_user(db)
+        cookies = {"session": jwt}
+
+        first = client.post(
+            f"/api/archive/{puzzle.id}/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "hello"},
+            cookies=cookies,
+        )
+        assert first.status_code == 200
+        assert first.json()["correct"] is True
+
+        second = client.post(
+            f"/api/archive/{puzzle.id}/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "hello"},
+            cookies=cookies,
+        )
+        assert second.status_code == 200
+        assert second.json()["correct"] is True
+
+        events = db.query(PuzzleCompletionEvent).all()
+        assert len(events) == 2
+        assert all(e.source == "archive" for e in events)
 
     def test_archive_score_always_zero(self, client, db):
         puzzle = _make_puzzle(db, days_ago=1, answer="hello")
@@ -191,6 +223,21 @@ class TestArchiveAttempt:
         )
         assert resp.json()["correct"] is True
         assert resp.json()["score"] == 0
+
+    def test_guest_opened_at_sets_time_to_complete(self, client, db):
+        puzzle = _make_puzzle(db, days_ago=1, answer="hello")
+        opened_at = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+        resp = client.post(
+            f"/api/archive/{puzzle.id}/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "hello", "opened_at": opened_at},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["correct"] is True
+
+        event = db.query(PuzzleCompletionEvent).first()
+        assert event is not None
+        assert event.time_to_complete_seconds is not None
+        assert event.time_to_complete_seconds >= 290
 
 
 class TestArchiveHint:

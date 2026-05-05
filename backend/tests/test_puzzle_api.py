@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from app.auth import create_jwt, generate_token
-from app.models import Puzzle
+from app.models import Puzzle, PuzzleCompletionEvent
 from app.models import Session as SessionModel
 from app.models import User
 
@@ -213,6 +213,21 @@ class TestAttempt:
         assert data["correct"] is True
         assert data["score"] is not None
 
+        events = db.query(PuzzleCompletionEvent).all()
+        assert len(events) == 1
+        assert events[0].source == "daily"
+        assert events[0].user_id is None
+        assert events[0].guest_session_id is not None
+
+    def test_guest_wrong_answer_creates_no_completion_event(self, client, db):
+        _make_puzzle(db, answer="hello")
+        resp = client.post(
+            "/api/puzzle/attempt", json={"puzzle_id": 1, "guess": "wrong"}
+        )
+        assert resp.status_code == 200
+        assert resp.json()["correct"] is False
+        assert db.query(PuzzleCompletionEvent).count() == 0
+
     def test_guest_score_uses_opened_at(self, client, db):
         _make_puzzle(db, answer="hello")
         opened_at = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
@@ -224,6 +239,11 @@ class TestAttempt:
         data = resp.json()
         assert data["correct"] is True
         assert data["score"] <= 75  # 2 hours → base 75
+
+        event = db.query(PuzzleCompletionEvent).first()
+        assert event is not None
+        assert event.time_to_complete_seconds is not None
+        assert event.time_to_complete_seconds >= 7190
 
     def test_guest_wrong_answer(self, client, db):
         _make_puzzle(db, answer="hello")
@@ -251,6 +271,32 @@ class TestAttempt:
         )
         assert resp.status_code == 200
         assert resp.json()["correct"] is True
+
+    def test_auth_correct_response_logs_each_time(self, client, db):
+        _make_puzzle(db, answer="hello")
+        _, jwt = _make_user(db)
+        cookies = {"session": jwt}
+
+        first = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": 1, "guess": "hello"},
+            cookies=cookies,
+        )
+        assert first.status_code == 200
+        assert first.json()["correct"] is True
+
+        second = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": 1, "guess": "hello"},
+            cookies=cookies,
+        )
+        assert second.status_code == 200
+        assert second.json()["correct"] is True
+
+        events = db.query(PuzzleCompletionEvent).all()
+        assert len(events) == 2
+        assert all(e.source == "daily" for e in events)
+        assert all(e.user_id is not None for e in events)
 
 
 class TestHint:

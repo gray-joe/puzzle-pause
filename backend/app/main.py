@@ -21,6 +21,11 @@ with engine.connect() as _conn:
         "CREATE INDEX IF NOT EXISTS ix_league_members_user_id ON league_members (user_id)",
         "CREATE INDEX IF NOT EXISTS ix_league_members_league_id ON league_members (league_id)",
         "CREATE INDEX IF NOT EXISTS ix_auth_tokens_email_used_expires ON auth_tokens (email, used, expires_at)",
+        "CREATE INDEX IF NOT EXISTS ix_completion_events_completed_at ON puzzle_completion_events (completed_at)",
+        "CREATE INDEX IF NOT EXISTS ix_completion_events_source_completed ON puzzle_completion_events (source, completed_at)",
+        "CREATE INDEX IF NOT EXISTS ix_completion_events_puzzle_completed ON puzzle_completion_events (puzzle_id, completed_at)",
+        "CREATE INDEX IF NOT EXISTS ix_completion_events_user_completed ON puzzle_completion_events (user_id, completed_at)",
+        "CREATE INDEX IF NOT EXISTS ix_completion_events_guest_session_completed ON puzzle_completion_events (guest_session_id, completed_at)",
     ]:
         _conn.execute(_text(_stmt))
     _conn.commit()

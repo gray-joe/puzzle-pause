@@ -62,6 +62,15 @@ export default function Nav({
                         >
                             <span className="gt">&gt;</span>Users
                         </Link>
+                        <Link
+                            href="/admin/completion-events"
+                            className={
+                                pathname.startsWith('/admin/completion-events') ? 'active' : ''
+                            }
+                            data-testid="admin-completion-events-nav-link"
+                        >
+                            <span className="gt">&gt;</span>Completion Events
+                        </Link>
                     </>
                 ) : (
                     <>

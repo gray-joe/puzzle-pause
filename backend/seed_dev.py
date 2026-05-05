@@ -9,7 +9,14 @@ Usage: DATABASE_URL=sqlite:///path/to/puzzle.db python seed_dev.py
 from datetime import datetime, timedelta, timezone
 
 from app.database import Base, SessionLocal, engine
-from app.models import Attempt, League, LeagueMember, Puzzle, User
+from app.models import (
+    Attempt,
+    League,
+    LeagueMember,
+    Puzzle,
+    PuzzleCompletionEvent,
+    User,
+)
 from app.puzzle import get_puzzle_date
 
 
@@ -380,12 +387,60 @@ def seed():
             )
         )
 
+        completion_events = [
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle_ids[14],
+                user_id=1,
+                source="archive",
+                completed_at=datetime.fromisoformat(_ts(14, 11, 1)),
+                wrong_guess_count=1,
+                time_to_complete_seconds=92,
+            ),
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle_ids[6],
+                user_id=3,
+                source="archive",
+                completed_at=datetime.fromisoformat(_ts(6, 9, 6)),
+                wrong_guess_count=0,
+                time_to_complete_seconds=58,
+            ),
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle_ids[2],
+                guest_session_id="dev-guest-simple-addition",
+                source="daily",
+                completed_at=datetime.fromisoformat(_ts(2, 16, 20)),
+                wrong_guess_count=2,
+                time_to_complete_seconds=145,
+            ),
+            PuzzleCompletionEvent(
+                puzzle_id=today_puzzle_id,
+                user_id=3,
+                source="daily",
+                completed_at=datetime.now(timezone.utc).replace(
+                    hour=9, minute=16, second=0, microsecond=0
+                ),
+                wrong_guess_count=1,
+                time_to_complete_seconds=74,
+            ),
+            PuzzleCompletionEvent(
+                puzzle_id=today_puzzle_id,
+                guest_session_id="dev-guest-today",
+                source="daily",
+                completed_at=datetime.now(timezone.utc).replace(
+                    hour=12, minute=5, second=0, microsecond=0
+                ),
+                wrong_guess_count=0,
+                time_to_complete_seconds=63,
+            ),
+        ]
+        db.add_all(completion_events)
+
         db.commit()
 
         past_count = sum(1 for p in SEED_PUZZLES if p.get("puzzle_date", "") <= today)
         total = db.query(Puzzle).count()
         print(
-            f"Seeded: {total} puzzles, today={today}, 4 users, 2 leagues, {len(attempts) + 1} attempts"
+            f"Seeded: {total} puzzles, today={today}, 4 users, 2 leagues, {len(attempts) + 1} attempts, {len(completion_events)} completion events"
         )
         print("Development database ready!")
     except Exception:

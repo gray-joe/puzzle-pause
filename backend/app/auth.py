@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 import jwt as pyjwt
-from fastapi import Cookie, Depends, Header, HTTPException, status
+from fastapi import Cookie, Depends, Header, HTTPException, Request, Response, status
 from sqlalchemy.orm import Session
 
 from .database import get_db
@@ -14,6 +14,8 @@ OTAC_CHARSET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no I, L, O, 0, 1
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRY_DAYS = 30
 AUTH_MAX_CODE_ATTEMPTS = 5
+GUEST_SESSION_EXPIRY_DAYS = 365
+GUEST_SESSION_COOKIE = "guest_session"
 
 
 def _jwt_secret() -> str:
@@ -25,6 +27,24 @@ def _jwt_secret() -> str:
 
 def generate_token(n_bytes: int = 32) -> str:
     return secrets.token_hex(n_bytes)
+
+
+def get_or_create_guest_session_id(request: Request, response: Response) -> str:
+    existing = request.cookies.get(GUEST_SESSION_COOKIE)
+    if existing:
+        return existing
+
+    guest_session_id = generate_token(16)
+    is_prod = os.environ.get("PUZZLE_ENV", "dev") == "prod"
+    response.set_cookie(
+        key=GUEST_SESSION_COOKIE,
+        value=guest_session_id,
+        httponly=True,
+        secure=is_prod,
+        samesite="lax",
+        max_age=GUEST_SESSION_EXPIRY_DAYS * 86400,
+    )
+    return guest_session_id
 
 
 def generate_otac() -> str:

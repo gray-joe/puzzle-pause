@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import date, datetime, time, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from ..auth import require_admin
 from ..database import get_db
-from ..models import Attempt, Puzzle, User
+from ..models import Attempt, Puzzle, PuzzleCompletionEvent, User
 from ..puzzle_validation import validate_puzzle
 from ..schemas import CreatePuzzleRequest, PuzzleAdminResponse, UpdateAttemptRequest, UpdatePuzzleRequest
 
@@ -168,12 +170,90 @@ def list_users(admin=Depends(require_admin), db: Session = Depends(get_db)):
     ]
 
 
+@router.get("/completion-events")
+def list_completion_events(
+    admin=Depends(require_admin),
+    db: Session = Depends(get_db),
+    source: str | None = Query(default=None),
+    actor: str | None = Query(default=None),
+    puzzle_type: str | None = Query(default=None),
+    completed_from: str | None = Query(default=None),
+    completed_to: str | None = Query(default=None),
+    limit: int = Query(default=250, ge=1, le=1000),
+):
+    if source is not None and source not in {"daily", "archive"}:
+        raise HTTPException(status_code=400, detail="Invalid source filter")
+    if actor is not None and actor not in {"guest", "auth"}:
+        raise HTTPException(status_code=400, detail="Invalid actor filter")
+
+    from_day: date | None = None
+    to_day: date | None = None
+    if completed_from is not None:
+        try:
+            from_day = date.fromisoformat(completed_from)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid completed_from filter")
+    if completed_to is not None:
+        try:
+            to_day = date.fromisoformat(completed_to)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid completed_to filter")
+
+    query = (
+        db.query(PuzzleCompletionEvent, Puzzle, User)
+        .join(Puzzle, PuzzleCompletionEvent.puzzle_id == Puzzle.id)
+        .outerjoin(User, PuzzleCompletionEvent.user_id == User.id)
+    )
+
+    if source:
+        query = query.filter(PuzzleCompletionEvent.source == source)
+    if actor == "guest":
+        query = query.filter(PuzzleCompletionEvent.user_id.is_(None))
+    elif actor == "auth":
+        query = query.filter(PuzzleCompletionEvent.user_id.isnot(None))
+    if puzzle_type:
+        query = query.filter(Puzzle.puzzle_type == puzzle_type)
+    if from_day:
+        from_dt = datetime.combine(from_day, time.min)
+        query = query.filter(PuzzleCompletionEvent.completed_at >= from_dt)
+    if to_day:
+        to_dt = datetime.combine(to_day + timedelta(days=1), time.min)
+        query = query.filter(PuzzleCompletionEvent.completed_at < to_dt)
+
+    rows = query.order_by(PuzzleCompletionEvent.id.desc()).limit(limit).all()
+    return [
+        {
+            "id": event.id,
+            "puzzle_id": puzzle.id,
+            "puzzle_date": puzzle.puzzle_date,
+            "puzzle_name": puzzle.puzzle_name,
+            "puzzle_type": puzzle.puzzle_type,
+            "user_id": user.id if user else None,
+            "user_email": user.email if user else None,
+            "user_display_name": user.display_name if user else None,
+            "guest_session_id": event.guest_session_id,
+            "source": event.source,
+            "completed_at": event.completed_at,
+            "wrong_guess_count": event.wrong_guess_count,
+            "time_to_complete_seconds": event.time_to_complete_seconds,
+        }
+        for event, puzzle, user in rows
+    ]
+
+
 @router.get("/stats")
 def get_stats(admin=Depends(require_admin), db: Session = Depends(get_db)):
     return {
         "puzzles": db.query(Puzzle).count(),
         "players": db.query(User).count(),
         "attempts": db.query(Attempt).count(),
+        "completion_events": db.query(PuzzleCompletionEvent).count(),
+        "guest_completion_events": db.query(PuzzleCompletionEvent)
+        .filter(PuzzleCompletionEvent.user_id.is_(None))
+        .count(),
+        "auth_completion_events": db.query(PuzzleCompletionEvent)
+        .filter(PuzzleCompletionEvent.user_id.isnot(None))
+        .count(),
     }
 
 

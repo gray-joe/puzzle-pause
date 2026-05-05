@@ -26,6 +26,9 @@ class User(Base):
 
     sessions: Mapped[list["Session"]] = relationship(back_populates="user")
     attempts: Mapped[list["Attempt"]] = relationship(back_populates="user")
+    completion_events: Mapped[list["PuzzleCompletionEvent"]] = relationship(
+        back_populates="user"
+    )
 
 
 class AuthToken(Base):
@@ -72,6 +75,9 @@ class Puzzle(Base):
     )
 
     attempts: Mapped[list["Attempt"]] = relationship(back_populates="puzzle")
+    completion_events: Mapped[list["PuzzleCompletionEvent"]] = relationship(
+        back_populates="puzzle", cascade="all, delete-orphan"
+    )
 
 
 class Attempt(Base):
@@ -98,6 +104,37 @@ class Attempt(Base):
 
     user: Mapped["User"] = relationship(back_populates="attempts")
     puzzle: Mapped["Puzzle"] = relationship(back_populates="attempts")
+
+
+class PuzzleCompletionEvent(Base):
+    __tablename__ = "puzzle_completion_events"
+    __table_args__ = (
+        Index("ix_completion_events_completed_at", "completed_at"),
+        Index("ix_completion_events_source_completed", "source", "completed_at"),
+        Index("ix_completion_events_puzzle_completed", "puzzle_id", "completed_at"),
+        Index("ix_completion_events_user_completed", "user_id", "completed_at"),
+        Index(
+            "ix_completion_events_guest_session_completed",
+            "guest_session_id",
+            "completed_at",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    puzzle_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("puzzles.id"), nullable=False
+    )
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id"))
+    guest_session_id: Mapped[str | None] = mapped_column(String)
+    completed_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    source: Mapped[str] = mapped_column(String, nullable=False)
+    wrong_guess_count: Mapped[int | None] = mapped_column(Integer)
+    time_to_complete_seconds: Mapped[int | None] = mapped_column(Integer)
+
+    user: Mapped["User | None"] = relationship(back_populates="completion_events")
+    puzzle: Mapped["Puzzle"] = relationship(back_populates="completion_events")
 
 
 class League(Base):

@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app.auth import create_jwt, generate_token
-from app.models import Attempt, Puzzle
+from app.models import Attempt, Puzzle, PuzzleCompletionEvent
 from app.models import Session as SessionModel
 from app.models import User
 
@@ -208,6 +208,33 @@ class TestAdminDeletePuzzle:
         assert resp.status_code == 204
         assert db.query(Puzzle).filter(Puzzle.id == puzzle_id).first() is None
 
+    def test_deletes_puzzle_with_completion_events(self, client, db):
+        puzzle = _make_puzzle(db)
+        puzzle_id = puzzle.id
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle_id,
+                guest_session_id="guest-1",
+                source="daily",
+                wrong_guess_count=0,
+                time_to_complete_seconds=12,
+            )
+        )
+        db.commit()
+
+        resp = client.delete(
+            f"/api/admin/puzzles/{puzzle_id}", cookies=_admin_cookies(db)
+        )
+
+        assert resp.status_code == 204
+        assert db.query(Puzzle).filter(Puzzle.id == puzzle_id).first() is None
+        assert (
+            db.query(PuzzleCompletionEvent)
+            .filter(PuzzleCompletionEvent.puzzle_id == puzzle_id)
+            .count()
+            == 0
+        )
+
     def test_404_unknown(self, client, db):
         resp = client.delete("/api/admin/puzzles/9999", cookies=_admin_cookies(db))
         assert resp.status_code == 404
@@ -222,6 +249,21 @@ class TestAdminStats:
         admin = db.query(User).filter(User.email == "admin@example.com").first()
         attempt = Attempt(user_id=admin.id, puzzle_id=puzzle.id, solved=1, score=80)
         db.add(attempt)
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                user_id=admin.id,
+                source="daily",
+                wrong_guess_count=0,
+            )
+        )
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                guest_session_id="guest-1",
+                source="archive",
+            )
+        )
         db.commit()
 
         resp = client.get("/api/admin/stats", cookies=cookies)
@@ -230,6 +272,9 @@ class TestAdminStats:
         assert data["puzzles"] == 1
         assert data["players"] == 1
         assert data["attempts"] == 1
+        assert data["completion_events"] == 2
+        assert data["guest_completion_events"] == 1
+        assert data["auth_completion_events"] == 1
 
     def test_admin_only(self, client, db):
         _, jwt = _make_user(db, "plain@example.com")
@@ -239,3 +284,163 @@ class TestAdminStats:
     def test_unauthenticated_rejected(self, client):
         resp = client.get("/api/admin/stats")
         assert resp.status_code == 401
+
+
+class TestAdminCompletionEvents:
+    def test_returns_stream(self, client, db):
+        cookies = _admin_cookies(db)
+        puzzle = _make_puzzle(db, "2024-01-01")
+        admin = db.query(User).filter(User.email == "admin@example.com").first()
+
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                user_id=admin.id,
+                source="daily",
+                wrong_guess_count=2,
+                time_to_complete_seconds=123,
+            )
+        )
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                guest_session_id="guest-stream-1",
+                source="archive",
+            )
+        )
+        db.commit()
+
+        resp = client.get("/api/admin/completion-events", cookies=cookies)
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 2
+
+        first = data[0]
+        assert first["source"] == "archive"
+        assert first["user_id"] is None
+        assert first["guest_session_id"] == "guest-stream-1"
+        assert first["puzzle_date"] == "2024-01-01"
+
+        second = data[1]
+        assert second["source"] == "daily"
+        assert second["user_id"] == admin.id
+        assert second["wrong_guess_count"] == 2
+        assert second["time_to_complete_seconds"] == 123
+
+    def test_admin_only(self, client, db):
+        _, jwt = _make_user(db, "plain@example.com")
+        resp = client.get("/api/admin/completion-events", cookies={"session": jwt})
+        assert resp.status_code == 403
+
+    def test_unauthenticated_rejected(self, client):
+        resp = client.get("/api/admin/completion-events")
+        assert resp.status_code == 401
+
+    def test_filters_source_actor_and_puzzle_type(self, client, db):
+        cookies = _admin_cookies(db)
+        p1 = _make_puzzle(db, "2024-01-01")
+        p2 = Puzzle(
+            puzzle_date="2024-01-02",
+            puzzle_type="math",
+            puzzle_name="Math",
+            question="Q",
+            answer="A",
+        )
+        db.add(p2)
+        db.commit()
+        db.refresh(p2)
+
+        admin = db.query(User).filter(User.email == "admin@example.com").first()
+
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=p1.id,
+                user_id=admin.id,
+                source="daily",
+            )
+        )
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=p1.id,
+                guest_session_id="guest-stream-2",
+                source="archive",
+            )
+        )
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=p2.id,
+                guest_session_id="guest-stream-3",
+                source="daily",
+            )
+        )
+        db.commit()
+
+        resp = client.get(
+            "/api/admin/completion-events?source=daily&actor=guest&puzzle_type=math",
+            cookies=cookies,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["source"] == "daily"
+        assert data[0]["user_id"] is None
+        assert data[0]["puzzle_type"] == "math"
+
+    def test_rejects_invalid_filters(self, client, db):
+        cookies = _admin_cookies(db)
+        resp = client.get("/api/admin/completion-events?source=weekly", cookies=cookies)
+        assert resp.status_code == 400
+        resp = client.get("/api/admin/completion-events?actor=robot", cookies=cookies)
+        assert resp.status_code == 400
+
+    def test_filters_completed_date_range(self, client, db):
+        cookies = _admin_cookies(db)
+        puzzle = _make_puzzle(db, "2024-01-01")
+
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                source="daily",
+                guest_session_id="g-old",
+                completed_at=datetime(2024, 1, 1, 9, 0, 0, tzinfo=None),
+            )
+        )
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                source="daily",
+                guest_session_id="g-mid",
+                completed_at=datetime(2024, 1, 2, 9, 0, 0, tzinfo=None),
+            )
+        )
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                source="daily",
+                guest_session_id="g-new",
+                completed_at=datetime(2024, 1, 3, 9, 0, 0, tzinfo=None),
+            )
+        )
+        db.commit()
+
+        resp = client.get(
+            "/api/admin/completion-events?completed_from=2024-01-02&completed_to=2024-01-02",
+            cookies=cookies,
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert len(data) == 1
+        assert data[0]["guest_session_id"] == "g-mid"
+
+    def test_rejects_invalid_date_filters(self, client, db):
+        cookies = _admin_cookies(db)
+        resp = client.get(
+            "/api/admin/completion-events?completed_from=2024-99-99",
+            cookies=cookies,
+        )
+        assert resp.status_code == 400
+        resp = client.get(
+            "/api/admin/completion-events?completed_to=not-a-date",
+            cookies=cookies,
+        )
+        assert resp.status_code == 400

@@ -1,5 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { loginAs } from '../helpers/db';
+import {
+    countCompletionEventsForPuzzle,
+    createPuzzleWithCompletionEvent,
+    loginAs,
+} from '../helpers/db';
 import { PuzzlePage } from '../pages/PuzzlePage';
 
 const ADMIN_EMAIL = 'admin@example.com';
@@ -33,12 +37,26 @@ test.describe('Admin dashboard', () => {
         await expect(page.locator("td:text-is('Puzzles')")).toBeVisible();
         await expect(page.locator("td:text-is('Players')")).toBeVisible();
         await expect(page.locator("td:text-is('Attempts')")).toBeVisible();
+        await expect(page.locator("td:text-is('Completion events')")).toBeVisible();
+        await expect(page.locator("td:text-is('Guest completion events')")).toBeVisible();
+        await expect(page.locator("td:text-is('Auth completion events')")).toBeVisible();
 
         const rows = page.locator('tbody tr');
-        await expect(rows).toHaveCount(3);
-        for (let i = 0; i < 3; i++) {
-            const countCell = rows.nth(i).locator('td').nth(1);
-            const text = await countCell.textContent();
+        await expect(rows).toHaveCount(6);
+
+        for (const label of ['Puzzles', 'Players', 'Attempts']) {
+            const row = page.locator('tbody tr', { hasText: label });
+            const text = await row.locator('td').nth(1).textContent();
+            expect(Number(text)).toBeGreaterThan(0);
+        }
+
+        for (const label of [
+            'Completion events',
+            'Guest completion events',
+            'Auth completion events',
+        ]) {
+            const row = page.locator('tbody tr', { hasText: label });
+            const text = await row.locator('td').nth(1).textContent();
             expect(Number(text)).toBeGreaterThan(0);
         }
     });
@@ -49,6 +67,7 @@ test.describe('Admin dashboard', () => {
 
         await expect(page.getByTestId('admin-dashboard-nav-link')).toBeVisible();
         await expect(page.getByTestId('admin-puzzles-nav-link')).toBeVisible();
+        await expect(page.getByTestId('admin-completion-events-nav-link')).toBeVisible();
     });
 
     test('Admin nav links navigate correctly', async ({ page }) => {
@@ -62,6 +81,10 @@ test.describe('Admin dashboard', () => {
         await page.getByTestId('admin-dashboard-nav-link').click();
         await expect(page).toHaveURL(/\/admin$/);
         await expect(page.locator('text=Admin — Dashboard')).toBeVisible();
+
+        await page.getByTestId('admin-completion-events-nav-link').click();
+        await expect(page).toHaveURL(/\/admin\/completion-events/);
+        await expect(page.locator('text=Admin — Completion Events')).toBeVisible();
     });
 
     test('Admin sees single admin link on non-admin pages', async ({ page }) => {
@@ -85,6 +108,30 @@ test.describe('Admin dashboard', () => {
         await expect(page.getByTestId('archive-nav-link')).not.toBeVisible();
         await expect(page.getByTestId('account-nav-link')).not.toBeVisible();
         await expect(page.getByTestId('leagues-nav-link')).not.toBeVisible();
+    });
+});
+
+test.describe('Admin completion events', () => {
+    test('Admin can see seeded completion events', async ({ page }) => {
+        await loginAs(page, ADMIN_EMAIL);
+        await page.goto('/admin/completion-events');
+
+        await expect(page.locator('text=Admin — Completion Events')).toBeVisible();
+        expect(await page.locator('tbody tr').count()).toBeGreaterThanOrEqual(5);
+        await expect(page.locator('text=dev-guest-today')).toBeVisible();
+        await expect(page.locator('text=dev-guest-simple-addition')).toBeVisible();
+        await expect(page.getByRole('cell', { name: 'Bob' }).first()).toBeVisible();
+    });
+
+    test('Admin can filter seeded guest daily math completion events', async ({ page }) => {
+        await loginAs(page, ADMIN_EMAIL);
+        await page.goto('/admin/completion-events?actor=guest&source=daily&puzzle_type=math');
+
+        const row = page.locator('tbody tr', { hasText: 'dev-guest-simple-addition' });
+        await expect(row).toBeVisible();
+        await expect(row).toContainText('daily');
+        await expect(row).toContainText('Simple addition?');
+        await expect(row).toContainText('guest');
     });
 });
 
@@ -238,5 +285,22 @@ test.describe('Admin puzzle CRUD', () => {
         await row.locator('button', { hasText: 'delete' }).click();
 
         await expect(row).not.toBeVisible();
+    });
+
+    test('Admin can delete a puzzle with completion events', async ({ page }) => {
+        const { puzzleId, puzzleName } = createPuzzleWithCompletionEvent();
+        expect(countCompletionEventsForPuzzle(puzzleId)).toBe(1);
+
+        await loginAs(page, ADMIN_EMAIL);
+        await page.goto('/admin/puzzles');
+
+        const row = page.locator('tbody tr', { hasText: puzzleName });
+        await expect(row).toBeVisible();
+
+        page.on('dialog', (dialog) => dialog.accept());
+        await row.locator('button', { hasText: 'delete' }).click();
+
+        await expect(row).not.toBeVisible();
+        expect(countCompletionEventsForPuzzle(puzzleId)).toBe(0);
     });
 });

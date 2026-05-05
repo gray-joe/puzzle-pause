@@ -38,6 +38,7 @@ node_modules/
 .next/
 out/
 coverage/
+web/tsconfig.tsbuildinfo
 
 # Playwright
 playwright-report/

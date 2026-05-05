@@ -39,6 +39,18 @@ export default async function AdminDashboardPage() {
                         <td>Attempts</td>
                         <td>{stats.attempts}</td>
                     </tr>
+                    <tr>
+                        <td>Completion events</td>
+                        <td>{stats.completion_events}</td>
+                    </tr>
+                    <tr>
+                        <td>Guest completion events</td>
+                        <td>{stats.guest_completion_events}</td>
+                    </tr>
+                    <tr>
+                        <td>Auth completion events</td>
+                        <td>{stats.auth_completion_events}</td>
+                    </tr>
                 </tbody>
             </table>
         </PageShell>

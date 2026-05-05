@@ -1,20 +1,31 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..auth import get_current_user, require_user
+from ..auth import get_current_user, get_or_create_guest_session_id, require_user
 from ..database import get_db
-from ..models import Attempt, Puzzle
+from ..models import Attempt, Puzzle, PuzzleCompletionEvent
 from ..puzzle import check_answer, get_puzzle_date
 from ..routers.puzzle import _ensure_attempt, _get_puzzle_number, _puzzle_to_response
 from ..schemas import AttemptRequest, AttemptResponse, HintResponse
 
 router = APIRouter(prefix="/archive", tags=["archive"])
 limiter = Limiter(key_func=get_remote_address)
+
+
+def _seconds_between(start: datetime | None, end: datetime | None) -> int | None:
+    if not start or not end:
+        return None
+    if start.tzinfo is None:
+        start = start.replace(tzinfo=timezone.utc)
+    if end.tzinfo is None:
+        end = end.replace(tzinfo=timezone.utc)
+    delta = int((end - start).total_seconds())
+    return max(0, delta)
 
 
 @router.get("")
@@ -122,6 +133,7 @@ def get_archive_puzzle(
 @limiter.limit("10/minute")
 def archive_attempt(
     request: Request,
+    response: Response,
     puzzle_id: int,
     body: AttemptRequest,
     user=Depends(get_current_user),
@@ -143,6 +155,19 @@ def archive_attempt(
     if not user:
         correct = check_answer(body.guess, puzzle.answer)
         if correct:
+            now = datetime.now(timezone.utc)
+            guest_session_id = get_or_create_guest_session_id(request, response)
+            db.add(
+                PuzzleCompletionEvent(
+                    puzzle_id=puzzle.id,
+                    guest_session_id=guest_session_id,
+                    completed_at=now,
+                    source="archive",
+                    wrong_guess_count=None,
+                    time_to_complete_seconds=_seconds_between(body.opened_at, now),
+                )
+            )
+            db.commit()
             return AttemptResponse(
                 correct=True, score=0, incorrect_guesses=0, solved=True,
                 answer=puzzle.answer, question=puzzle.question,
@@ -154,6 +179,20 @@ def archive_attempt(
     attempt = _ensure_attempt(user.id, puzzle.id, db)
 
     if attempt.solved:
+        now = datetime.now(timezone.utc)
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                user_id=user.id,
+                completed_at=now,
+                source="archive",
+                wrong_guess_count=attempt.incorrect_guesses,
+                time_to_complete_seconds=_seconds_between(
+                    attempt.opened_at, attempt.completed_at or now
+                ),
+            )
+        )
+        db.commit()
         return AttemptResponse(
             correct=True,
             score=attempt.score,
@@ -166,9 +205,20 @@ def archive_attempt(
     correct = check_answer(body.guess, puzzle.answer)
 
     if correct:
+        now = datetime.now(timezone.utc)
         attempt.solved = 1
         attempt.score = 0
-        attempt.completed_at = datetime.now(timezone.utc)
+        attempt.completed_at = now
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                user_id=user.id,
+                completed_at=now,
+                source="archive",
+                wrong_guess_count=attempt.incorrect_guesses,
+                time_to_complete_seconds=_seconds_between(attempt.opened_at, now),
+            )
+        )
         db.commit()
         return AttemptResponse(
             correct=True,

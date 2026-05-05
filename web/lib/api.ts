@@ -82,7 +82,14 @@ export type Account = User & { stats: AccountStats };
 
 export type AdminPuzzle = Puzzle & { answer: string };
 
-export type AdminStats = { puzzles: number; players: number; attempts: number };
+export type AdminStats = {
+    puzzles: number;
+    players: number;
+    attempts: number;
+    completion_events: number;
+    guest_completion_events: number;
+    auth_completion_events: number;
+};
 
 export type AdminUser = {
     id: number;
@@ -106,6 +113,31 @@ export type AdminAttempt = {
     score: number | null;
     incorrect_guesses: number;
     hint_used: boolean;
+};
+
+export type AdminCompletionEvent = {
+    id: number;
+    puzzle_id: number;
+    puzzle_date: string;
+    puzzle_name: string;
+    puzzle_type: string;
+    user_id: number | null;
+    user_email: string | null;
+    user_display_name: string | null;
+    guest_session_id: string | null;
+    source: 'daily' | 'archive';
+    completed_at: string;
+    wrong_guess_count: number | null;
+    time_to_complete_seconds: number | null;
+};
+
+export type AdminCompletionEventFilters = {
+    source?: 'daily' | 'archive';
+    actor?: 'guest' | 'auth';
+    puzzle_type?: string;
+    completed_from?: string;
+    completed_to?: string;
+    limit?: number;
 };
 
 class ApiError extends Error {
@@ -203,10 +235,10 @@ export const api = {
         get: (id: number, cookieHeader?: string) =>
             apiFetch<Puzzle>(`/api/archive/${id}`, {}, cookieHeader),
 
-        attempt: (puzzle_id: number, guess: string) =>
+        attempt: (puzzle_id: number, guess: string, opened_at?: string) =>
             apiFetch<AttemptResult>(`/api/archive/${puzzle_id}/attempt`, {
                 method: 'POST',
-                body: JSON.stringify({ puzzle_id, guess }),
+                body: JSON.stringify({ puzzle_id, guess, opened_at }),
             }),
 
         hint: (puzzle_id: number) =>
@@ -312,6 +344,21 @@ export const api = {
 
         listUsers: (cookieHeader?: string) =>
             apiFetch<AdminUser[]>('/api/admin/users', {}, cookieHeader),
+
+        listCompletionEvents: (filters: AdminCompletionEventFilters = {}, cookieHeader?: string) => {
+            const params = new URLSearchParams();
+            if (filters.source) params.set('source', filters.source);
+            if (filters.actor) params.set('actor', filters.actor);
+            if (filters.puzzle_type) params.set('puzzle_type', filters.puzzle_type);
+            if (filters.completed_from) params.set('completed_from', filters.completed_from);
+            if (filters.completed_to) params.set('completed_to', filters.completed_to);
+            if (filters.limit) params.set('limit', String(filters.limit));
+            const query = params.toString();
+            const path = query
+                ? `/api/admin/completion-events?${query}`
+                : '/api/admin/completion-events';
+            return apiFetch<AdminCompletionEvent[]>(path, {}, cookieHeader);
+        },
     },
 };
 
