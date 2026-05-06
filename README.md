@@ -133,3 +133,14 @@ Deployed on fly.io using a multi-stage Docker build. Supervisord runs both the b
 ```bash
 fly deploy
 ```
+
+### Sentry
+
+Sentry is optional and is disabled unless DSN values are provided.
+
+- Backend runtime errors: set `SENTRY_DSN`.
+- Browser/client reporting: provide `NEXT_PUBLIC_SENTRY_DSN` at Docker build time.
+- Next.js server/edge runtime errors: optionally set `SENTRY_NEXT_DSN`; otherwise they use `NEXT_PUBLIC_SENTRY_DSN` when present.
+- Optional shared metadata: `SENTRY_ENVIRONMENT`, `NEXT_PUBLIC_SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, `NEXT_PUBLIC_SENTRY_RELEASE`.
+- Optional trace sampling: `SENTRY_TRACES_SAMPLE_RATE`, `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`.
+- Optional frontend source-map uploads during build: provide `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` as build args or CI secrets.

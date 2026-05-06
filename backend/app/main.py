@@ -1,5 +1,9 @@
 import os
 
+from .sentry import init_sentry
+
+init_sentry()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler

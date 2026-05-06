@@ -3,6 +3,10 @@ primary_region = 'lhr'
 
 [build]
 
+[build.args]
+  NEXT_PUBLIC_SENTRY_ENVIRONMENT = "production"
+  NEXT_PUBLIC_SENTRY_RELEASE="$(git rev-parse HEAD)"
+
 [env]
   PUZZLE_ENV = 'prod'
   BASE_URL = 'https://puzzlepause.app'
