@@ -1,5 +1,5 @@
 backend-install:
-	pip install -r backend/requirements.txt pytest pytest-cov
+	pip install -r backend/requirements-dev.txt
 
 backend-run:
 	@mkdir -p data

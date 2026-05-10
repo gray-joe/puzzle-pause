@@ -10,6 +10,7 @@ export type Puzzle = {
     puzzle_name: string;
     question: string;
     hint: string | null;
+    explanation?: string | null;
     has_hint: boolean;
     total_hints: number;
     revealed_hint?: string | null;
@@ -34,6 +35,7 @@ export type AttemptResult = {
     solved: boolean;
     answer: string | null;
     question?: string | null;
+    explanation?: string | null;
     streak?: number | null;
 };
 

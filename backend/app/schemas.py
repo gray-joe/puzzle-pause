@@ -32,6 +32,7 @@ class PuzzleResponse(BaseModel):
     puzzle_name: str
     question: str
     hint: str | None = None
+    explanation: str | None = None
     has_hint: bool = False
     puzzle_number: int | None = None
 
@@ -53,6 +54,7 @@ class AttemptResponse(BaseModel):
     solved: bool
     answer: str | None = None
     question: str | None = None
+    explanation: str | None = None
     streak: int | None = None
     opened_at: datetime | None = None
 
@@ -170,6 +172,7 @@ class CreatePuzzleRequest(BaseModel):
     question: str = Field(max_length=10000)
     answer: str = Field(max_length=1000)
     hint: str | None = Field(default=None, max_length=500)
+    explanation: str | None = Field(default=None, max_length=2000)
 
 
 class UpdatePuzzleRequest(BaseModel):
@@ -179,3 +182,4 @@ class UpdatePuzzleRequest(BaseModel):
     question: str | None = Field(default=None, max_length=10000)
     answer: str | None = Field(default=None, max_length=1000)
     hint: str | None = Field(default=None, max_length=500)
+    explanation: str | None = Field(default=None, max_length=2000)

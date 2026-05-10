@@ -10,12 +10,18 @@ from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
-from sqlalchemy import text as _text
+from sqlalchemy import inspect as _inspect, text as _text
 
 from .database import Base, engine
 from .routers import account, admin, archive, auth, leagues, puzzle
 
 Base.metadata.create_all(bind=engine)
+
+with engine.connect() as _conn:
+    _columns = {column["name"] for column in _inspect(_conn).get_columns("puzzles")}
+    if "explanation" not in _columns:
+        _conn.execute(_text("ALTER TABLE puzzles ADD COLUMN explanation TEXT"))
+        _conn.commit()
 
 # Ensure indexes exist on pre-existing databases (create_all won't add them)
 with engine.connect() as _conn:

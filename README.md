@@ -1,6 +1,6 @@
 # Puzzle Pause
 
-A daily puzzle web app where users solve word, math, and logic puzzles and compete in mini leagues.
+A daily puzzle web app where users solve word, math, image, and logic puzzles and compete in mini leagues.
 
 ## Tech Stack
 
@@ -16,43 +16,63 @@ A daily puzzle web app where users solve word, math, and logic puzzles and compe
 ## Setup
 
 1. **Backend**:
-   ```bash
-   cd backend
-   python -m venv .venv
-   source .venv/bin/activate
-   pip install -r requirements.txt
-   ```
+
+    ```bash
+    cd backend
+    python -m venv .venv
+    source .venv/bin/activate
+    pip install -r requirements-dev.txt
+    ```
 
 2. **Frontend**:
-   ```bash
-   cd web
-   npm install
-   ```
+    ```bash
+    cd web
+    npm install
+    ```
 
 ## Development
 
-Run the backend and frontend separately:
+Run the backend and frontend from the repository root in separate terminals:
 
 ```bash
-# Backend (from backend/)
-uvicorn app.main:app --reload
+# Backend API on http://localhost:8000
+make backend-run
 
-# Frontend (from web/)
-npm run dev
+# Frontend on http://localhost:3000
+make web-run
 ```
+
+The Makefile sets the local development environment variables used by auth, admin pages, API routing, and the SQLite database. Local data is stored in `data/puzzle.db`.
+
+To seed local puzzle data:
+
+```bash
+make seed-dev
+```
+
+Useful local environment variables:
+
+- `DATABASE_URL`: SQLite database path. The Makefile uses `sqlite:///$(pwd)/data/puzzle.db`.
+- `JWT_SECRET`: required by backend auth token signing.
+- `ADMIN_EMAILS`: comma-separated emails that can access admin pages.
+- `API_URL`: backend URL used by the Next.js app for server-side API calls and rewrites.
+- `BASE_URL`: public app URL used in login emails.
+- `CORS_ORIGINS`: comma-separated browser origins accepted by the backend.
+- `RESEND_API_KEY`: required for production login email delivery.
+- `NEXT_PUBLIC_SITE_URL`: public frontend URL used for metadata.
 
 ## Testing
 
 ### Backend
 
 ```bash
-# Install dev dependencies
-pip install -r backend/requirements-dev.txt
+# Install dev dependencies from backend/
+pip install -r requirements-dev.txt
 
-# Run tests (with coverage — output to terminal and htmlcov/)
-cd backend && python -m pytest
+# Run tests from backend/ (with coverage output to terminal and htmlcov/)
+python -m pytest
 
-# Via Makefile
+# Via Makefile from the repository root
 make backend-test
 ```
 
@@ -72,6 +92,7 @@ Tests run in a `happy-dom` environment and exclude the `e2e/` directory.
 ### Frontend — end-to-end tests (Playwright / Chromium)
 
 The e2e suite requires the dev servers to be running first.
+Use the Makefile commands so the backend and Playwright tests share `data/puzzle.db`.
 
 ```bash
 # 1. Start backend and frontend (in separate terminals)
@@ -90,7 +111,7 @@ Reports land in `web/playwright-report/`.
 
 ## Linting
 
-### Frontend (ESLint via Next.js)
+### Frontend (ESLint with Next.js config)
 
 ```bash
 cd web && npm run lint
@@ -116,15 +137,17 @@ daily_puzzle_app/
 │   │   ├── routers/        # API route handlers
 │   │   └── database.py     # Database configuration
 │   ├── tests/
-│   ├── alembic/            # Database migrations
-│   └── requirements.txt
+│   ├── pytest.ini
+│   ├── requirements.txt
+│   └── requirements-dev.txt
 ├── web/                    # Next.js frontend
 ├── Dockerfile
 ├── supervisord.conf
 ├── fly.toml
-├── SPEC.md
-└── CLAUDE.md
+└── Makefile
 ```
+
+The backend currently creates database tables and indexes at startup with SQLAlchemy. There is no Alembic migration directory in this repo.
 
 ## Deployment
 
@@ -134,13 +157,13 @@ Deployed on fly.io using a multi-stage Docker build. Supervisord runs both the b
 fly deploy
 ```
 
-### Sentry
+Use `make fly-deploy` when deploying with frontend Sentry source-map upload build arguments.
 
-Sentry is optional and is disabled unless DSN values are provided.
+### Sentry
 
 - Backend runtime errors: set `SENTRY_DSN`.
 - Browser/client reporting: provide `NEXT_PUBLIC_SENTRY_DSN` at Docker build time.
 - Next.js server/edge runtime errors: optionally set `SENTRY_NEXT_DSN`; otherwise they use `NEXT_PUBLIC_SENTRY_DSN` when present.
-- Optional shared metadata: `SENTRY_ENVIRONMENT`, `NEXT_PUBLIC_SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, `NEXT_PUBLIC_SENTRY_RELEASE`.
-- Optional trace sampling: `SENTRY_TRACES_SAMPLE_RATE`, `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`.
-- Optional frontend source-map uploads during build: provide `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` as build args or CI secrets.
+- Shared metadata: `SENTRY_ENVIRONMENT`, `NEXT_PUBLIC_SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, `NEXT_PUBLIC_SENTRY_RELEASE`.
+- Trace sampling: `SENTRY_TRACES_SAMPLE_RATE`, `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`.
+- Frontend source-map uploads during build: provide `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` as build args or CI secrets.

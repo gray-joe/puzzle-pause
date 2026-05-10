@@ -28,6 +28,7 @@ def _make_puzzle(db, days_ago=1, answer="hello"):
         question="What is the word?",
         answer=answer,
         hint="A hint",
+        explanation="The clue asks for hello.",
     )
     db.add(puzzle)
     db.commit()
@@ -154,6 +155,7 @@ class TestArchiveAttempt:
         )
         assert resp.status_code == 200
         assert resp.json()["correct"] is True
+        assert resp.json()["explanation"] == "The clue asks for hello."
 
         event = db.query(PuzzleCompletionEvent).first()
         assert event is not None
@@ -286,6 +288,7 @@ class TestArchiveResult:
         resp = client.get(f"/api/archive/{puzzle.id}/result", cookies=cookies)
         assert resp.status_code == 200
         assert resp.json()["attempt"]["solved"] is True
+        assert resp.json()["puzzle"]["explanation"] == "The clue asks for hello."
 
     def test_404_before_solving(self, client, db):
         puzzle = _make_puzzle(db, days_ago=1)

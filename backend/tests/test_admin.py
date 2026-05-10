@@ -32,6 +32,7 @@ def _make_puzzle(db, puzzle_date="2024-01-01"):
         question="Q",
         answer="A",
         hint="H",
+        explanation="Because Q points to A.",
     )
     db.add(puzzle)
     db.commit()
@@ -51,6 +52,11 @@ class TestAdminListPuzzles:
         _make_puzzle(db)
         resp = client.get("/api/admin/puzzles", cookies=_admin_cookies(db))
         assert resp.json()[0]["answer"] == "A"
+
+    def test_includes_explanation(self, client, db):
+        _make_puzzle(db)
+        resp = client.get("/api/admin/puzzles", cookies=_admin_cookies(db))
+        assert resp.json()[0]["explanation"] == "Because Q points to A."
 
     def test_non_admin_forbidden(self, client, db):
         _, jwt = _make_user(db, "plain@example.com")
@@ -73,12 +79,14 @@ class TestAdminCreatePuzzle:
                 "question": "What?",
                 "answer": "answer",
                 "hint": "a clue",
+                "explanation": "This is why the answer works.",
             },
             cookies=_admin_cookies(db),
         )
         assert resp.status_code == 201
         assert resp.json()["puzzle_date"] == "2025-06-01"
         assert resp.json()["answer"] == "answer"
+        assert resp.json()["explanation"] == "This is why the answer works."
 
     def test_rejects_duplicate_date(self, client, db):
         _make_puzzle(db, "2024-01-01")
@@ -163,12 +171,14 @@ class TestAdminUpdatePuzzle:
             json={
                 "puzzle_name": "Updated",
                 "answer": "new_answer",
+                "explanation": "Updated logic.",
             },
             cookies=_admin_cookies(db),
         )
         assert resp.status_code == 200
         assert resp.json()["puzzle_name"] == "Updated"
         assert resp.json()["answer"] == "new_answer"
+        assert resp.json()["explanation"] == "Updated logic."
 
     def test_partial_update(self, client, db):
         puzzle = _make_puzzle(db)
@@ -179,6 +189,16 @@ class TestAdminUpdatePuzzle:
         )
         assert resp.status_code == 200
         assert resp.json()["answer"] == "A"  # unchanged
+
+    def test_can_clear_explanation(self, client, db):
+        puzzle = _make_puzzle(db)
+        resp = client.put(
+            f"/api/admin/puzzles/{puzzle.id}",
+            json={"explanation": None},
+            cookies=_admin_cookies(db),
+        )
+        assert resp.status_code == 200
+        assert resp.json()["explanation"] is None
 
     def test_rejects_invalid_type(self, client, db):
         puzzle = _make_puzzle(db)

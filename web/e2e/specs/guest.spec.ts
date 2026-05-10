@@ -86,6 +86,7 @@ test('Guests can view and complete archived puzzles', async ({ page }) => {
     await archiveList.clickPuzzleById(1);
     await puzzle.expectName('Welcome to Puzzle Pause');
     await expect(puzzle.question).toBeVisible();
+    await expect(result.explanation).not.toBeVisible();
 
     await puzzle.submitAnswer('45');
 
@@ -93,6 +94,9 @@ test('Guests can view and complete archived puzzles', async ({ page }) => {
     await expect(puzzle.question).not.toBeVisible();
 
     await result.expectAnswer('45');
+    await expect(result.explanation).toContainText(
+        'The 72 puzzles are shared by 8 solvers, so each solves 9 puzzles.'
+    );
     await expect(result.score).toHaveText('0');
     await result.expectGuestCTAs();
 

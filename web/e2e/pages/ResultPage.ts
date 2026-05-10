@@ -4,12 +4,14 @@ export class ResultPage {
     readonly page: Page;
     readonly panel: Locator;
     readonly score: Locator;
+    readonly explanation: Locator;
     readonly shareBtn: Locator;
 
     constructor(page: Page) {
         this.page = page;
         this.panel = page.getByTestId('result-panel');
         this.score = page.getByTestId('result-score');
+        this.explanation = page.getByTestId('result-explanation');
         this.shareBtn = page.getByTestId('share-btn');
     }
 

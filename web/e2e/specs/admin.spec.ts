@@ -245,7 +245,7 @@ test.describe('Admin puzzle CRUD', () => {
         await page.locator('input[type=date]').fill('2099-12-31');
         await page.locator('select').selectOption('math');
         await page.locator("input[placeholder='Puzzle display name']").fill('E2E Test Puzzle');
-        await page.locator('textarea').fill('What is 1+1?');
+        await page.locator('textarea').first().fill('What is 1+1?');
         await page.locator('input[type=text]').last().fill(''); // clear hint
         const answerInput = page.locator('input[type=text]').first();
         await page.locator('input[required][type=text]').fill('2');
@@ -272,6 +272,27 @@ test.describe('Admin puzzle CRUD', () => {
         await page.waitForURL('/admin/puzzles');
         await expect(page.locator('text=E2E Updated Puzzle')).toBeVisible();
         await expect(page.locator('text=E2E Test Puzzle')).not.toBeVisible();
+    });
+
+    test('Admin can add an explanation to a puzzle', async ({ page }) => {
+        const explanation = 'Adding the two ones gives two.';
+
+        await loginAs(page, ADMIN_EMAIL);
+        await page.goto('/admin/puzzles');
+
+        const row = page.locator('tbody tr', { hasText: 'E2E Updated Puzzle' });
+        await row.locator('a', { hasText: 'edit' }).click();
+        await expect(page).toHaveURL(/\/admin\/puzzles\/\d+$/);
+
+        const explanationTextarea = page.locator(
+            "textarea[placeholder='Explain the logic behind the answer']"
+        );
+        await explanationTextarea.fill(explanation);
+        await page.locator('button[type=submit]').click();
+
+        await page.waitForURL('/admin/puzzles');
+        await row.locator('a', { hasText: 'edit' }).click();
+        await expect(explanationTextarea).toHaveValue(explanation);
     });
 
     test('Admin can delete a puzzle', async ({ page }) => {

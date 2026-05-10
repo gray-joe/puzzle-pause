@@ -40,6 +40,7 @@ def _to_admin_response(puzzle: Puzzle) -> PuzzleAdminResponse:
         question=puzzle.question,
         answer=puzzle.answer,
         hint=puzzle.hint,
+        explanation=puzzle.explanation,
         has_hint=bool(puzzle.hint),
     )
 
@@ -292,6 +293,7 @@ def create_puzzle(
         question=body.question,
         answer=body.answer,
         hint=body.hint or None,
+        explanation=body.explanation or None,
     )
     db.add(puzzle)
     db.commit()
@@ -345,6 +347,8 @@ def update_puzzle(
         puzzle.answer = body.answer
     if body.hint is not None:
         puzzle.hint = body.hint or None
+    if "explanation" in body.model_fields_set:
+        puzzle.explanation = body.explanation or None
 
     db.commit()
     db.refresh(puzzle)

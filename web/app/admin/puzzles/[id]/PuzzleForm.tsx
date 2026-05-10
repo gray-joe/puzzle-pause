@@ -63,6 +63,7 @@ export default function PuzzleForm({ puzzle }: Props) {
         question: puzzle?.question ?? '',
         answer: puzzle?.answer ?? '',
         hint: puzzle?.hint ?? '',
+        explanation: puzzle?.explanation ?? '',
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -114,7 +115,11 @@ export default function PuzzleForm({ puzzle }: Props) {
         setLoading(true);
         setError('');
         try {
-            const data = { ...form, hint: form.hint || undefined };
+            const data = {
+                ...form,
+                hint: form.hint || undefined,
+                explanation: form.explanation || null,
+            };
             if (isNew) {
                 await api.admin.createPuzzle(data);
             } else {
@@ -230,6 +235,20 @@ export default function PuzzleForm({ puzzle }: Props) {
                     value={form.hint}
                     onChange={(e) => set('hint', e.target.value)}
                     style={{ width: '100%' }}
+                />
+            </div>
+
+            <div style={fieldStyle}>
+                <label style={labelStyle}>
+                    <span className="gt">&gt;</span> Explanation{' '}
+                    <span className="muted">(optional, shown after solving)</span>
+                </label>
+                <textarea
+                    value={form.explanation}
+                    onChange={(e) => set('explanation', e.target.value)}
+                    rows={3}
+                    style={{ width: '100%', resize: 'vertical' }}
+                    placeholder="Explain the logic behind the answer"
                 />
             </div>
 

@@ -24,7 +24,7 @@ def _make_user(db, email="user@example.com"):
     return user, jwt
 
 
-def _make_puzzle(db, puzzle_date=None, answer="hello"):
+def _make_puzzle(db, puzzle_date=None, answer="hello", explanation=None):
     if puzzle_date is None:
         puzzle_date = date.today().isoformat()
     puzzle = Puzzle(
@@ -34,6 +34,7 @@ def _make_puzzle(db, puzzle_date=None, answer="hello"):
         question="What is the word?",
         answer=answer,
         hint="A greeting",
+        explanation=explanation,
     )
     db.add(puzzle)
     db.commit()
@@ -161,12 +162,13 @@ class TestConnections:
 
 class TestTodayPuzzle:
     def test_returns_today_puzzle(self, client, db):
-        _make_puzzle(db)
+        _make_puzzle(db, explanation="The greeting is hello.")
         resp = client.get("/api/puzzle/today")
         assert resp.status_code == 200
         data = resp.json()
         assert data["puzzle_date"] == date.today().isoformat()
         assert "answer" not in data
+        assert data.get("explanation") is None
 
     def test_no_puzzle_returns_404(self, client, db):
         resp = client.get("/api/puzzle/today")
@@ -204,7 +206,7 @@ class TestAttempt:
         assert data["incorrect_guesses"] == 1
 
     def test_guest_can_attempt(self, client, db):
-        _make_puzzle(db, answer="hello")
+        _make_puzzle(db, answer="hello", explanation="The clue asks for a greeting.")
         resp = client.post(
             "/api/puzzle/attempt", json={"puzzle_id": 1, "guess": "hello"}
         )
@@ -212,6 +214,7 @@ class TestAttempt:
         data = resp.json()
         assert data["correct"] is True
         assert data["score"] is not None
+        assert data["explanation"] == "The clue asks for a greeting."
 
         events = db.query(PuzzleCompletionEvent).all()
         assert len(events) == 1
@@ -362,7 +365,7 @@ class TestHint:
 
 class TestResult:
     def test_result_after_solving(self, client, db):
-        _make_puzzle(db, answer="hello")
+        _make_puzzle(db, answer="hello", explanation="The clue asks for a greeting.")
         user, jwt = _make_user(db)
         cookies = {"session": jwt}
 
@@ -375,6 +378,7 @@ class TestResult:
         assert resp.status_code == 200
         data = resp.json()
         assert data["attempt"]["solved"] is True
+        assert data["puzzle"]["explanation"] == "The clue asks for a greeting."
 
     def test_result_not_solved(self, client, db):
         _make_puzzle(db)

@@ -233,6 +233,13 @@ export default function ResultPanel({
                 </div>
             )}
 
+            {puzzle.explanation && (
+                <div className="puzzle-box" style={{ flexDirection: 'column', marginBottom: 16 }}>
+                    <div style={{ color: 'var(--teal)', marginBottom: 8 }}>How it works</div>
+                    <div data-testid="result-explanation">{puzzle.explanation}</div>
+                </div>
+            )}
+
             {!isArchive && streak != null && streak > 0 && (
                 <div style={{ color: 'var(--teal)', marginBottom: 16 }} data-testid="result-streak">
                     Streak: {streak} day{streak !== 1 ? 's' : ''}

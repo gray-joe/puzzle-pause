@@ -43,6 +43,7 @@ SEED_PUZZLES = [
         "question": "How many seconds will it take 8 Puzzle solvers to solve 72 puzzles if they each solve one puzzle every 5 seconds?",
         "answer": "45",
         "hint": "Each puzzle solver has to solve how many puzzles?",
+        "explanation": "The 72 puzzles are shared by 8 solvers, so each solves 9 puzzles. At 5 seconds per puzzle, that takes 45 seconds.",
     },
     {
         "days_ago": 13,

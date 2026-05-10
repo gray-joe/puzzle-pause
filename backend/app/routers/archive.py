@@ -125,6 +125,7 @@ def get_archive_puzzle(
             if attempt.solved:
                 data["question"] = puzzle.question
                 data["answer"] = puzzle.answer
+                data["explanation"] = puzzle.explanation
 
     return data
 
@@ -171,6 +172,7 @@ def archive_attempt(
             return AttemptResponse(
                 correct=True, score=0, incorrect_guesses=0, solved=True,
                 answer=puzzle.answer, question=puzzle.question,
+                explanation=puzzle.explanation,
             )
         return AttemptResponse(
             correct=False, score=None, incorrect_guesses=0, solved=False
@@ -200,6 +202,7 @@ def archive_attempt(
             solved=True,
             answer=puzzle.answer,
             question=puzzle.question,
+            explanation=puzzle.explanation,
         )
 
     correct = check_answer(body.guess, puzzle.answer)
@@ -227,6 +230,7 @@ def archive_attempt(
             solved=True,
             answer=puzzle.answer,
             question=puzzle.question,
+            explanation=puzzle.explanation,
         )
     else:
         attempt.incorrect_guesses += 1
@@ -294,6 +298,7 @@ def archive_result(
         raise HTTPException(status_code=404, detail="Not solved yet")
 
     puzzle_data = _puzzle_to_response(puzzle)
+    puzzle_data["explanation"] = puzzle.explanation
     puzzle_data["puzzle_number"] = _get_puzzle_number(puzzle, db)
 
     return {

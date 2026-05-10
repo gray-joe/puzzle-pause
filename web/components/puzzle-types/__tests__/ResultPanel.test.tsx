@@ -128,3 +128,33 @@ describe('hint penalty display', () => {
         expect(screen.getByText(/Hints:/)).toHaveTextContent('-30 pts');
     });
 });
+
+describe('explanation display', () => {
+    it('shows puzzle explanation when provided', () => {
+        render(
+            <ResultPanel
+                puzzle={makePuzzle({ explanation: 'Use the first letters to spell hello.' })}
+                attempt={makeAttempt()}
+                answer="hello"
+                isLoggedIn={false}
+            />
+        );
+
+        expect(screen.getByTestId('result-explanation')).toHaveTextContent(
+            'Use the first letters to spell hello.'
+        );
+    });
+
+    it('hides puzzle explanation when omitted', () => {
+        render(
+            <ResultPanel
+                puzzle={makePuzzle({ explanation: null })}
+                attempt={makeAttempt()}
+                answer="hello"
+                isLoggedIn={false}
+            />
+        );
+
+        expect(screen.queryByTestId('result-explanation')).not.toBeInTheDocument();
+    });
+});

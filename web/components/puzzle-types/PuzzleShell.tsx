@@ -50,6 +50,7 @@ export default function PuzzleShell({
     const [loading, setLoading] = useState(false);
     const [answer, setAnswer] = useState<string | null>((puzzle as any).answer ?? null);
     const [puzzleQuestion, setPuzzleQuestion] = useState(puzzle.question);
+    const [explanation, setExplanation] = useState<string | null>(puzzle.explanation ?? null);
     const [streak, setStreak] = useState<number | null>(null);
     const [incorrectGuesses, setIncorrectGuesses] = useState(
         initialAttempt?.incorrect_guesses ?? 0
@@ -75,6 +76,7 @@ export default function PuzzleShell({
                 });
                 setAnswer(result.answer ?? null);
                 if (result.question) setPuzzleQuestion(result.question);
+                setExplanation(result.explanation ?? null);
                 setStreak(result.streak ?? null);
                 setFeedback('');
             } else {
@@ -148,7 +150,7 @@ export default function PuzzleShell({
                     </div>
                 )}
                 <ResultPanel
-                    puzzle={{ ...puzzle, question: puzzleQuestion }}
+                    puzzle={{ ...puzzle, question: puzzleQuestion, explanation }}
                     attempt={attempt}
                     answer={answer}
                     streak={streak}
