@@ -47,6 +47,7 @@ class TestAdminListPuzzles:
         resp = client.get("/api/admin/puzzles", cookies=_admin_cookies(db))
         assert resp.status_code == 200
         assert len(resp.json()) == 2
+        assert [p["puzzle_date"] for p in resp.json()] == ["2024-01-02", "2024-01-01"]
 
     def test_includes_answer(self, client, db):
         _make_puzzle(db)

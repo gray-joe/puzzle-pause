@@ -260,7 +260,7 @@ def get_stats(admin=Depends(require_admin), db: Session = Depends(get_db)):
 
 @router.get("/puzzles")
 def list_puzzles(admin=Depends(require_admin), db: Session = Depends(get_db)):
-    puzzles = db.query(Puzzle).order_by(Puzzle.puzzle_date.asc()).all()
+    puzzles = db.query(Puzzle).order_by(Puzzle.puzzle_date.desc()).all()
     return [_to_admin_response(p) for p in puzzles]
 
 
