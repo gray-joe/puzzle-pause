@@ -8,6 +8,7 @@ WORKDIR /build
 COPY web/package*.json ./
 RUN npm ci
 COPY web/ .
+COPY docs/privacy.md /docs/privacy.md
 ARG NEXT_PUBLIC_SENTRY_DSN
 ARG NEXT_PUBLIC_SENTRY_ENVIRONMENT
 ARG NEXT_PUBLIC_SENTRY_RELEASE

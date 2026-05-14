@@ -4,9 +4,7 @@
 
 # Documentation / planning
 *.md
-docs/
-SPEC.md
-SPEC_V2.md
+tmp_docs/
 
 # V1 C build artifacts (not used in V2 image)
 src/

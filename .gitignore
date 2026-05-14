@@ -17,10 +17,7 @@ data/seed_puzzles.sql
 .idea/
 *.swp
 *~
-.claude/
-CLAUDE.md
-SPEC.md
-docs/
+tmp_docs/
 
 # macOS
 .DS_Store

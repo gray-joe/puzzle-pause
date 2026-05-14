@@ -192,6 +192,31 @@ td .gt {
     color: var(--muted);
     margin-bottom: 15px;
 }
+.privacy-content {
+    padding-bottom: 40px;
+}
+.privacy-content h1 {
+    font-size: 1.4em;
+    margin: 0 0 10px;
+}
+.privacy-content h2 {
+    color: var(--teal);
+    font-size: 1.1em;
+    margin: 28px 0 8px;
+}
+.privacy-content p {
+    margin: 0 0 12px;
+}
+.privacy-content ul {
+    margin: 0 0 14px;
+    padding-left: 22px;
+}
+.privacy-content li {
+    margin: 4px 0;
+}
+.privacy-content code {
+    color: var(--orange);
+}
 .puzzle-prompt {
     color: #ffffff;
     font-size: 1.1em;
