@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime, timedelta, timezone
 
 from app.auth import create_jwt, generate_token
@@ -133,7 +134,10 @@ class TestArchiveAttempt:
         )
         assert resp.status_code == 200
         assert resp.json()["correct"] is True
-        assert resp.json()["score"] == 0
+        assert resp.json()["score"] == 90
+
+        attempt = db.query(Attempt).filter(Attempt.user_id == user.id).first()
+        assert attempt.source == "archive"
 
     def test_wrong_answer_increments_guesses(self, client, db):
         puzzle = _make_puzzle(db, days_ago=1, answer="hello")
@@ -155,6 +159,7 @@ class TestArchiveAttempt:
         )
         assert resp.status_code == 200
         assert resp.json()["correct"] is True
+        assert resp.json()["score"] == 90
         assert resp.json()["explanation"] == "The clue asks for hello."
 
         event = db.query(PuzzleCompletionEvent).first()
@@ -162,6 +167,25 @@ class TestArchiveAttempt:
         assert event.source == "archive"
         assert event.user_id is None
         assert event.guest_session_id is not None
+
+    def test_guest_score_uses_client_tracked_penalties(self, client, db):
+        puzzle = _make_puzzle(db, days_ago=1, answer="hello")
+        resp = client.post(
+            f"/api/archive/{puzzle.id}/attempt",
+            json={
+                "puzzle_id": puzzle.id,
+                "guess": "hello",
+                "incorrect_guesses": 1,
+                "hints_used": 1,
+            },
+        )
+        assert resp.status_code == 200
+        assert resp.json()["correct"] is True
+        assert resp.json()["score"] == 75
+        assert resp.json()["incorrect_guesses"] == 1
+
+        event = db.query(PuzzleCompletionEvent).first()
+        assert event.wrong_guess_count == 1
 
     def test_guest_wrong_answer(self, client, db):
         puzzle = _make_puzzle(db, days_ago=1, answer="hello")
@@ -198,7 +222,7 @@ class TestArchiveAttempt:
         assert len(events) == 2
         assert all(e.source == "archive" for e in events)
 
-    def test_archive_score_always_zero(self, client, db):
+    def test_archive_score_has_ten_point_deduction(self, client, db):
         puzzle = _make_puzzle(db, days_ago=1, answer="hello")
         user, jwt = _make_user(db)
         resp = client.post(
@@ -207,9 +231,9 @@ class TestArchiveAttempt:
             cookies={"session": jwt},
         )
         assert resp.json()["correct"] is True
-        assert resp.json()["score"] == 0
+        assert resp.json()["score"] == 90
 
-    def test_archive_hint_no_score_impact(self, client, db):
+    def test_archive_hint_deducts_points(self, client, db):
         puzzle = _make_puzzle(db, days_ago=1, answer="hello")
         user, jwt = _make_user(db)
         cookies = {"session": jwt}
@@ -217,14 +241,68 @@ class TestArchiveAttempt:
         # Use hint
         client.post(f"/api/archive/{puzzle.id}/hint", cookies=cookies)
 
-        # Solve — score should still be 0
         resp = client.post(
             f"/api/archive/{puzzle.id}/attempt",
             json={"puzzle_id": puzzle.id, "guess": "hello"},
             cookies=cookies,
         )
         assert resp.json()["correct"] is True
-        assert resp.json()["score"] == 0
+        assert resp.json()["score"] == 80
+
+    def test_archive_multi_hint_deducts_each_hint(self, client, db):
+        puzzle_date = (date.today() - timedelta(days=1)).isoformat()
+        puzzle = Puzzle(
+            puzzle_date=puzzle_date,
+            puzzle_type="connections",
+            puzzle_name="Connections",
+            question=json.dumps(
+                {
+                    "words": ["a", "b", "c", "d"],
+                    "categories": ["letters", "alphabet"],
+                }
+            ),
+            answer="letters alphabet",
+        )
+        db.add(puzzle)
+        db.commit()
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+
+        first_hint = client.post(f"/api/archive/{puzzle.id}/hint", cookies=cookies)
+        second_hint = client.post(f"/api/archive/{puzzle.id}/hint", cookies=cookies)
+
+        assert first_hint.status_code == 200
+        assert first_hint.json() == {"hint": "letters", "total_hints": 2}
+        assert second_hint.status_code == 200
+        assert second_hint.json() == {"hint": "alphabet", "total_hints": 2}
+
+        resp = client.post(
+            f"/api/archive/{puzzle.id}/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "letters alphabet"},
+            cookies=cookies,
+        )
+        assert resp.json()["correct"] is True
+        assert resp.json()["score"] == 70
+
+    def test_archive_score_bottoms_out_at_ten(self, client, db):
+        puzzle = _make_puzzle(db, days_ago=1, answer="hello")
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+
+        for _ in range(20):
+            client.post(
+                f"/api/archive/{puzzle.id}/attempt",
+                json={"puzzle_id": puzzle.id, "guess": "wrong"},
+                cookies=cookies,
+            )
+
+        resp = client.post(
+            f"/api/archive/{puzzle.id}/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "hello"},
+            cookies=cookies,
+        )
+        assert resp.json()["correct"] is True
+        assert resp.json()["score"] == 10
 
     def test_guest_opened_at_sets_time_to_complete(self, client, db):
         puzzle = _make_puzzle(db, days_ago=1, answer="hello")

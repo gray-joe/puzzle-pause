@@ -102,6 +102,7 @@ class Attempt(Base):
     hint_used: Mapped[int] = mapped_column(Integer, default=0)
     score: Mapped[int | None] = mapped_column(Integer)
     solved: Mapped[int] = mapped_column(Integer, default=0)
+    source: Mapped[str] = mapped_column(String, default="daily", nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="attempts")
     puzzle: Mapped["Puzzle"] = relationship(back_populates="attempts")

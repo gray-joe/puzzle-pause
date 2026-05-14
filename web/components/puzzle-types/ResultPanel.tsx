@@ -124,6 +124,7 @@ export default function ResultPanel({
         : null;
     const wrongPenalty = attempt.incorrect_guesses * 5;
     const hintPenalty = attempt.hint_used * 10;
+    const archivePenalty = isArchive ? 10 : 0;
 
     const puzzleName = puzzle.puzzle_name || puzzle.puzzle_type;
     const duration = formatDuration(attempt.opened_at, attempt.completed_at);
@@ -224,6 +225,11 @@ export default function ResultPanel({
                     <div className="muted" style={{ marginBottom: 8 }}>
                         Hints: {hintPenalty > 0 ? `-${hintPenalty}` : '0'} pts
                     </div>
+                    {archivePenalty > 0 && (
+                        <div className="muted" style={{ marginBottom: 8 }}>
+                            Archive puzzle: -{archivePenalty} pts
+                        </div>
+                    )}
 
                     <hr className="nav-line" />
 

@@ -90,6 +90,15 @@ def calculate_score(
     return max(score, 10)
 
 
+def calculate_archive_score(
+    opened_at: datetime | None,
+    solved_at: datetime,
+    incorrect_guesses: int,
+    hints_used: int,
+) -> int:
+    return max(calculate_score(opened_at, solved_at, incorrect_guesses, hints_used) - 10, 10)
+
+
 def get_puzzle_date() -> str:
     now = datetime.now(_LONDON)
     return now.strftime("%Y-%m-%d")

@@ -88,7 +88,7 @@ def _get_streak(user_id: int, db: Session) -> int:
         text(
             "SELECT DISTINCT p.puzzle_date FROM attempts a "
             "JOIN puzzles p ON a.puzzle_id = p.id "
-            "WHERE a.user_id = :uid AND a.solved = 1 AND a.score > 0 "
+            "WHERE a.user_id = :uid AND a.solved = 1 AND a.source = 'daily' "
             "ORDER BY p.puzzle_date DESC "
             "LIMIT 365"
         ),
@@ -205,7 +205,9 @@ def submit_attempt(
         correct = check_answer(body.guess, puzzle.answer)
         if correct:
             now = datetime.now(timezone.utc)
-            score = calculate_score(body.opened_at, now, 0, 0)
+            score = calculate_score(
+                body.opened_at, now, body.incorrect_guesses, body.hints_used
+            )
             guest_session_id = get_or_create_guest_session_id(request, response)
             db.add(
                 PuzzleCompletionEvent(
@@ -268,6 +270,7 @@ def submit_attempt(
         )
         attempt.solved = 1
         attempt.score = score
+        attempt.source = "daily"
         attempt.completed_at = now
         db.add(
             PuzzleCompletionEvent(

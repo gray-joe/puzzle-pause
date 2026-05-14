@@ -218,12 +218,13 @@ test.describe('Admin puzzle preview', () => {
 
         const firstRow = page.locator('tbody tr').first();
         await firstRow.locator('a', { hasText: 'preview' }).click();
+        await expect(page).toHaveURL(/\/admin\/puzzles\/\d+\/preview/);
 
         const puzzle = new PuzzlePage(page);
         await expect(puzzle.shell).toBeVisible();
 
         if (await puzzle.answerInput.isVisible()) {
-            await puzzle.submitAnswer('anything');
+            await puzzle.submitAnswer('1');
             await puzzle.expectFeedback('Wrong');
         }
     });

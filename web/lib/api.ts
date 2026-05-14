@@ -211,10 +211,15 @@ export const api = {
     puzzle: {
         today: (cookieHeader?: string) => apiFetch<Puzzle>('/api/puzzle/today', {}, cookieHeader),
 
-        attempt: (puzzle_id: number, guess: string, opened_at?: string) =>
+        attempt: (
+            puzzle_id: number,
+            guess: string,
+            opened_at?: string,
+            penalties?: { incorrect_guesses: number; hints_used: number }
+        ) =>
             apiFetch<AttemptResult>('/api/puzzle/attempt', {
                 method: 'POST',
-                body: JSON.stringify({ puzzle_id, guess, opened_at }),
+                body: JSON.stringify({ puzzle_id, guess, opened_at, ...penalties }),
             }),
 
         hint: (puzzle_id: number) =>
@@ -237,10 +242,15 @@ export const api = {
         get: (id: number, cookieHeader?: string) =>
             apiFetch<Puzzle>(`/api/archive/${id}`, {}, cookieHeader),
 
-        attempt: (puzzle_id: number, guess: string, opened_at?: string) =>
+        attempt: (
+            puzzle_id: number,
+            guess: string,
+            opened_at?: string,
+            penalties?: { incorrect_guesses: number; hints_used: number }
+        ) =>
             apiFetch<AttemptResult>(`/api/archive/${puzzle_id}/attempt`, {
                 method: 'POST',
-                body: JSON.stringify({ puzzle_id, guess, opened_at }),
+                body: JSON.stringify({ puzzle_id, guess, opened_at, ...penalties }),
             }),
 
         hint: (puzzle_id: number) =>

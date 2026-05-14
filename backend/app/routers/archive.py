@@ -9,8 +9,8 @@ from sqlalchemy.orm import Session
 from ..auth import get_current_user, get_or_create_guest_session_id, require_user
 from ..database import get_db
 from ..models import Attempt, Puzzle, PuzzleCompletionEvent
-from ..puzzle import check_answer, get_puzzle_date
-from ..routers.puzzle import _ensure_attempt, _get_puzzle_number, _puzzle_to_response
+from ..puzzle import calculate_archive_score, check_answer, get_puzzle_date
+from ..routers.puzzle import _ensure_attempt, _get_puzzle_number, _hint_items, _puzzle_to_response
 from ..schemas import AttemptRequest, AttemptResponse, HintResponse
 
 router = APIRouter(prefix="/archive", tags=["archive"])
@@ -121,6 +121,9 @@ def get_archive_puzzle(
                 "completed_at": (
                     attempt.completed_at.isoformat() if attempt.completed_at else None
                 ),
+                "opened_at": (
+                    attempt.opened_at.isoformat() if attempt.opened_at else None
+                ),
             }
             if attempt.solved:
                 data["question"] = puzzle.question
@@ -157,6 +160,9 @@ def archive_attempt(
         correct = check_answer(body.guess, puzzle.answer)
         if correct:
             now = datetime.now(timezone.utc)
+            score = calculate_archive_score(
+                body.opened_at, now, body.incorrect_guesses, body.hints_used
+            )
             guest_session_id = get_or_create_guest_session_id(request, response)
             db.add(
                 PuzzleCompletionEvent(
@@ -164,14 +170,18 @@ def archive_attempt(
                     guest_session_id=guest_session_id,
                     completed_at=now,
                     source="archive",
-                    wrong_guess_count=None,
+                    wrong_guess_count=body.incorrect_guesses,
                     time_to_complete_seconds=_seconds_between(body.opened_at, now),
                 )
             )
             db.commit()
             return AttemptResponse(
-                correct=True, score=0, incorrect_guesses=0, solved=True,
-                answer=puzzle.answer, question=puzzle.question,
+                correct=True,
+                score=score,
+                incorrect_guesses=body.incorrect_guesses,
+                solved=True,
+                answer=puzzle.answer,
+                question=puzzle.question,
                 explanation=puzzle.explanation,
             )
         return AttemptResponse(
@@ -209,8 +219,12 @@ def archive_attempt(
 
     if correct:
         now = datetime.now(timezone.utc)
+        score = calculate_archive_score(
+            attempt.opened_at, now, attempt.incorrect_guesses, attempt.hint_used
+        )
         attempt.solved = 1
-        attempt.score = 0
+        attempt.score = score
+        attempt.source = "archive"
         attempt.completed_at = now
         db.add(
             PuzzleCompletionEvent(
@@ -225,7 +239,7 @@ def archive_attempt(
         db.commit()
         return AttemptResponse(
             correct=True,
-            score=0,
+            score=score,
             incorrect_guesses=attempt.incorrect_guesses,
             solved=True,
             answer=puzzle.answer,
@@ -257,16 +271,27 @@ def archive_hint(
         )
         .first()
     )
-    if not puzzle or not puzzle.hint:
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="No hint available")
+
+    items = _hint_items(puzzle.puzzle_type, puzzle.question, puzzle.hint)
+    total_hints = len(items)
+
+    if total_hints == 0:
         raise HTTPException(status_code=404, detail="No hint available")
 
     if user:
         attempt = _ensure_attempt(user.id, puzzle.id, db)
-        if not attempt.hint_used:
-            attempt.hint_used = 1
-            db.commit()
+        idx = attempt.hint_used
+        if idx >= total_hints:
+            raise HTTPException(status_code=404, detail="No more hints available")
+        attempt.hint_used += 1
+        db.commit()
+        hint_text = items[idx]
+    else:
+        hint_text = items[0]
 
-    return HintResponse(hint=puzzle.hint)
+    return HintResponse(hint=hint_text, total_hints=total_hints)
 
 
 @router.get("/{puzzle_id}/result")
@@ -310,6 +335,9 @@ def archive_result(
             "hint_used": bool(attempt.hint_used),
             "completed_at": (
                 attempt.completed_at.isoformat() if attempt.completed_at else None
+            ),
+            "opened_at": (
+                attempt.opened_at.isoformat() if attempt.opened_at else None
             ),
         },
     }

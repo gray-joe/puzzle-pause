@@ -25,7 +25,11 @@ interface Props {
     initialAttempt?: AttemptDetail;
     isArchive?: boolean;
     isLoggedIn?: boolean;
-    onAttempt: (guess: string, openedAt: string) => Promise<AttemptResult>;
+    onAttempt: (
+        guess: string,
+        openedAt: string,
+        penalties: { incorrect_guesses: number; hints_used: number }
+    ) => Promise<AttemptResult>;
     onHint: () => Promise<{ hint: string; total_hints: number }>;
 }
 
@@ -64,7 +68,10 @@ export default function PuzzleShell({
         setLoading(true);
         setFeedback('');
         try {
-            const result = await onAttempt(guess, openedAt);
+            const result = await onAttempt(guess, openedAt, {
+                incorrect_guesses: incorrectGuesses,
+                hints_used: isMultiHint ? hintsRevealed : hintUsed ? 1 : 0,
+            });
             if (result.correct) {
                 setAttempt({
                     solved: true,
@@ -146,7 +153,7 @@ export default function PuzzleShell({
                 </div>
                 {isArchive && (
                     <div className="content-meta muted-dark">
-                        Archived puzzles are for practice only. No points awarded.
+                        Archived puzzles score like the daily puzzle with a -10 archive deduction.
                     </div>
                 )}
                 <ResultPanel
@@ -176,7 +183,7 @@ export default function PuzzleShell({
             </div>
             <div className="content-meta muted-dark" data-testid="puzzle-instructions">
                 {isArchive
-                    ? 'Archived puzzles are for practice only. No points awarded.'
+                    ? 'Archived puzzles score like the daily puzzle with a -10 archive deduction.'
                     : 'Solve within 10 mins for 100 pts, 15 mins for 90, 30 mins for 75, 60 mins for 50. -5 per wrong guess, -10 for a hint.'}
             </div>
 
@@ -192,7 +199,7 @@ export default function PuzzleShell({
                     >
                         <span className="gt">&gt;</span>
                         {isClueReveal ? 'Reveal next clue' : 'Reveal hint'}
-                        {!isArchive && <span className="muted"> (-10 pts)</span>}
+                        <span className="muted"> (-10 pts)</span>
                     </button>
                 )}
                 {hint && !isConnections && !isClueReveal && (

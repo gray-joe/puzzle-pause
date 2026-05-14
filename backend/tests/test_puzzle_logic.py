@@ -2,7 +2,12 @@ from datetime import datetime, timezone
 
 import pytest
 
-from app.puzzle import calculate_score, check_answer, normalize_answer
+from app.puzzle import (
+    calculate_archive_score,
+    calculate_score,
+    check_answer,
+    normalize_answer,
+)
 
 
 class TestNormalizeAnswer:
@@ -138,3 +143,17 @@ class TestCalculateScore:
 
         solved = self._release("2024-01-01")
         assert calculate_score(None, solved, 0, 0) == 100
+
+    def test_archive_deducts_10(self):
+        from datetime import timedelta
+
+        release = self._release("2024-01-01")
+        solved = release + timedelta(minutes=5)
+        assert calculate_archive_score(release, solved, 0, 0) == 90
+
+    def test_archive_minimum_score_10(self):
+        from datetime import timedelta
+
+        release = self._release("2024-01-01")
+        solved = release + timedelta(hours=20)
+        assert calculate_archive_score(release, solved, 10, 1) == 10

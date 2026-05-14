@@ -86,7 +86,7 @@ test('correct answer solves the puzzle', async ({ page }) => {
     await page.getByTestId('submit-btn').click();
 
     await result.expectVisible();
-    await expect(result.score).toHaveText('0');
+    await expect(result.score).not.toHaveText('0');
     await result.expectAnswer('26');
 
     await expect(page.getByTestId('answer-input')).not.toBeVisible();

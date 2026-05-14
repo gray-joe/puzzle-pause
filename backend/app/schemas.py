@@ -45,6 +45,8 @@ class AttemptRequest(BaseModel):
     puzzle_id: int
     guess: str = Field(max_length=1000)
     opened_at: datetime | None = None
+    incorrect_guesses: int = Field(default=0, ge=0)
+    hints_used: int = Field(default=0, ge=0)
 
 
 class AttemptResponse(BaseModel):

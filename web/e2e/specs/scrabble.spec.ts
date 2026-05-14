@@ -64,6 +64,6 @@ test('submitting the correct answer with modifier bonuses solves the puzzle', as
     await page.getByTestId('submit-btn').click();
 
     await result.expectVisible();
-    await expect(result.score).toHaveText('0');
+    await expect(result.score).not.toHaveText('0');
     await result.expectAnswer('romance 34');
 });

@@ -129,6 +129,21 @@ describe('hint penalty display', () => {
     });
 });
 
+describe('archive penalty display', () => {
+    it('shows the archive deduction for logged-in archive results', () => {
+        render(
+            <ResultPanel
+                puzzle={makePuzzle()}
+                attempt={makeAttempt({ score: 90 })}
+                answer="hello"
+                isArchive={true}
+                isLoggedIn={true}
+            />
+        );
+        expect(screen.getByText(/Archive puzzle:/)).toHaveTextContent('-10 pts');
+    });
+});
+
 describe('explanation display', () => {
     it('shows puzzle explanation when provided', () => {
         render(

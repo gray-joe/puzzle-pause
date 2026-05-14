@@ -97,10 +97,10 @@ test('Guests can view and complete archived puzzles', async ({ page }) => {
     await expect(result.explanation).toContainText(
         'The 72 puzzles are shared by 8 solvers, so each solves 9 puzzles.'
     );
-    await expect(result.score).toHaveText('0');
+    await expect(result.score).toHaveText('90');
     await result.expectGuestCTAs();
 
-    await expect(page.locator('body')).toContainText('Archived puzzles are for practice only');
+    await expect(page.locator('body')).toContainText('Archived puzzles score like the daily puzzle');
 });
 
 test('Guest can reveal a hint on daily puzzle', async ({ page }) => {

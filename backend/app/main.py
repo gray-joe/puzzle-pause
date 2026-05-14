@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 
 from .sentry import init_sentry
 
@@ -13,6 +14,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import inspect as _inspect, text as _text
 
 from .database import Base, engine
+from .puzzle import calculate_archive_score
 from .routers import account, admin, archive, auth, leagues, puzzle
 
 Base.metadata.create_all(bind=engine)
@@ -22,6 +24,49 @@ with engine.connect() as _conn:
     if "explanation" not in _columns:
         _conn.execute(_text("ALTER TABLE puzzles ADD COLUMN explanation TEXT"))
         _conn.commit()
+
+with engine.connect() as _conn:
+    _columns = {column["name"] for column in _inspect(_conn).get_columns("attempts")}
+    if "source" not in _columns:
+        _conn.execute(
+            _text("ALTER TABLE attempts ADD COLUMN source TEXT NOT NULL DEFAULT 'daily'")
+        )
+        _conn.commit()
+
+
+def _parse_dt(value):
+    if value is None or isinstance(value, datetime):
+        return value
+    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+
+def _backfill_archive_attempt_scores() -> None:
+    with engine.connect() as _conn:
+        rows = _conn.execute(
+            _text(
+                "SELECT a.id, a.opened_at, a.completed_at, a.incorrect_guesses, a.hint_used "
+                "FROM attempts a JOIN puzzles p ON a.puzzle_id = p.id "
+                "WHERE a.solved = 1 AND COALESCE(a.score, 0) = 0 "
+                "AND p.puzzle_date < date('now')"
+            )
+        ).fetchall()
+        for row in rows:
+            opened_at = _parse_dt(row[1])
+            completed_at = _parse_dt(row[2]) or opened_at or datetime.now(timezone.utc)
+            score = calculate_archive_score(
+                opened_at, completed_at, row[3] or 0, row[4] or 0
+            )
+            _conn.execute(
+                _text(
+                    "UPDATE attempts SET score = :score, source = 'archive' WHERE id = :id"
+                ),
+                {"score": score, "id": row[0]},
+            )
+        if rows:
+            _conn.commit()
+
+
+_backfill_archive_attempt_scores()
 
 # Ensure indexes exist on pre-existing databases (create_all won't add them)
 with engine.connect() as _conn:

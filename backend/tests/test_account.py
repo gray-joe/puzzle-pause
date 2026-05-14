@@ -19,7 +19,7 @@ def _make_user(db, email="user@example.com"):
     return user, create_jwt(token)
 
 
-def _make_solved_attempt(db, user, days_ago=1, score=80):
+def _make_solved_attempt(db, user, days_ago=1, score=80, source="daily"):
     puzzle_date = (date.today() - timedelta(days=days_ago)).isoformat()
     puzzle = Puzzle(
         puzzle_date=puzzle_date,
@@ -35,6 +35,7 @@ def _make_solved_attempt(db, user, days_ago=1, score=80):
         puzzle_id=puzzle.id,
         solved=1,
         score=score,
+        source=source,
         completed_at=datetime.now(timezone.utc),
     )
     db.add(attempt)
@@ -88,8 +89,7 @@ class TestGetAccount:
     def test_streak_excludes_archive_puzzles(self, client, db):
         user, jwt = _make_user(db)
         _make_solved_attempt(db, user, days_ago=1, score=80)
-        # Archive puzzle (score=0) on day 2 should not extend the streak
-        _make_solved_attempt(db, user, days_ago=2, score=0)
+        _make_solved_attempt(db, user, days_ago=2, score=90, source="archive")
 
         resp = client.get("/api/account", cookies={"session": jwt})
         assert resp.json()["stats"]["streak"] == 1

@@ -15,7 +15,9 @@ export default function PuzzleActions({
             puzzle={puzzle}
             initialAttempt={puzzle.attempt}
             isLoggedIn={isLoggedIn}
-            onAttempt={(guess, openedAt) => api.puzzle.attempt(puzzle.id, guess, openedAt)}
+            onAttempt={(guess, openedAt, penalties) =>
+                api.puzzle.attempt(puzzle.id, guess, openedAt, penalties)
+            }
             onHint={() => api.puzzle.hint(puzzle.id)}
         />
     );

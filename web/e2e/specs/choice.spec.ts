@@ -74,6 +74,6 @@ test('clicking the correct option solves the puzzle', async ({ page }) => {
     await page.getByRole('button', { name: /Jupiter/ }).click();
 
     await result.expectVisible();
-    await expect(result.score).toHaveText('0');
+    await expect(result.score).not.toHaveText('0');
     await expect(page.locator('.choice-option')).not.toBeVisible();
 });
