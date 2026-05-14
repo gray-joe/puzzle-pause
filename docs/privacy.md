@@ -1,4 +1,4 @@
-# Puzzle Pause Privacy Policy (Draft)
+# Puzzle Pause Privacy Policy
 
 Last updated: 2026-05-12
 
