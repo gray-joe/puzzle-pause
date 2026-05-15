@@ -156,4 +156,19 @@ describe('apiFetch', () => {
             })
         );
     });
+
+    it('adds archive pagination query params', async () => {
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve([]),
+        });
+
+        await api.archive.list('session=abc123', { limit: 51, offset: 50 });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+            '/api/archive?limit=51&offset=50',
+            expect.objectContaining({ credentials: 'include' })
+        );
+    });
 });

@@ -142,6 +142,11 @@ export type AdminCompletionEventFilters = {
     limit?: number;
 };
 
+export type ArchiveListFilters = {
+    limit?: number;
+    offset?: number;
+};
+
 class ApiError extends Error {
     constructor(
         public status: number,
@@ -237,7 +242,14 @@ export const api = {
     },
 
     archive: {
-        list: (cookieHeader?: string) => apiFetch<Puzzle[]>('/api/archive', {}, cookieHeader),
+        list: (cookieHeader?: string, filters: ArchiveListFilters = {}) => {
+            const params = new URLSearchParams();
+            if (filters.limit) params.set('limit', String(filters.limit));
+            if (filters.offset) params.set('offset', String(filters.offset));
+            const query = params.toString();
+            const path = query ? `/api/archive?${query}` : '/api/archive';
+            return apiFetch<Puzzle[]>(path, {}, cookieHeader);
+        },
 
         get: (id: number, cookieHeader?: string) =>
             apiFetch<Puzzle>(`/api/archive/${id}`, {}, cookieHeader),

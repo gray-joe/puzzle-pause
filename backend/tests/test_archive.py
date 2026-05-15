@@ -95,6 +95,17 @@ class TestArchiveList:
         dates = [p["puzzle_date"] for p in resp.json()]
         assert dates == sorted(dates, reverse=True)
 
+    def test_supports_limit_and_offset(self, client, db):
+        newest = _make_puzzle(db, days_ago=1)
+        middle = _make_puzzle(db, days_ago=2)
+        _make_puzzle(db, days_ago=3)
+
+        resp = client.get("/api/archive?limit=1&offset=1")
+
+        assert resp.status_code == 200
+        assert [p["id"] for p in resp.json()] == [middle.id]
+        assert resp.json()[0]["id"] != newest.id
+
 
 class TestArchiveGet:
     def test_returns_puzzle(self, client, db):
