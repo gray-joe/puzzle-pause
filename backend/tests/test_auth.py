@@ -42,6 +42,22 @@ class TestLogin:
         resp = client.post("/api/auth/login", json={"email": "not-an-email"})
         assert resp.status_code == 422
 
+    @patch("app.routers.auth.send_otac_email", new_callable=AsyncMock)
+    def test_login_blocked_email_does_not_create_token(
+        self, mock_send, client, db, monkeypatch
+    ):
+        monkeypatch.setenv("AUTH_BLOCKED_EMAILS", " crawlerrobo@gmail.com ")
+
+        resp = client.post("/api/auth/login", json={"email": "CrawlerRobo@Gmail.com"})
+
+        assert resp.status_code == 200
+        assert resp.json() == {"message": "Code sent"}
+        mock_send.assert_not_called()
+        token = (
+            db.query(AuthToken).filter(AuthToken.email == "crawlerrobo@gmail.com").first()
+        )
+        assert token is None
+
 
 class TestVerify:
     @patch("app.routers.auth.send_otac_email", new_callable=AsyncMock)
@@ -93,6 +109,25 @@ class TestVerify:
             json={"email": "test@example.com", "code": token.short_code},
         )
         assert "session" in resp.cookies
+
+    @patch("app.routers.auth.send_otac_email", new_callable=AsyncMock)
+    def test_verify_blocked_email_rejects_existing_token(
+        self, mock_send, client, db, monkeypatch
+    ):
+        client.post("/api/auth/login", json={"email": "test@example.com"})
+        token = (
+            db.query(AuthToken).filter(AuthToken.email == "test@example.com").first()
+        )
+        monkeypatch.setenv("AUTH_BLOCKED_EMAILS", "test@example.com")
+
+        resp = client.post(
+            "/api/auth/verify",
+            json={"email": "test@example.com", "code": token.short_code},
+        )
+
+        assert resp.status_code == 400
+        assert resp.json() == {"detail": "Invalid or expired code"}
+        assert db.query(User).filter(User.email == "test@example.com").first() is None
 
 
 class TestMe:

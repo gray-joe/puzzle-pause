@@ -53,7 +53,8 @@ def _get_stats(user_id: int, db: Session) -> AccountStatsResponse:
         {"score": alltime_total},
     ).fetchone()
     if percentile_row and percentile_row[0] > 1:
-        percentile = int(
+        percentile = max(
+            1,
             round(100 * (percentile_row[0] - percentile_row[1]) / percentile_row[0])
         )
     else:

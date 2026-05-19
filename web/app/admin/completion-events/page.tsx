@@ -1,6 +1,8 @@
 import { api } from '@/lib/api';
 import { requireUser, getCookieHeader } from '@/lib/auth';
+import { pageFromSearchParams, PageSearchParams, single } from '@/lib/pagination';
 import PageShell from '@/components/ui/PageShell';
+import PaginationControls from '@/components/ui/PaginationControls';
 import Link from 'next/link';
 
 function fmtDateTime(dt: string) {
@@ -14,18 +16,15 @@ function fmtSeconds(totalSeconds: number | null) {
     return `${mins}m ${secs}s`;
 }
 
-function single(v: string | string[] | undefined) {
-    return Array.isArray(v) ? v[0] : v;
-}
-
 export default async function AdminCompletionEventsPage({
     searchParams,
 }: {
-    searchParams?: Promise<Record<string, string | string[] | undefined>>;
+    searchParams?: Promise<PageSearchParams>;
 }) {
     await requireUser();
     const cookieHeader = await getCookieHeader();
-    const params = ((await searchParams) ?? {}) as Record<string, string | string[] | undefined>;
+    const params = (await searchParams) ?? {};
+    const page = pageFromSearchParams(params);
 
     const source = single(params.source);
     const actor = single(params.actor);
@@ -33,8 +32,9 @@ export default async function AdminCompletionEventsPage({
     const completedFrom = (single(params.completed_from) ?? '').trim();
     const completedTo = (single(params.completed_to) ?? '').trim();
     const limitRaw = single(params.limit);
-    const parsedLimit = Number(limitRaw ?? 250);
-    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 1000) : 250;
+    const parsedLimit = Number(limitRaw ?? 50);
+    const limit = Number.isFinite(parsedLimit) ? Math.min(Math.max(parsedLimit, 1), 999) : 50;
+    const offset = (page - 1) * limit;
 
     const events = await api.admin.listCompletionEvents(
         {
@@ -43,10 +43,15 @@ export default async function AdminCompletionEventsPage({
             puzzle_type: puzzleType || undefined,
             completed_from: completedFrom || undefined,
             completed_to: completedTo || undefined,
-            limit,
+            limit: limit + 1,
+            offset,
         },
         cookieHeader
     );
+    const hasNextPage = events.length > limit;
+    const visibleEvents = events.slice(0, limit);
+    const firstEventNumber = offset + 1;
+    const lastEventNumber = offset + visibleEvents.length;
 
     return (
         <PageShell title="Admin" isAdmin isLoggedIn>
@@ -55,7 +60,11 @@ export default async function AdminCompletionEventsPage({
             </h2>
 
             <p className="muted" style={{ marginBottom: 16 }}>
-                {events.length} event{events.length !== 1 ? 's' : ''}
+                {visibleEvents.length > 0
+                    ? `Showing completion events ${firstEventNumber}-${lastEventNumber}`
+                    : page === 1
+                      ? 'No completion events yet.'
+                      : 'No completion events on this page.'}
             </p>
 
             <form method="get" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
@@ -96,7 +105,7 @@ export default async function AdminCompletionEventsPage({
                     name="limit"
                     type="number"
                     min={1}
-                    max={1000}
+                    max={999}
                     defaultValue={String(limit)}
                     style={{ width: 96 }}
                 />
@@ -125,7 +134,7 @@ export default async function AdminCompletionEventsPage({
                         </tr>
                     </thead>
                     <tbody>
-                        {events.map((event) => (
+                        {visibleEvents.map((event) => (
                             <tr key={event.id}>
                                 <td className="muted">{event.id}</td>
                                 <td className="muted">{fmtDateTime(event.completed_at)}</td>
@@ -153,6 +162,13 @@ export default async function AdminCompletionEventsPage({
                     </tbody>
                 </table>
             </div>
+
+            <PaginationControls
+                basePath="/admin/completion-events"
+                params={params}
+                page={page}
+                hasNextPage={hasNextPage}
+            />
         </PageShell>
     );
 }

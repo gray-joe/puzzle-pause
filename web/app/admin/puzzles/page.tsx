@@ -1,13 +1,31 @@
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { requireUser, getCookieHeader } from '@/lib/auth';
+import { pageFromSearchParams, PageSearchParams } from '@/lib/pagination';
 import PageShell from '@/components/ui/PageShell';
+import PaginationControls from '@/components/ui/PaginationControls';
 import AdminDeleteBtn from './AdminDeleteBtn';
 
-export default async function AdminPuzzlesPage() {
+const ADMIN_PAGE_SIZE = 50;
+
+export default async function AdminPuzzlesPage({
+    searchParams,
+}: {
+    searchParams?: Promise<PageSearchParams>;
+}) {
     await requireUser();
     const cookieHeader = await getCookieHeader();
-    const puzzles = await api.admin.listPuzzles(cookieHeader);
+    const params = (await searchParams) ?? {};
+    const page = pageFromSearchParams(params);
+    const offset = (page - 1) * ADMIN_PAGE_SIZE;
+    const puzzles = await api.admin.listPuzzles(cookieHeader, {
+        limit: ADMIN_PAGE_SIZE + 1,
+        offset,
+    });
+    const hasNextPage = puzzles.length > ADMIN_PAGE_SIZE;
+    const visiblePuzzles = puzzles.slice(0, ADMIN_PAGE_SIZE);
+    const firstPuzzleNumber = offset + 1;
+    const lastPuzzleNumber = offset + visiblePuzzles.length;
 
     return (
         <PageShell title="Admin" isAdmin isLoggedIn>
@@ -28,6 +46,16 @@ export default async function AdminPuzzlesPage() {
                 <span className="gt">&gt;</span>New puzzle
             </Link>
 
+            {visiblePuzzles.length > 0 ? (
+                <p className="muted" style={{ marginBottom: 16 }}>
+                    Showing puzzles {firstPuzzleNumber}-{lastPuzzleNumber}
+                </p>
+            ) : (
+                <p className="muted" style={{ marginBottom: 16 }}>
+                    {page === 1 ? 'No puzzles yet.' : 'No puzzles on this page.'}
+                </p>
+            )}
+
             <table>
                 <thead>
                     <tr>
@@ -39,7 +67,7 @@ export default async function AdminPuzzlesPage() {
                     </tr>
                 </thead>
                 <tbody>
-                    {puzzles.map((p) => (
+                    {visiblePuzzles.map((p) => (
                         <tr key={p.id}>
                             <td>{p.puzzle_date}</td>
                             <td className="muted">{p.puzzle_type}</td>
@@ -74,6 +102,8 @@ export default async function AdminPuzzlesPage() {
                     ))}
                 </tbody>
             </table>
+
+            <PaginationControls basePath="/admin/puzzles" params={params} page={page} hasNextPage={hasNextPage} />
         </PageShell>
     );
 }

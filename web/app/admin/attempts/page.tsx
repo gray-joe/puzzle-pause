@@ -1,17 +1,35 @@
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { requireUser, getCookieHeader } from '@/lib/auth';
+import { pageFromSearchParams, PageSearchParams } from '@/lib/pagination';
 import PageShell from '@/components/ui/PageShell';
+import PaginationControls from '@/components/ui/PaginationControls';
+
+const ADMIN_PAGE_SIZE = 50;
 
 function fmt(dt: string | null) {
     if (!dt) return <span className="muted">—</span>;
     return new Date(dt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
 }
 
-export default async function AdminAttemptsPage() {
+export default async function AdminAttemptsPage({
+    searchParams,
+}: {
+    searchParams?: Promise<PageSearchParams>;
+}) {
     await requireUser();
     const cookieHeader = await getCookieHeader();
-    const attempts = await api.admin.listAttempts(cookieHeader);
+    const params = (await searchParams) ?? {};
+    const page = pageFromSearchParams(params);
+    const offset = (page - 1) * ADMIN_PAGE_SIZE;
+    const attempts = await api.admin.listAttempts(cookieHeader, {
+        limit: ADMIN_PAGE_SIZE + 1,
+        offset,
+    });
+    const hasNextPage = attempts.length > ADMIN_PAGE_SIZE;
+    const visibleAttempts = attempts.slice(0, ADMIN_PAGE_SIZE);
+    const firstAttemptNumber = offset + 1;
+    const lastAttemptNumber = offset + visibleAttempts.length;
 
     return (
         <PageShell title="Admin" isAdmin isLoggedIn>
@@ -20,7 +38,11 @@ export default async function AdminAttemptsPage() {
             </h2>
 
             <p className="muted" style={{ marginBottom: 16 }}>
-                {attempts.length} attempt{attempts.length !== 1 ? 's' : ''}
+                {visibleAttempts.length > 0
+                    ? `Showing attempts ${firstAttemptNumber}-${lastAttemptNumber}`
+                    : page === 1
+                      ? 'No attempts yet.'
+                      : 'No attempts on this page.'}
             </p>
 
             <div style={{ overflowX: 'auto' }}>
@@ -41,7 +63,7 @@ export default async function AdminAttemptsPage() {
                         </tr>
                     </thead>
                     <tbody>
-                        {attempts.map((a) => (
+                        {visibleAttempts.map((a) => (
                             <tr key={a.id}>
                                 <td className="muted">{a.id}</td>
                                 <td>{a.user_display_name ?? a.user_email}</td>
@@ -72,6 +94,8 @@ export default async function AdminAttemptsPage() {
                     </tbody>
                 </table>
             </div>
+
+            <PaginationControls basePath="/admin/attempts" params={params} page={page} hasNextPage={hasNextPage} />
         </PageShell>
     );
 }

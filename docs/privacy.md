@@ -44,7 +44,8 @@ We retain account and gameplay data while your account is active and as needed f
 ## Your choices
 
 - You can sign out at any time in the app.
-- You can contact us to request account deletion or other privacy requests.
+- You can request account deletion at `https://puzzlepause.app/data-deletion`.
+- You can contact us for other privacy requests.
 
 ## Children's privacy
 

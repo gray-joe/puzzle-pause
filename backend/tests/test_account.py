@@ -69,6 +69,26 @@ class TestGetAccount:
         assert stats["puzzles_solved"] == 0
         assert stats["alltime_total"] == 0
 
+    def test_top_percentile_has_one_percent_minimum(self, client, db):
+        top_user, jwt = _make_user(db, "top@example.com")
+        other_user, _ = _make_user(db, "other@example.com")
+        puzzle = Puzzle(
+            puzzle_date=(date.today() - timedelta(days=1)).isoformat(),
+            puzzle_type="word",
+            puzzle_name="P",
+            question="Q",
+            answer="A",
+        )
+        db.add(puzzle)
+        db.flush()
+        db.add(Attempt(user_id=top_user.id, puzzle_id=puzzle.id, solved=1, score=100))
+        db.add(Attempt(user_id=other_user.id, puzzle_id=puzzle.id, solved=1, score=50))
+        db.commit()
+
+        resp = client.get("/api/account", cookies={"session": jwt})
+
+        assert resp.json()["stats"]["percentile"] == 1
+
     def test_streak_consecutive_days(self, client, db):
         user, jwt = _make_user(db)
         _make_solved_attempt(db, user, days_ago=1)

@@ -171,4 +171,34 @@ describe('apiFetch', () => {
             expect.objectContaining({ credentials: 'include' })
         );
     });
+
+    it('adds admin list pagination query params', async () => {
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve([]),
+        });
+
+        await api.admin.listPuzzles('session=abc123', { limit: 51, offset: 50 });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+            '/api/admin/puzzles?limit=51&offset=50',
+            expect.objectContaining({ credentials: 'include' })
+        );
+    });
+
+    it('adds completion event offset query params', async () => {
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve([]),
+        });
+
+        await api.admin.listCompletionEvents({ source: 'daily', limit: 51, offset: 50 }, 'session=abc123');
+
+        expect(mockFetch).toHaveBeenCalledWith(
+            '/api/admin/completion-events?source=daily&limit=51&offset=50',
+            expect.objectContaining({ credentials: 'include' })
+        );
+    });
 });

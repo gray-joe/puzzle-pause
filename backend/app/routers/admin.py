@@ -46,12 +46,19 @@ def _to_admin_response(puzzle: Puzzle) -> PuzzleAdminResponse:
 
 
 @router.get("/attempts")
-def list_attempts(admin=Depends(require_admin), db: Session = Depends(get_db)):
+def list_attempts(
+    admin=Depends(require_admin),
+    db: Session = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
     rows = (
         db.query(Attempt, User, Puzzle)
         .join(User, Attempt.user_id == User.id)
         .join(Puzzle, Attempt.puzzle_id == Puzzle.id)
         .order_by(Attempt.id.desc())
+        .limit(limit)
+        .offset(offset)
         .all()
     )
     return [
@@ -158,8 +165,13 @@ def update_attempt(
 
 
 @router.get("/users")
-def list_users(admin=Depends(require_admin), db: Session = Depends(get_db)):
-    users = db.query(User).order_by(User.id.desc()).all()
+def list_users(
+    admin=Depends(require_admin),
+    db: Session = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    users = db.query(User).order_by(User.id.desc()).limit(limit).offset(offset).all()
     return [
         {
             "id": u.id,
@@ -181,6 +193,7 @@ def list_completion_events(
     completed_from: str | None = Query(default=None),
     completed_to: str | None = Query(default=None),
     limit: int = Query(default=250, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0),
 ):
     if source is not None and source not in {"daily", "archive"}:
         raise HTTPException(status_code=400, detail="Invalid source filter")
@@ -221,7 +234,7 @@ def list_completion_events(
         to_dt = datetime.combine(to_day + timedelta(days=1), time.min)
         query = query.filter(PuzzleCompletionEvent.completed_at < to_dt)
 
-    rows = query.order_by(PuzzleCompletionEvent.id.desc()).limit(limit).all()
+    rows = query.order_by(PuzzleCompletionEvent.id.desc()).limit(limit).offset(offset).all()
     return [
         {
             "id": event.id,
@@ -259,8 +272,13 @@ def get_stats(admin=Depends(require_admin), db: Session = Depends(get_db)):
 
 
 @router.get("/puzzles")
-def list_puzzles(admin=Depends(require_admin), db: Session = Depends(get_db)):
-    puzzles = db.query(Puzzle).order_by(Puzzle.puzzle_date.desc()).all()
+def list_puzzles(
+    admin=Depends(require_admin),
+    db: Session = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    puzzles = db.query(Puzzle).order_by(Puzzle.puzzle_date.desc()).limit(limit).offset(offset).all()
     return [_to_admin_response(p) for p in puzzles]
 
 

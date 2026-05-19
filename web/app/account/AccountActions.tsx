@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 
@@ -97,6 +98,18 @@ export default function AccountActions({
             >
                 <span className="gt">&gt;</span>Logout
             </button>
+
+            <Link
+                href="/data-deletion"
+                className="action-btn secondary"
+                data-testid="delete-data-link"
+            >
+                <span className="gt">&gt;</span>Request data deletion
+            </Link>
+
+            <Link href="/privacy" className="action-btn secondary" data-testid="privacy-link">
+                <span className="gt">&gt;</span>Privacy Policy
+            </Link>
         </div>
     );
 }

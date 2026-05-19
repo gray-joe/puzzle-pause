@@ -29,10 +29,22 @@ AUTH_LOCKOUT_MINS = 5
 SESSION_EXPIRY_DAYS = 30
 
 
+def _is_blocked_email(email: str) -> bool:
+    blocked_emails = {
+        blocked_email.strip().lower()
+        for blocked_email in os.environ.get("AUTH_BLOCKED_EMAILS", "").split(",")
+        if blocked_email.strip()
+    }
+    return email in blocked_emails
+
+
 @router.post("/login", status_code=status.HTTP_200_OK)
 @limiter.limit("5/minute")
 async def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
     email = body.email.lower()
+
+    if _is_blocked_email(email):
+        return {"message": "Code sent"}
 
     # Check for recent lockout — refuse new codes if a token was locked out recently
     lockout_cutoff = datetime.now(timezone.utc) - timedelta(minutes=AUTH_LOCKOUT_MINS)
@@ -80,6 +92,9 @@ async def verify(
 ):
     email = body.email.lower()
     code = body.code.upper()
+
+    if _is_blocked_email(email):
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
 
     auth_token = (
         db.query(AuthToken)

@@ -140,12 +140,25 @@ export type AdminCompletionEventFilters = {
     completed_from?: string;
     completed_to?: string;
     limit?: number;
+    offset?: number;
 };
 
 export type ArchiveListFilters = {
     limit?: number;
     offset?: number;
 };
+
+export type AdminListFilters = {
+    limit?: number;
+    offset?: number;
+};
+
+function paginationParams(filters: AdminListFilters | ArchiveListFilters) {
+    const params = new URLSearchParams();
+    if (filters.limit) params.set('limit', String(filters.limit));
+    if (filters.offset) params.set('offset', String(filters.offset));
+    return params;
+}
 
 class ApiError extends Error {
     constructor(
@@ -243,9 +256,7 @@ export const api = {
 
     archive: {
         list: (cookieHeader?: string, filters: ArchiveListFilters = {}) => {
-            const params = new URLSearchParams();
-            if (filters.limit) params.set('limit', String(filters.limit));
-            if (filters.offset) params.set('offset', String(filters.offset));
+            const params = paginationParams(filters);
             const query = params.toString();
             const path = query ? `/api/archive?${query}` : '/api/archive';
             return apiFetch<Puzzle[]>(path, {}, cookieHeader);
@@ -320,8 +331,11 @@ export const api = {
         stats: (cookieHeader?: string) =>
             apiFetch<AdminStats>('/api/admin/stats', {}, cookieHeader),
 
-        listPuzzles: (cookieHeader?: string) =>
-            apiFetch<AdminPuzzle[]>('/api/admin/puzzles', {}, cookieHeader),
+        listPuzzles: (cookieHeader?: string, filters: AdminListFilters = {}) => {
+            const query = paginationParams(filters).toString();
+            const path = query ? `/api/admin/puzzles?${query}` : '/api/admin/puzzles';
+            return apiFetch<AdminPuzzle[]>(path, {}, cookieHeader);
+        },
 
         getPuzzle: (id: number, cookieHeader?: string) =>
             apiFetch<AdminPuzzle>(`/api/admin/puzzles/${id}`, {}, cookieHeader),
@@ -341,8 +355,11 @@ export const api = {
         deletePuzzle: (id: number) =>
             apiFetch<void>(`/api/admin/puzzles/${id}`, { method: 'DELETE' }),
 
-        listAttempts: (cookieHeader?: string) =>
-            apiFetch<AdminAttempt[]>('/api/admin/attempts', {}, cookieHeader),
+        listAttempts: (cookieHeader?: string, filters: AdminListFilters = {}) => {
+            const query = paginationParams(filters).toString();
+            const path = query ? `/api/admin/attempts?${query}` : '/api/admin/attempts';
+            return apiFetch<AdminAttempt[]>(path, {}, cookieHeader);
+        },
 
         getAttempt: (id: number, cookieHeader?: string) =>
             apiFetch<AdminAttempt>(`/api/admin/attempts/${id}`, {}, cookieHeader),
@@ -366,8 +383,11 @@ export const api = {
                 body: JSON.stringify(data),
             }),
 
-        listUsers: (cookieHeader?: string) =>
-            apiFetch<AdminUser[]>('/api/admin/users', {}, cookieHeader),
+        listUsers: (cookieHeader?: string, filters: AdminListFilters = {}) => {
+            const query = paginationParams(filters).toString();
+            const path = query ? `/api/admin/users?${query}` : '/api/admin/users';
+            return apiFetch<AdminUser[]>(path, {}, cookieHeader);
+        },
 
         listCompletionEvents: (filters: AdminCompletionEventFilters = {}, cookieHeader?: string) => {
             const params = new URLSearchParams();
@@ -377,6 +397,7 @@ export const api = {
             if (filters.completed_from) params.set('completed_from', filters.completed_from);
             if (filters.completed_to) params.set('completed_to', filters.completed_to);
             if (filters.limit) params.set('limit', String(filters.limit));
+            if (filters.offset) params.set('offset', String(filters.offset));
             const query = params.toString();
             const path = query
                 ? `/api/admin/completion-events?${query}`

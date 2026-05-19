@@ -49,6 +49,17 @@ class TestAdminListPuzzles:
         assert len(resp.json()) == 2
         assert [p["puzzle_date"] for p in resp.json()] == ["2024-01-02", "2024-01-01"]
 
+    def test_supports_limit_and_offset(self, client, db):
+        _make_puzzle(db, "2024-01-01")
+        middle = _make_puzzle(db, "2024-01-02")
+        newest = _make_puzzle(db, "2024-01-03")
+
+        resp = client.get("/api/admin/puzzles?limit=1&offset=1", cookies=_admin_cookies(db))
+
+        assert resp.status_code == 200
+        assert [p["id"] for p in resp.json()] == [middle.id]
+        assert resp.json()[0]["id"] != newest.id
+
     def test_includes_answer(self, client, db):
         _make_puzzle(db)
         resp = client.get("/api/admin/puzzles", cookies=_admin_cookies(db))
@@ -307,6 +318,40 @@ class TestAdminStats:
         assert resp.status_code == 401
 
 
+class TestAdminUsers:
+    def test_supports_limit_and_offset(self, client, db):
+        cookies = _admin_cookies(db)
+        _make_user(db, "old@example.com")
+        middle, _ = _make_user(db, "middle@example.com")
+        newest, _ = _make_user(db, "newest@example.com")
+
+        resp = client.get("/api/admin/users?limit=1&offset=1", cookies=cookies)
+
+        assert resp.status_code == 200
+        assert [u["id"] for u in resp.json()] == [middle.id]
+        assert resp.json()[0]["id"] != newest.id
+
+
+class TestAdminAttempts:
+    def test_supports_limit_and_offset(self, client, db):
+        cookies = _admin_cookies(db)
+        admin = db.query(User).filter(User.email == "admin@example.com").first()
+        oldest_puzzle = _make_puzzle(db, "2024-01-01")
+        middle_puzzle = _make_puzzle(db, "2024-01-02")
+        newest_puzzle = _make_puzzle(db, "2024-01-03")
+        oldest = Attempt(user_id=admin.id, puzzle_id=oldest_puzzle.id, solved=0)
+        middle = Attempt(user_id=admin.id, puzzle_id=middle_puzzle.id, solved=1, score=80)
+        newest = Attempt(user_id=admin.id, puzzle_id=newest_puzzle.id, solved=1, score=90)
+        db.add_all([oldest, middle, newest])
+        db.commit()
+
+        resp = client.get("/api/admin/attempts?limit=1&offset=1", cookies=cookies)
+
+        assert resp.status_code == 200
+        assert [a["id"] for a in resp.json()] == [middle.id]
+        assert resp.json()[0]["id"] != newest.id
+
+
 class TestAdminCompletionEvents:
     def test_returns_stream(self, client, db):
         cookies = _admin_cookies(db)
@@ -347,6 +392,37 @@ class TestAdminCompletionEvents:
         assert second["user_id"] == admin.id
         assert second["wrong_guess_count"] == 2
         assert second["time_to_complete_seconds"] == 123
+
+    def test_supports_limit_and_offset(self, client, db):
+        cookies = _admin_cookies(db)
+        puzzle = _make_puzzle(db, "2024-01-01")
+
+        oldest = PuzzleCompletionEvent(
+            puzzle_id=puzzle.id,
+            guest_session_id="g-oldest",
+            source="daily",
+        )
+        middle = PuzzleCompletionEvent(
+            puzzle_id=puzzle.id,
+            guest_session_id="g-middle",
+            source="daily",
+        )
+        newest = PuzzleCompletionEvent(
+            puzzle_id=puzzle.id,
+            guest_session_id="g-newest",
+            source="daily",
+        )
+        db.add_all([oldest, middle, newest])
+        db.commit()
+
+        resp = client.get(
+            "/api/admin/completion-events?limit=1&offset=1",
+            cookies=cookies,
+        )
+
+        assert resp.status_code == 200
+        assert [event["id"] for event in resp.json()] == [middle.id]
+        assert resp.json()[0]["id"] != newest.id
 
     def test_admin_only(self, client, db):
         _, jwt = _make_user(db, "plain@example.com")
