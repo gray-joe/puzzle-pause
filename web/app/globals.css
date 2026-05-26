@@ -207,6 +207,12 @@ td .gt {
 .privacy-content p {
     margin: 0 0 12px;
 }
+.privacy-content a:not(.action-btn) {
+    color: var(--teal);
+}
+.privacy-content a:not(.action-btn):hover {
+    color: #ffffff;
+}
 .privacy-content ul {
     margin: 0 0 14px;
     padding-left: 22px;
