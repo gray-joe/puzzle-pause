@@ -29,7 +29,7 @@ def init_sentry() -> None:
     sentry_sdk.init(
         dsn=dsn,
         environment=environment,
-        release=os.environ.get("SENTRY_RELEASE"),
+        release=os.environ.get("SENTRY_RELEASE") or None,
         traces_sample_rate=_sample_rate(default_traces_sample_rate),
         send_default_pii=False,
     )

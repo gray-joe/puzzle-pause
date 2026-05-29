@@ -17,5 +17,9 @@ export function getSentryEnvironment() {
 }
 
 export function getSentryRelease() {
-    return process.env.NEXT_PUBLIC_SENTRY_RELEASE ?? process.env.SENTRY_RELEASE;
+    return (
+        process.env.NEXT_PUBLIC_SENTRY_RELEASE ||
+        process.env.SENTRY_RELEASE ||
+        process.env._sentryRelease
+    );
 }

@@ -25,6 +25,9 @@ FROM node:22.22.2-slim AS node-provider
 
 FROM python:3.13-slim
 
+ARG SENTRY_RELEASE
+ENV SENTRY_RELEASE=${SENTRY_RELEASE}
+
 RUN apt-get update && apt-get install -y --no-install-recommends supervisor sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 

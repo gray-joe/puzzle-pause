@@ -165,5 +165,6 @@ Use `make fly-deploy` when deploying with frontend Sentry source-map upload buil
 - Browser/client reporting: provide `NEXT_PUBLIC_SENTRY_DSN` at Docker build time.
 - Next.js server/edge runtime errors: optionally set `SENTRY_NEXT_DSN`; otherwise they use `NEXT_PUBLIC_SENTRY_DSN` when present.
 - Shared metadata: `SENTRY_ENVIRONMENT`, `NEXT_PUBLIC_SENTRY_ENVIRONMENT`, `SENTRY_RELEASE`, `NEXT_PUBLIC_SENTRY_RELEASE`.
+- Release tracking: `make fly-deploy` uses the current git SHA for the frontend build, source-map upload, and backend runtime `SENTRY_RELEASE`.
 - Trace sampling: `SENTRY_TRACES_SAMPLE_RATE`, `NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE`.
 - Frontend source-map uploads during build: provide `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, and `SENTRY_PROJECT` as build args or CI secrets.

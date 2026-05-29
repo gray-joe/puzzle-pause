@@ -14,6 +14,10 @@ const nextConfig: NextConfig = {
     },
 };
 
+const sentryEnvironment =
+    process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ?? process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV;
+const sentryRelease = process.env.NEXT_PUBLIC_SENTRY_RELEASE || process.env.SENTRY_RELEASE;
+
 export default withSentryConfig(nextConfig, {
     org: process.env.SENTRY_ORG,
     project: process.env.SENTRY_PROJECT,
@@ -22,6 +26,10 @@ export default withSentryConfig(nextConfig, {
     widenClientFileUpload: true,
     sourcemaps: {
         deleteSourcemapsAfterUpload: true,
+    },
+    release: {
+        name: sentryRelease,
+        ...(sentryEnvironment ? { deploy: { env: sentryEnvironment } } : {}),
     },
     webpack: {
         treeshake: {
