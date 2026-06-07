@@ -2,8 +2,7 @@
 *.db
 *.sqlite
 
-# Puzzle seed data (contains answers)
-data/seed_puzzles.sql
+data/
 
 # Environment/secrets
 .env
