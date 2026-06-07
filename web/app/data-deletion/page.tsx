@@ -24,7 +24,13 @@ export default function DataDeletionPage() {
                     data at any time.
                 </p>
 
-                <h2>How to request deletion</h2>
+                <h2>Self-service deletion</h2>
+                <p>
+                    You can delete your account directly from the{' '}
+                    <Link href="/account">Account page</Link> — no email needed.
+                </p>
+
+                <h2>Request deletion via email</h2>
                 <p>
                     Email <a href={`mailto:${supportEmail}`}>{supportEmail}</a> from the email
                     address used for your Puzzle Pause account and ask us to delete your data.

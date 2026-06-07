@@ -7,6 +7,7 @@ import {
 import { PuzzlePage } from '../pages/PuzzlePage';
 
 const ADMIN_EMAIL = 'admin@example.com';
+const PREVIEW_PUZZLE_NAME = 'Quick Maths';
 
 test.describe('Admin dashboard', () => {
     test.describe.configure({ mode: 'serial' });
@@ -142,8 +143,8 @@ test.describe('Admin puzzle preview', () => {
         await loginAs(page, ADMIN_EMAIL);
         await page.goto('/admin/puzzles');
 
-        const firstRow = page.locator('tbody tr').first();
-        const previewLink = firstRow.locator('a', { hasText: 'preview' });
+        const previewRow = page.locator('tbody tr', { hasText: PREVIEW_PUZZLE_NAME });
+        const previewLink = previewRow.locator('a', { hasText: 'preview' });
         await expect(previewLink).toBeVisible();
         await expect(previewLink).toHaveAttribute('href', /\/admin\/puzzles\/\d+\/preview/);
     });
@@ -152,8 +153,8 @@ test.describe('Admin puzzle preview', () => {
         await loginAs(page, ADMIN_EMAIL);
         await page.goto('/admin/puzzles');
 
-        const firstRow = page.locator('tbody tr').first();
-        await firstRow.locator('a', { hasText: 'preview' }).click();
+        const previewRow = page.locator('tbody tr', { hasText: PREVIEW_PUZZLE_NAME });
+        await previewRow.locator('a', { hasText: 'preview' }).click();
 
         await expect(page).toHaveURL(/\/admin\/puzzles\/\d+\/preview/);
         await expect(page.getByTestId('title')).toContainText('Admin');
@@ -164,8 +165,8 @@ test.describe('Admin puzzle preview', () => {
         await loginAs(page, ADMIN_EMAIL);
         await page.goto('/admin/puzzles');
 
-        const firstRow = page.locator('tbody tr').first();
-        await firstRow.locator('a', { hasText: 'preview' }).click();
+        const previewRow = page.locator('tbody tr', { hasText: PREVIEW_PUZZLE_NAME });
+        await previewRow.locator('a', { hasText: 'preview' }).click();
 
         const puzzle = new PuzzlePage(page);
         await expect(puzzle.shell).toBeVisible();
@@ -178,8 +179,8 @@ test.describe('Admin puzzle preview', () => {
         await loginAs(page, ADMIN_EMAIL);
         await page.goto('/admin/puzzles');
 
-        const firstRow = page.locator('tbody tr').first();
-        const previewHref = await firstRow
+        const previewRow = page.locator('tbody tr', { hasText: PREVIEW_PUZZLE_NAME });
+        const previewHref = await previewRow
             .locator('a', { hasText: 'preview' })
             .getAttribute('href');
         await page.goto(previewHref!);
@@ -195,8 +196,8 @@ test.describe('Admin puzzle preview', () => {
         await loginAs(page, ADMIN_EMAIL);
         await page.goto('/admin/puzzles');
 
-        const firstRow = page.locator('tbody tr').first();
-        await firstRow.locator('a', { hasText: 'edit' }).click();
+        const previewRow = page.locator('tbody tr', { hasText: PREVIEW_PUZZLE_NAME });
+        await previewRow.locator('a', { hasText: 'edit' }).click();
         await expect(page).toHaveURL(/\/admin\/puzzles\/\d+$/);
 
         const previewLink = page.locator('a', { hasText: 'Preview' });
@@ -216,8 +217,8 @@ test.describe('Admin puzzle preview', () => {
         await loginAs(page, ADMIN_EMAIL);
         await page.goto('/admin/puzzles');
 
-        const firstRow = page.locator('tbody tr').first();
-        await firstRow.locator('a', { hasText: 'preview' }).click();
+        const previewRow = page.locator('tbody tr', { hasText: PREVIEW_PUZZLE_NAME });
+        await previewRow.locator('a', { hasText: 'preview' }).click();
         await expect(page).toHaveURL(/\/admin\/puzzles\/\d+\/preview/);
 
         const puzzle = new PuzzlePage(page);

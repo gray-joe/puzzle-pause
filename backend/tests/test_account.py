@@ -1,7 +1,14 @@
 from datetime import date, datetime, timedelta, timezone
 
 from app.auth import create_jwt, generate_token
-from app.models import Attempt, Puzzle
+from app.models import (
+    Attempt,
+    AuthToken,
+    League,
+    LeagueMember,
+    Puzzle,
+    PuzzleCompletionEvent,
+)
 from app.models import Session as SessionModel
 from app.models import User
 
@@ -138,4 +145,158 @@ class TestUpdateAccount:
 
     def test_requires_auth(self, client):
         resp = client.patch("/api/account", json={"display_name": "X"})
+        assert resp.status_code == 401
+
+
+class TestDeleteAccount:
+    def test_deletes_user(self, client, db):
+        user, jwt = _make_user(db)
+        user_id = user.id
+        resp = client.delete("/api/account", cookies={"session": jwt})
+        assert resp.status_code == 200
+        assert db.query(User).filter(User.id == user_id).count() == 0
+
+    def test_clears_session_cookie(self, client, db):
+        _, jwt = _make_user(db)
+        resp = client.delete("/api/account", cookies={"session": jwt})
+        assert "session" in resp.headers.get("set-cookie", "")
+
+    def test_deletes_sessions(self, client, db):
+        user, jwt = _make_user(db)
+        user_id = user.id
+        client.delete("/api/account", cookies={"session": jwt})
+        assert db.query(SessionModel).filter(SessionModel.user_id == user_id).count() == 0
+
+    def test_deletes_auth_tokens_by_user_id_and_email(self, client, db):
+        user, jwt = _make_user(db)
+        email = user.email
+        db.add(
+            AuthToken(
+                user_id=user.id,
+                email=email,
+                token="linked-token",
+                expires_at=datetime(2099, 1, 1),
+            )
+        )
+        db.add(
+            AuthToken(
+                user_id=None,
+                email=email,
+                token="email-only-token",
+                expires_at=datetime(2099, 1, 1),
+            )
+        )
+        db.add(
+            AuthToken(
+                user_id=None,
+                email="other@example.com",
+                token="other-token",
+                expires_at=datetime(2099, 1, 1),
+            )
+        )
+        db.commit()
+
+        client.delete("/api/account", cookies={"session": jwt})
+
+        assert db.query(AuthToken).filter(AuthToken.email == email).count() == 0
+        assert (
+            db.query(AuthToken).filter(AuthToken.email == "other@example.com").count()
+            == 1
+        )
+
+    def test_deletes_attempts(self, client, db):
+        user, jwt = _make_user(db)
+        user_id = user.id
+        _make_solved_attempt(db, user)
+        client.delete("/api/account", cookies={"session": jwt})
+        assert db.query(Attempt).filter(Attempt.user_id == user_id).count() == 0
+
+    def test_deletes_completion_events(self, client, db):
+        user, jwt = _make_user(db)
+        user_id = user.id
+        puzzle = Puzzle(
+            puzzle_date=(date.today() - timedelta(days=1)).isoformat(),
+            puzzle_type="word",
+            puzzle_name="P",
+            question="Q",
+            answer="A",
+        )
+        db.add(puzzle)
+        db.flush()
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                user_id=user_id,
+                completed_at=datetime.now(timezone.utc),
+                source="daily",
+            )
+        )
+        db.commit()
+        client.delete("/api/account", cookies={"session": jwt})
+        assert (
+            db.query(PuzzleCompletionEvent)
+            .filter(PuzzleCompletionEvent.user_id == user_id)
+            .count()
+            == 0
+        )
+
+    def test_deletes_league_memberships(self, client, db):
+        user, jwt = _make_user(db)
+        user_id = user.id
+        other, _ = _make_user(db, "other@example.com")
+        league = League(name="Test", invite_code="ABC123", creator_id=other.id)
+        db.add(league)
+        db.flush()
+        db.add(LeagueMember(league_id=league.id, user_id=user_id))
+        db.commit()
+        client.delete("/api/account", cookies={"session": jwt})
+        assert (
+            db.query(LeagueMember)
+            .filter(LeagueMember.user_id == user_id)
+            .count()
+            == 0
+        )
+
+    def test_deletes_leagues_user_created(self, client, db):
+        user, jwt = _make_user(db)
+        user_id = user.id
+        league = League(name="Test", invite_code="ABC123", creator_id=user_id)
+        db.add(league)
+        db.flush()
+        league_id = league.id
+        db.commit()
+        client.delete("/api/account", cookies={"session": jwt})
+        assert db.query(League).filter(League.id == league_id).count() == 0
+
+    def test_transfers_ownership_of_created_leagues_with_other_members(self, client, db):
+        creator, jwt = _make_user(db)
+        creator_id = creator.id
+        other, _ = _make_user(db, "other@example.com")
+        other_id = other.id
+        league = League(name="Test", invite_code="ABC123", creator_id=creator_id)
+        db.add(league)
+        db.flush()
+        db.add(LeagueMember(league_id=league.id, user_id=creator_id))
+        db.add(LeagueMember(league_id=league.id, user_id=other_id))
+        db.commit()
+
+        client.delete("/api/account", cookies={"session": jwt})
+
+        db.refresh(league)
+        assert league.creator_id == other_id
+        assert (
+            db.query(LeagueMember)
+            .filter(LeagueMember.user_id == creator_id)
+            .count()
+            == 0
+        )
+        assert (
+            db.query(LeagueMember)
+            .filter(LeagueMember.user_id == other_id)
+            .count()
+            == 1
+        )
+
+    def test_requires_auth(self, client):
+        resp = client.delete("/api/account")
         assert resp.status_code == 401

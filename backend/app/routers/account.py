@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import text
@@ -132,3 +132,63 @@ def update_account(
     db.commit()
     db.refresh(user)
     return UserResponse(id=user.id, email=user.email, display_name=user.display_name)
+
+
+@router.delete("")
+@limiter.limit("5/minute")
+def delete_account(
+    request: Request,
+    response: Response,
+    user=Depends(require_user),
+    db: Session = Depends(get_db),
+):
+    creator_leagues = db.execute(
+        text("SELECT id FROM leagues WHERE creator_id = :uid"), {"uid": user.id}
+    ).fetchall()
+    for (league_id,) in creator_leagues:
+        member_count = db.execute(
+            text("SELECT COUNT(*) FROM league_members WHERE league_id = :lid"),
+            {"lid": league_id},
+        ).scalar()
+        if member_count > 1:
+            new_creator = db.execute(
+                text(
+                    "SELECT user_id FROM league_members "
+                    "WHERE league_id = :lid AND user_id != :uid "
+                    "ORDER BY joined_at ASC LIMIT 1"
+                ),
+                {"lid": league_id, "uid": user.id},
+            ).scalar()
+            if new_creator:
+                db.execute(
+                    text("UPDATE leagues SET creator_id = :nid WHERE id = :lid"),
+                    {"nid": new_creator, "lid": league_id},
+                )
+        else:
+            db.execute(
+                text("DELETE FROM league_members WHERE league_id = :lid"),
+                {"lid": league_id},
+            )
+            db.execute(text("DELETE FROM leagues WHERE id = :lid"), {"lid": league_id})
+    db.execute(
+        text("DELETE FROM league_members WHERE user_id = :uid"), {"uid": user.id}
+    )
+    db.execute(
+        text("DELETE FROM auth_tokens WHERE user_id = :uid OR email = :email"),
+        {"uid": user.id, "email": user.email},
+    )
+    db.execute(
+        text("DELETE FROM sessions WHERE user_id = :uid"), {"uid": user.id}
+    )
+    db.execute(
+        text("DELETE FROM attempts WHERE user_id = :uid"), {"uid": user.id}
+    )
+    db.execute(
+        text("DELETE FROM puzzle_completion_events WHERE user_id = :uid"),
+        {"uid": user.id},
+    )
+    db.execute(text("DELETE FROM users WHERE id = :uid"), {"uid": user.id})
+    db.commit()
+
+    response.delete_cookie("session")
+    return {"message": "Account deleted successfully"}

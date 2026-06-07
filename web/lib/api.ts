@@ -325,6 +325,8 @@ export const api = {
                 method: 'PATCH',
                 body: JSON.stringify({ display_name }),
             }),
+
+        delete: () => apiFetch<{ message: string }>('/api/account', { method: 'DELETE' }),
     },
 
     admin: {

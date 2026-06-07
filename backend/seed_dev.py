@@ -254,6 +254,10 @@ SEED_USERS = [
     {"email": "edit-name@example.com", "display_name": "EditMe"},
     {"email": "admin@example.com", "display_name": "Admin"},
     {"email": "nonadmin@example.com", "display_name": "NonAdmin"},
+    # Reserved for the e2e account-deletion test. Not a member of leagues
+    # 1 or 2 so deletion in the test does not affect any other coverage.
+    {"email": "delete-account@example.com", "display_name": "Delete Account"},
+    {"email": "delete-witness@example.com", "display_name": "Delete Witness"},
 ]
 
 
@@ -314,6 +318,16 @@ def seed():
 
         for user_id in [1, 2]:
             db.add(LeagueMember(league_id=2, user_id=user_id))
+        db.flush()
+
+        # Third league reserved for the e2e account-deletion test.
+        # delete-account (user 8) is the creator; delete-witness (user 9) is a
+        # co-member so the ownership-transfer path is exercised on deletion.
+        league3 = League(id=3, name="Delete Test League", invite_code="DEL003", creator_id=8)
+        db.add(league3)
+        db.flush()
+        for user_id in [8, 9]:
+            db.add(LeagueMember(league_id=3, user_id=user_id))
         db.flush()
 
         # Historical attempts (references puzzles by days_ago)
@@ -440,8 +454,10 @@ def seed():
 
         past_count = sum(1 for p in SEED_PUZZLES if p.get("puzzle_date", "") <= today)
         total = db.query(Puzzle).count()
+        user_count = db.query(User).count()
+        league_count = db.query(League).count()
         print(
-            f"Seeded: {total} puzzles, today={today}, 4 users, 2 leagues, {len(attempts) + 1} attempts, {len(completion_events)} completion events"
+            f"Seeded: {total} puzzles, today={today}, {user_count} users, {league_count} leagues, {len(attempts) + 1} attempts, {len(completion_events)} completion events"
         )
         print("Development database ready!")
     except Exception:

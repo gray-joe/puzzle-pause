@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
-import { loginAs } from '../helpers/db';
+import { getLeagueById, getLeagueMemberIds, getUserByEmail, loginAs } from '../helpers/db';
 import { AccountPage } from '../pages/AccountPage';
+import { LeagueDetailPage } from '../pages/LeagueDetailPage';
 import { NavPage } from '../pages/NavPage';
 
 test('User can see their account details and their stats', async ({ page }) => {
@@ -50,4 +51,30 @@ test('User can logout', async ({ page }) => {
     await account.logout();
 
     await expect(page).toHaveURL(/\/login/);
+});
+
+test('User can delete their account without deleting leagues they created', async ({ page }) => {
+    await loginAs(page, 'delete-account@example.com');
+    const detail = new LeagueDetailPage(page);
+
+    const before = getLeagueById(3);
+    expect(before).not.toBeNull();
+    const creator = getUserByEmail('delete-account@example.com')!;
+    const witness = getUserByEmail('delete-witness@example.com')!;
+    expect(before!.creator_id).toBe(creator.id);
+    expect(getLeagueMemberIds(3)).toEqual([creator.id, witness.id].sort((a, b) => a - b));
+
+    await page.goto('/leagues/3');
+    await expect(detail.name).toContainText('Delete Test League');
+
+    const account = new AccountPage(page);
+    await account.goto();
+    await account.deleteAccount();
+    await expect(page).toHaveURL(/\/login/);
+
+    const after = getLeagueById(3);
+    expect(after).not.toBeNull();
+    expect(after!.creator_id).toBe(witness.id);
+    expect(getLeagueMemberIds(3)).toEqual([witness.id]);
+    expect(getUserByEmail('delete-account@example.com')).toBeNull();
 });

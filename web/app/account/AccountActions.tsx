@@ -17,6 +17,8 @@ export default function AccountActions({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [saved, setSaved] = useState(false);
+    const [deleteConfirm, setDeleteConfirm] = useState(false);
+    const [deleting, setDeleting] = useState(false);
 
     async function handleSave(e: React.FormEvent) {
         e.preventDefault();
@@ -38,6 +40,20 @@ export default function AccountActions({
         await api.auth.logout().catch(() => {});
         router.push('/login');
         router.refresh();
+    }
+
+    async function handleDeleteAccount() {
+        setDeleting(true);
+        setError('');
+        try {
+            await api.account.delete();
+            router.push('/login');
+            router.refresh();
+        } catch (err: any) {
+            setError(err.message ?? 'Failed to delete account');
+            setDeleting(false);
+            setDeleteConfirm(false);
+        }
     }
 
     return (
@@ -99,13 +115,41 @@ export default function AccountActions({
                 <span className="gt">&gt;</span>Logout
             </button>
 
-            <Link
-                href="/data-deletion"
-                className="action-btn secondary"
-                data-testid="delete-data-link"
-            >
-                <span className="gt">&gt;</span>Request data deletion
-            </Link>
+            {deleteConfirm ? (
+                <div style={{ marginTop: 16 }}>
+                    <div className="error" style={{ marginBottom: 8 }}>
+                        Are you sure? This will permanently delete your account, stats, and league
+                        memberships. This cannot be undone.
+                    </div>
+                    <button
+                        className="action-btn"
+                        onClick={handleDeleteAccount}
+                        disabled={deleting}
+                        data-testid="confirm-delete-btn"
+                        style={{ marginRight: 8 }}
+                    >
+                        <span className="gt">&gt;</span>
+                        {deleting ? 'Deleting...' : 'Yes, delete my account'}
+                    </button>
+                    <button
+                        className="action-btn secondary"
+                        onClick={() => setDeleteConfirm(false)}
+                        disabled={deleting}
+                        data-testid="cancel-delete-btn"
+                    >
+                        <span className="gt">&gt;</span>Cancel
+                    </button>
+                </div>
+            ) : (
+                <button
+                    className="action-btn secondary"
+                    onClick={() => setDeleteConfirm(true)}
+                    data-testid="delete-account-btn"
+                    style={{ marginTop: 16 }}
+                >
+                    <span className="gt">&gt;</span>Delete account
+                </button>
+            )}
 
             <Link href="/privacy" className="action-btn secondary" data-testid="privacy-link">
                 <span className="gt">&gt;</span>Privacy Policy

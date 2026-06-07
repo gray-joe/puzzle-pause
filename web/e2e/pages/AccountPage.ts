@@ -16,6 +16,9 @@ export class AccountPage {
     readonly saveError: Locator;
     readonly accountEmail: Locator;
     readonly logoutBtn: Locator;
+    readonly deleteAccountBtn: Locator;
+    readonly confirmDeleteBtn: Locator;
+    readonly cancelDeleteBtn: Locator;
 
     constructor(page: Page) {
         this.page = page;
@@ -33,6 +36,9 @@ export class AccountPage {
         this.saveError = page.getByTestId('save-error');
         this.accountEmail = page.getByTestId('account-email');
         this.logoutBtn = page.getByTestId('logout-btn');
+        this.deleteAccountBtn = page.getByTestId('delete-account-btn');
+        this.confirmDeleteBtn = page.getByTestId('confirm-delete-btn');
+        this.cancelDeleteBtn = page.getByTestId('cancel-delete-btn');
     }
 
     async goto() {
@@ -59,5 +65,10 @@ export class AccountPage {
 
     async logout() {
         await this.logoutBtn.click();
+    }
+
+    async deleteAccount() {
+        await this.deleteAccountBtn.click();
+        await this.confirmDeleteBtn.click();
     }
 }

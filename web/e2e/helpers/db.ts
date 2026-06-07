@@ -97,6 +97,48 @@ export function countCompletionEventsForPuzzle(puzzleId: number): number {
     }
 }
 
+export function getUserByEmail(
+    email: string
+): { id: number; email: string; display_name: string } | null {
+    const db = new Database(DB_PATH, { readonly: true });
+    try {
+        const row = db
+            .prepare(`SELECT id, email, display_name FROM users WHERE email = ?`)
+            .get(email) as { id: number; email: string; display_name: string } | undefined;
+        return row ?? null;
+    } finally {
+        db.close();
+    }
+}
+
+export function getLeagueById(leagueId: number): {
+    id: number;
+    name: string;
+    creator_id: number;
+} | null {
+    const db = new Database(DB_PATH, { readonly: true });
+    try {
+        const row = db
+            .prepare(`SELECT id, name, creator_id FROM leagues WHERE id = ?`)
+            .get(leagueId) as { id: number; name: string; creator_id: number } | undefined;
+        return row ?? null;
+    } finally {
+        db.close();
+    }
+}
+
+export function getLeagueMemberIds(leagueId: number): number[] {
+    const db = new Database(DB_PATH, { readonly: true });
+    try {
+        const rows = db
+            .prepare(`SELECT user_id FROM league_members WHERE league_id = ? ORDER BY user_id`)
+            .all(leagueId) as { user_id: number }[];
+        return rows.map((r) => r.user_id);
+    } finally {
+        db.close();
+    }
+}
+
 export async function loginAs(page: Page, email: string): Promise<void> {
     await withLoginLock(async () => {
         for (let attempt = 0; attempt < 3; attempt++) {
