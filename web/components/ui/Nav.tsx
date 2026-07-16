@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 const PUBLIC_LINKS = [
+    { href: '/', label: 'Calendar', testid: 'calendar' },
     { href: '/puzzle', label: 'Daily Puzzle', testid: 'puzzle' },
     { href: '/archive', label: 'Archive', testid: 'archive' },
 ];
@@ -14,23 +15,30 @@ const AUTH_LINKS = [
 ];
 
 export default function Nav({
+    className,
     isAdmin,
     isLoggedIn,
+    linksOnly,
     title,
 }: {
+    className?: string;
     isAdmin?: boolean;
     isLoggedIn?: boolean;
+    linksOnly?: boolean;
     title?: string;
 }) {
     const pathname = usePathname();
     const links = isLoggedIn ? [...PUBLIC_LINKS, ...AUTH_LINKS] : PUBLIC_LINKS;
+    const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
 
     return (
-        <div className="page-header">
-            <div className="page-title" data-testid="title">
-                <span className="gt">&gt;</span>
-                {title ?? 'Puzzle Pause'}
-            </div>
+        <div className={`page-header${className ? ` ${className}` : ''}`}>
+            {!linksOnly && (
+                <div className="page-title" data-testid="title">
+                    <span className="gt">&gt;</span>
+                    {title ?? 'Puzzle Pause'}
+                </div>
+            )}
             <nav className="nav" data-testid="nav-bar">
                 {isAdmin && pathname.startsWith('/admin') ? (
                     <>
@@ -78,8 +86,8 @@ export default function Nav({
                             <Link
                                 key={href}
                                 href={href}
-                                className={pathname.startsWith(href) ? 'active' : ''}
-                                data-testid={`${testid}-nav-link${pathname.startsWith(href) ? '-active' : ''}`}
+                                className={isActive(href) ? 'active' : ''}
+                                data-testid={`${testid}-nav-link${isActive(href) ? '-active' : ''}`}
                             >
                                 <span className="gt">&gt;</span>
                                 {label}
@@ -93,7 +101,7 @@ export default function Nav({
                     </>
                 )}
             </nav>
-            <hr className="nav-line" />
+            {!linksOnly && <hr className="nav-line" />}
         </div>
     );
 }

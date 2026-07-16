@@ -26,5 +26,11 @@ export async function requireUser(): Promise<User> {
 export async function getCookieHeader(): Promise<string | undefined> {
     const cookieStore = await cookies();
     const session = cookieStore.get('session');
-    return session ? `session=${session.value}` : undefined;
+    const guestSession = cookieStore.get('guest_session');
+    const parts = [
+        session ? `session=${session.value}` : null,
+        guestSession ? `guest_session=${guestSession.value}` : null,
+    ].filter(Boolean);
+
+    return parts.length > 0 ? parts.join('; ') : undefined;
 }

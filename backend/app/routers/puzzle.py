@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 
 _LONDON = ZoneInfo("Europe/London")
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import text
@@ -141,6 +141,39 @@ def _seconds_between(start: datetime | None, end: datetime | None) -> int | None
         end = end.replace(tzinfo=timezone.utc)
     delta = int((end - start).total_seconds())
     return max(0, delta)
+
+
+def _parse_date_param(value: str) -> str:
+    try:
+        return date.fromisoformat(value).isoformat()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid date") from exc
+
+
+@router.get("/calendar")
+@limiter.limit("60/minute")
+def calendar(
+    request: Request,
+    db: Session = Depends(get_db),
+    start: str = Query(max_length=10),
+    end: str = Query(max_length=10),
+):
+    start_date = _parse_date_param(start)
+    end_date = _parse_date_param(end)
+    today = get_puzzle_date()
+
+    rows = db.execute(
+        text(
+            "SELECT id, puzzle_date FROM puzzles "
+            "WHERE puzzle_date >= :start_date "
+            "AND puzzle_date <= :end_date "
+            "AND puzzle_date <= :today "
+            "ORDER BY puzzle_date ASC"
+        ),
+        {"start_date": start_date, "end_date": end_date, "today": today},
+    ).fetchall()
+
+    return [{"id": row[0], "puzzle_date": row[1]} for row in rows]
 
 
 @router.get("/today")

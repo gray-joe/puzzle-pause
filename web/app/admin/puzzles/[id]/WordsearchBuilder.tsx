@@ -240,7 +240,7 @@ export default function WordsearchBuilder({ question, answer, onChange }: Props)
     const gap = 4;
 
     return (
-        <div>
+        <div data-testid="wordsearch-builder">
             {/* Controls */}
             <div
                 style={{
@@ -314,6 +314,7 @@ export default function WordsearchBuilder({ question, answer, onChange }: Props)
                         <input
                             key={`${r}-${c}`}
                             id={`ws-cell-${r}-${c}`}
+                            data-testid={`wordsearch-cell-${r}-${c}`}
                             type="text"
                             maxLength={2}
                             value={cell}
@@ -354,6 +355,7 @@ export default function WordsearchBuilder({ question, answer, onChange }: Props)
                                 type="text"
                                 value={word}
                                 onChange={(e) => handleWordChange(index, e.target.value)}
+                                data-testid={`wordsearch-word-${index}`}
                                 placeholder="EARTH"
                                 style={{ width: 160, letterSpacing: '0.1em' }}
                             />
@@ -402,6 +404,7 @@ export default function WordsearchBuilder({ question, answer, onChange }: Props)
                     type="text"
                     value={theme}
                     onChange={(e) => handleThemeChange(e.target.value)}
+                    data-testid="wordsearch-theme"
                     placeholder="e.g. Countries of Europe"
                     style={{ width: '100%', maxWidth: 400 }}
                 />

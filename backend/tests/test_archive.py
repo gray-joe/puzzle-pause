@@ -106,6 +106,50 @@ class TestArchiveList:
         assert [p["id"] for p in resp.json()] == [middle.id]
         assert resp.json()[0]["id"] != newest.id
 
+    def test_filters_solved_for_auth_user(self, client, db):
+        solved = _make_puzzle(db, days_ago=1)
+        _make_puzzle(db, days_ago=2)
+        user, jwt = _make_user(db)
+        db.add(Attempt(user_id=user.id, puzzle_id=solved.id, solved=1, score=80))
+        db.commit()
+
+        resp = client.get("/api/archive?status=solved", cookies={"session": jwt})
+
+        assert resp.status_code == 200
+        assert [p["id"] for p in resp.json()] == [solved.id]
+
+    def test_filters_unsolved_for_auth_user(self, client, db):
+        solved = _make_puzzle(db, days_ago=1)
+        unsolved = _make_puzzle(db, days_ago=2)
+        user, jwt = _make_user(db)
+        db.add(Attempt(user_id=user.id, puzzle_id=solved.id, solved=1, score=80))
+        db.commit()
+
+        resp = client.get("/api/archive?status=unsolved", cookies={"session": jwt})
+
+        assert resp.status_code == 200
+        assert [p["id"] for p in resp.json()] == [unsolved.id]
+
+    def test_filters_solved_for_guest_session(self, client, db):
+        solved = _make_puzzle(db, days_ago=1)
+        _make_puzzle(db, days_ago=2)
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=solved.id,
+                guest_session_id="guest-123",
+                completed_at=datetime.now(timezone.utc),
+                source="archive",
+            )
+        )
+        db.commit()
+
+        resp = client.get(
+            "/api/archive?status=solved", cookies={"guest_session": "guest-123"}
+        )
+
+        assert resp.status_code == 200
+        assert [p["id"] for p in resp.json()] == [solved.id]
+
 
 class TestArchiveGet:
     def test_returns_puzzle(self, client, db):

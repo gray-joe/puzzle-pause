@@ -175,6 +175,44 @@ class TestTodayPuzzle:
         assert resp.status_code == 404
 
 
+class TestCalendarPuzzles:
+    def test_returns_puzzles_in_date_range(self, client, db):
+        yesterday = (date.today() - timedelta(days=1)).isoformat()
+        today = date.today().isoformat()
+        _make_puzzle(db, puzzle_date=yesterday)
+        _make_puzzle(db, puzzle_date=today, answer="today")
+
+        resp = client.get(
+            "/api/puzzle/calendar",
+            params={"start": yesterday, "end": today},
+        )
+
+        assert resp.status_code == 200
+        assert [p["puzzle_date"] for p in resp.json()] == [yesterday, today]
+
+    def test_excludes_future_puzzles(self, client, db):
+        today = date.today().isoformat()
+        tomorrow = (date.today() + timedelta(days=1)).isoformat()
+        _make_puzzle(db, puzzle_date=today)
+        _make_puzzle(db, puzzle_date=tomorrow, answer="tomorrow")
+
+        resp = client.get(
+            "/api/puzzle/calendar",
+            params={"start": today, "end": tomorrow},
+        )
+
+        assert resp.status_code == 200
+        assert [p["puzzle_date"] for p in resp.json()] == [today]
+
+    def test_invalid_date_returns_400(self, client):
+        resp = client.get(
+            "/api/puzzle/calendar",
+            params={"start": "not-a-date", "end": date.today().isoformat()},
+        )
+
+        assert resp.status_code == 400
+
+
 class TestAttempt:
     def test_correct_answer(self, client, db):
         _make_puzzle(db, answer="hello")

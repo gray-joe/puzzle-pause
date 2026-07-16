@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, Request, Response
+from datetime import date
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..auth import require_user
+from ..auth import GUEST_SESSION_COOKIE, get_current_user, require_user
 from ..database import get_db
 from ..schemas import (
     AccountResponse,
@@ -15,6 +17,13 @@ from ..schemas import (
 
 router = APIRouter(prefix="/account", tags=["account"])
 limiter = Limiter(key_func=get_remote_address)
+
+
+def _parse_date_param(value: str) -> str:
+    try:
+        return date.fromisoformat(value).isoformat()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid date") from exc
 
 
 def _get_stats(user_id: int, db: Session) -> AccountStatsResponse:
@@ -107,6 +116,50 @@ def _get_stats(user_id: int, db: Session) -> AccountStatsResponse:
         percentile=percentile,
         streak=streak,
     )
+
+
+@router.get("/completed-dates")
+def get_completed_dates(
+    request: Request,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+    start: str = Query(max_length=10),
+    end: str = Query(max_length=10),
+):
+    start_date = _parse_date_param(start)
+    end_date = _parse_date_param(end)
+    completed_dates: set[str] = set()
+
+    if user:
+        rows = db.execute(
+            text(
+                "SELECT DISTINCT p.puzzle_date FROM attempts a "
+                "JOIN puzzles p ON a.puzzle_id = p.id "
+                "WHERE a.user_id = :uid AND a.solved = 1 "
+                "AND p.puzzle_date >= :start_date AND p.puzzle_date <= :end_date"
+            ),
+            {"uid": user.id, "start_date": start_date, "end_date": end_date},
+        ).fetchall()
+        completed_dates.update(row[0] for row in rows)
+
+    guest_session_id = request.cookies.get(GUEST_SESSION_COOKIE)
+    if guest_session_id:
+        rows = db.execute(
+            text(
+                "SELECT DISTINCT p.puzzle_date FROM puzzle_completion_events e "
+                "JOIN puzzles p ON e.puzzle_id = p.id "
+                "WHERE e.guest_session_id = :guest_session_id "
+                "AND p.puzzle_date >= :start_date AND p.puzzle_date <= :end_date"
+            ),
+            {
+                "guest_session_id": guest_session_id,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        ).fetchall()
+        completed_dates.update(row[0] for row in rows)
+
+    return {"completed_dates": sorted(completed_dates)}
 
 
 @router.get("")

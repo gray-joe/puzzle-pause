@@ -6,7 +6,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..auth import get_current_user, get_or_create_guest_session_id, require_user
+from ..auth import GUEST_SESSION_COOKIE, get_current_user, get_or_create_guest_session_id, require_user
 from ..database import get_db
 from ..models import Attempt, Puzzle, PuzzleCompletionEvent
 from ..puzzle import calculate_archive_score, check_answer, get_puzzle_date
@@ -36,6 +36,7 @@ def list_archive(
     db: Session = Depends(get_db),
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    status: str = Query(default="all", pattern="^(all|solved|unsolved)$"),
 ):
     puzzle_date = get_puzzle_date()
 
@@ -48,10 +49,45 @@ def list_archive(
                 "FROM puzzles p "
                 "LEFT JOIN attempts a ON a.puzzle_id = p.id AND a.user_id = :uid "
                 "WHERE p.puzzle_date < :today "
+                "AND (:status = 'all' "
+                "  OR (:status = 'solved' AND a.solved = 1) "
+                "  OR (:status = 'unsolved' AND COALESCE(a.solved, 0) != 1)) "
                 "ORDER BY p.puzzle_date DESC "
                 "LIMIT :limit OFFSET :offset"
             ),
-            {"uid": user.id, "today": puzzle_date, "limit": limit, "offset": offset},
+            {
+                "uid": user.id,
+                "today": puzzle_date,
+                "status": status,
+                "limit": limit,
+                "offset": offset,
+            },
+        ).fetchall()
+    elif status != "all":
+        guest_session_id = request.cookies.get(GUEST_SESSION_COOKIE)
+        rows = db.execute(
+            text(
+                "SELECT p.id, p.puzzle_date, p.puzzle_type, p.puzzle_name, p.hint, "
+                "  ROW_NUMBER() OVER (ORDER BY p.puzzle_date ASC) AS puzzle_number, "
+                "  CASE WHEN e.solved = 1 THEN 1 ELSE 0 END AS solved "
+                "FROM puzzles p "
+                "LEFT JOIN ("
+                "  SELECT puzzle_id, 1 AS solved FROM puzzle_completion_events "
+                "  WHERE guest_session_id = :guest_session_id GROUP BY puzzle_id"
+                ") e ON e.puzzle_id = p.id "
+                "WHERE p.puzzle_date < :today "
+                "AND ((:status = 'solved' AND e.solved = 1) "
+                "  OR (:status = 'unsolved' AND COALESCE(e.solved, 0) != 1)) "
+                "ORDER BY p.puzzle_date DESC "
+                "LIMIT :limit OFFSET :offset"
+            ),
+            {
+                "guest_session_id": guest_session_id,
+                "today": puzzle_date,
+                "status": status,
+                "limit": limit,
+                "offset": offset,
+            },
         ).fetchall()
     else:
         rows = db.execute(

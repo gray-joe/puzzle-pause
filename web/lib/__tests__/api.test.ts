@@ -172,6 +172,21 @@ describe('apiFetch', () => {
         );
     });
 
+    it('adds archive status filter query params', async () => {
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve([]),
+        });
+
+        await api.archive.list('session=abc123', { limit: 51, offset: 50, status: 'solved' });
+
+        expect(mockFetch).toHaveBeenCalledWith(
+            '/api/archive?limit=51&offset=50&status=solved',
+            expect.objectContaining({ credentials: 'include' })
+        );
+    });
+
     it('adds admin list pagination query params', async () => {
         mockFetch.mockResolvedValueOnce({
             ok: true,
@@ -198,6 +213,36 @@ describe('apiFetch', () => {
 
         expect(mockFetch).toHaveBeenCalledWith(
             '/api/admin/completion-events?source=daily&limit=51&offset=50',
+            expect.objectContaining({ credentials: 'include' })
+        );
+    });
+
+    it('adds completed date range query params', async () => {
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ completed_dates: [] }),
+        });
+
+        await api.account.completedDates('2026-06-01', '2026-06-30', 'session=abc123');
+
+        expect(mockFetch).toHaveBeenCalledWith(
+            '/api/account/completed-dates?start=2026-06-01&end=2026-06-30',
+            expect.objectContaining({ credentials: 'include' })
+        );
+    });
+
+    it('adds puzzle calendar date range query params', async () => {
+        mockFetch.mockResolvedValueOnce({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve([]),
+        });
+
+        await api.puzzle.calendar('2026-06-01', '2026-06-30', 'session=abc123');
+
+        expect(mockFetch).toHaveBeenCalledWith(
+            '/api/puzzle/calendar?start=2026-06-01&end=2026-06-30',
             expect.objectContaining({ credentials: 'include' })
         );
     });

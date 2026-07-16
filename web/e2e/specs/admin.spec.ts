@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 import {
     countCompletionEventsForPuzzle,
     createPuzzleWithCompletionEvent,
@@ -8,6 +8,19 @@ import { PuzzlePage } from '../pages/PuzzlePage';
 
 const ADMIN_EMAIL = 'admin@example.com';
 const PREVIEW_PUZZLE_NAME = 'Quick Maths';
+
+async function startNewAdminPuzzle(page: Page, date: string, type: string, name: string) {
+    await page.goto('/admin/puzzles/new');
+    await page.locator('input[type=date]').fill(date);
+    await page.locator('form select').first().selectOption(type);
+    await page.locator("input[placeholder='Puzzle display name']").fill(name);
+}
+
+async function saveAndExpectPuzzle(page: Page, name: string, date: string) {
+    await page.locator('button[type=submit]').click();
+    await page.waitForURL('/admin/puzzles');
+    await expect(page.locator('tbody tr', { hasText: name })).toContainText(date);
+}
 
 test.describe('Admin dashboard', () => {
     test.describe.configure({ mode: 'serial' });
@@ -256,6 +269,129 @@ test.describe('Admin puzzle CRUD', () => {
         await page.waitForURL('/admin/puzzles');
         await expect(page.locator('text=E2E Test Puzzle')).toBeVisible();
         await expect(page.locator('text=2099-12-31')).toBeVisible();
+    });
+
+    test('Admin can create puzzles with specialized builders', async ({ page }) => {
+        await loginAs(page, ADMIN_EMAIL);
+
+        await test.step('word editor', async () => {
+            await startNewAdminPuzzle(page, '2099-10-30', 'word', 'E2E Builder Word');
+            await page.locator('textarea').first().fill('What word means daily puzzle?');
+            await page.locator('input[required][type=text]').fill('routine');
+            await saveAndExpectPuzzle(page, 'E2E Builder Word', '2099-10-30');
+        });
+
+        await test.step('wordsearch builder', async () => {
+            await startNewAdminPuzzle(page, '2099-10-31', 'wordsearch', 'E2E Builder Wordsearch');
+            await expect(page.getByTestId('wordsearch-builder')).toBeVisible();
+            for (const [index, letter] of ['E', 'A', 'R', 'T', 'H'].entries()) {
+                await page.getByTestId(`wordsearch-cell-0-${index}`).fill(letter);
+            }
+            await page.getByTestId('wordsearch-word-0').fill('EARTH');
+            await page.getByTestId('wordsearch-theme').fill('Planet');
+            await saveAndExpectPuzzle(page, 'E2E Builder Wordsearch', '2099-10-31');
+        });
+
+        await test.step('numgrid builder', async () => {
+            await startNewAdminPuzzle(page, '2099-11-01', 'numgrid', 'E2E Builder Numgrid');
+            await expect(page.getByTestId('numgrid-builder')).toBeVisible();
+            await page.getByTestId('numgrid-answer').fill('11');
+            await saveAndExpectPuzzle(page, 'E2E Builder Numgrid', '2099-11-01');
+        });
+
+        await test.step('word-wheel builder', async () => {
+            await startNewAdminPuzzle(page, '2099-11-02', 'word-wheel', 'E2E Builder Word Wheel');
+            await expect(page.getByTestId('word-wheel-builder')).toBeVisible();
+            await page.getByTestId('word-wheel-letter-0-0').fill('S');
+            await page.getByTestId('word-wheel-letter-0-1').fill('T');
+            await page.getByTestId('word-wheel-letter-0-3').fill('R');
+            await page.getByTestId('word-wheel-letter-0-4').fill('L');
+            await page.getByTestId('word-wheel-letter-0-5').fill('I');
+            await page.getByTestId('word-wheel-letter-0-7').fill('G');
+            await page.getByTestId('word-wheel-answer-0').fill('STARLING');
+            await saveAndExpectPuzzle(page, 'E2E Builder Word Wheel', '2099-11-02');
+        });
+
+        await test.step('word ladder builder', async () => {
+            await startNewAdminPuzzle(page, '2099-11-03', 'ladder', 'E2E Builder Ladder');
+            await expect(page.getByTestId('word-ladder-builder')).toBeVisible();
+            await page.getByTestId('ladder-step-value-1').fill('Darn');
+            await page.getByTestId('ladder-step-value-3').fill('Dark');
+            await saveAndExpectPuzzle(page, 'E2E Builder Ladder', '2099-11-03');
+        });
+
+        await test.step('choice builder', async () => {
+            await startNewAdminPuzzle(page, '2099-11-04', 'choice', 'E2E Builder Choice');
+            await expect(page.getByTestId('choice-builder')).toBeVisible();
+            await page.getByTestId('choice-prompt').fill('Which option is correct?');
+            await page.getByTestId('choice-option-0').fill('Wrong');
+            await page.getByTestId('choice-option-1').fill('Right');
+            await page.getByTestId('choice-correct-1').check();
+            await saveAndExpectPuzzle(page, 'E2E Builder Choice', '2099-11-04');
+        });
+
+        await test.step('order builder', async () => {
+            await startNewAdminPuzzle(page, '2099-11-05', 'order', 'E2E Builder Order');
+            await expect(page.getByTestId('order-builder')).toBeVisible();
+            await page.getByTestId('order-prompt').fill('Sort these alphabetically:');
+            await page.getByTestId('order-item-0').fill('Beta');
+            await page.getByTestId('order-item-1').fill('Alpha');
+            await page.getByTestId('order-correct-down-0').click();
+            await saveAndExpectPuzzle(page, 'E2E Builder Order', '2099-11-05');
+        });
+
+        await test.step('match builder', async () => {
+            await startNewAdminPuzzle(page, '2099-11-06', 'match', 'E2E Builder Match');
+            await expect(page.getByTestId('match-builder')).toBeVisible();
+            await page.getByTestId('match-prompt').fill('Match each letter to its number:');
+            await page.getByTestId('match-left-0').fill('A');
+            await page.getByTestId('match-right-0').fill('One');
+            await page.getByTestId('match-left-1').fill('B');
+            await page.getByTestId('match-right-1').fill('Two');
+            await page.getByTestId('match-right-down-0').click();
+            await saveAndExpectPuzzle(page, 'E2E Builder Match', '2099-11-06');
+        });
+
+        await test.step('connections builder', async () => {
+            await startNewAdminPuzzle(page, '2099-11-07', 'connections', 'E2E Builder Connections');
+            await expect(page.getByTestId('connections-builder')).toBeVisible();
+            await page.getByTestId('connections-prompt').fill('Group these words:');
+            await page.getByTestId('connections-category-0').fill('Animals');
+            await page.getByTestId('connections-item-0-0').fill('Cat');
+            await page.getByTestId('connections-item-0-1').fill('Dog');
+            await page.getByTestId('connections-category-1').fill('Colors');
+            await page.getByTestId('connections-item-1-0').fill('Red');
+            await page.getByTestId('connections-item-1-1').fill('Blue');
+            await saveAndExpectPuzzle(page, 'E2E Builder Connections', '2099-11-07');
+        });
+
+        await test.step('scrabble builder', async () => {
+            await startNewAdminPuzzle(page, '2099-11-08', 'scrabble', 'E2E Builder Scrabble');
+            await expect(page.getByTestId('scrabble-builder')).toBeVisible();
+            await page.getByTestId('scrabble-prompt').fill('Find the best word and score:');
+            await page.getByTestId('scrabble-rack').fill('CORMANE');
+            await page.getByTestId('scrabble-answer').fill('romance 34');
+            await saveAndExpectPuzzle(page, 'E2E Builder Scrabble', '2099-11-08');
+        });
+
+        await test.step('countdown builder', async () => {
+            await startNewAdminPuzzle(page, '2099-11-09', 'countdown', 'E2E Builder Countdown');
+            await expect(page.getByTestId('countdown-builder')).toBeVisible();
+            await page.getByTestId('countdown-target').fill('306');
+            await page.getByTestId('countdown-numbers').fill('75,50,6,3,2,1');
+            await page.getByTestId('countdown-answer').fill('306');
+            await saveAndExpectPuzzle(page, 'E2E Builder Countdown', '2099-11-09');
+        });
+
+        await test.step('clue-reveal builder', async () => {
+            await startNewAdminPuzzle(page, '2099-11-10', 'clue-reveal', 'E2E Builder Clue Reveal');
+            await expect(page.getByTestId('clue-reveal-builder')).toBeVisible();
+            await page.getByTestId('clue-reveal-prompt').fill('Who am I?');
+            await page.getByTestId('clue-reveal-clue-0').fill('I wrote Hamlet.');
+            await page.getByTestId('clue-reveal-clue-1').fill('I wrote Romeo and Juliet.');
+            await page.getByTestId('clue-reveal-answer').fill('Shakespeare');
+            await saveAndExpectPuzzle(page, 'E2E Builder Clue Reveal', '2099-11-10');
+        });
     });
 
     test('Admin can edit a puzzle', async ({ page }) => {

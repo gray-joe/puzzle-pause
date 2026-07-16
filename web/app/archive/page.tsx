@@ -4,6 +4,13 @@ import { getUser, getCookieHeader } from '@/lib/auth';
 import PageShell from '@/components/ui/PageShell';
 
 const ARCHIVE_PAGE_SIZE = 50;
+const ARCHIVE_FILTERS = [
+    { status: 'all', label: 'All' },
+    { status: 'solved', label: 'Solved' },
+    { status: 'unsolved', label: 'Unsolved' },
+] as const;
+
+type ArchiveStatus = (typeof ARCHIVE_FILTERS)[number]['status'];
 
 function single(v: string | string[] | undefined) {
     return Array.isArray(v) ? v[0] : v;
@@ -14,8 +21,26 @@ function pageFromSearchParams(params: Record<string, string | string[] | undefin
     return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
-function archiveHref(page: number) {
-    return page <= 1 ? '/archive' : `/archive?page=${page}`;
+function statusFromSearchParams(params: Record<string, string | string[] | undefined>): ArchiveStatus {
+    const status = single(params.status);
+
+    return status === 'solved' || status === 'unsolved' ? status : 'all';
+}
+
+function archiveHref(page: number, status: ArchiveStatus = 'all') {
+    const params = new URLSearchParams();
+    if (page > 1) params.set('page', String(page));
+    if (status !== 'all') params.set('status', status);
+    const query = params.toString();
+
+    return query ? `/archive?${query}` : '/archive';
+}
+
+function emptyMessage(page: number, status: ArchiveStatus) {
+    if (page > 1) return 'No puzzles on this archive page.';
+    if (status === 'solved') return 'No solved puzzles yet.';
+    if (status === 'unsolved') return 'No unsolved puzzles yet.';
+    return 'No past puzzles yet.';
 }
 
 export default async function ArchivePage({
@@ -26,6 +51,7 @@ export default async function ArchivePage({
     const [user, cookieHeader] = await Promise.all([getUser(), getCookieHeader()]);
     const params = ((await searchParams) ?? {}) as Record<string, string | string[] | undefined>;
     const page = pageFromSearchParams(params);
+    const status = statusFromSearchParams(params);
     const offset = (page - 1) * ARCHIVE_PAGE_SIZE;
 
     let puzzles: Puzzle[] = [];
@@ -33,6 +59,7 @@ export default async function ArchivePage({
         puzzles = await api.archive.list(cookieHeader, {
             limit: ARCHIVE_PAGE_SIZE + 1,
             offset,
+            status,
         });
     } catch {}
     const hasNextPage = puzzles.length > ARCHIVE_PAGE_SIZE;
@@ -42,13 +69,23 @@ export default async function ArchivePage({
 
     return (
         <PageShell isLoggedIn={!!user}>
+            <div className="archive-filters" aria-label="Archive filters">
+                {ARCHIVE_FILTERS.map((filter) => (
+                    <Link
+                        key={filter.status}
+                        href={archiveHref(1, filter.status)}
+                        className={filter.status === status ? 'active' : ''}
+                    >
+                        <span className="gt">&gt;</span>
+                        {filter.label}
+                    </Link>
+                ))}
+            </div>
             {visiblePuzzles.length === 0 ? (
                 <>
-                    <div className="muted">
-                        {page === 1 ? 'No past puzzles yet.' : 'No puzzles on this archive page.'}
-                    </div>
+                    <div className="muted">{emptyMessage(page, status)}</div>
                     {page > 1 && (
-                        <Link href={archiveHref(page - 1)} className="back-link" style={{ marginTop: 16 }}>
+                        <Link href={archiveHref(page - 1, status)} className="back-link" style={{ marginTop: 16 }}>
                             <span className="gt">&gt;</span>Previous page
                         </Link>
                     )}
@@ -56,7 +93,8 @@ export default async function ArchivePage({
             ) : (
                 <div>
                     <div className="muted" style={{ marginBottom: 12 }}>
-                        Showing archived puzzles {firstPuzzleNumber}-{lastPuzzleNumber}
+                        Showing {status === 'all' ? 'archived' : status} puzzles {firstPuzzleNumber}-
+                        {lastPuzzleNumber}
                     </div>
                     {visiblePuzzles.map((p) => (
                         <div key={p.id} className="list-row" data-testid={`archive-row-${p.id}`}>
@@ -102,14 +140,14 @@ export default async function ArchivePage({
                         }}
                     >
                         {page > 1 ? (
-                            <Link href={archiveHref(page - 1)} className="action-btn" style={{ width: 'auto' }}>
+                            <Link href={archiveHref(page - 1, status)} className="action-btn" style={{ width: 'auto' }}>
                                 <span className="gt">&gt;</span>Previous
                             </Link>
                         ) : (
                             <span />
                         )}
                         {hasNextPage && (
-                            <Link href={archiveHref(page + 1)} className="action-btn" style={{ width: 'auto' }}>
+                            <Link href={archiveHref(page + 1, status)} className="action-btn" style={{ width: 'auto' }}>
                                 <span className="gt">&gt;</span>Next
                             </Link>
                         )}

@@ -3,7 +3,17 @@
 import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, AdminPuzzle } from '@/lib/api';
+import ChoiceBuilder from './ChoiceBuilder';
+import ClueRevealBuilder from './ClueRevealBuilder';
+import ConnectionsBuilder from './ConnectionsBuilder';
+import CountdownBuilder from './CountdownBuilder';
+import MatchBuilder from './MatchBuilder';
+import NumgridBuilder from './NumgridBuilder';
+import OrderBuilder from './OrderBuilder';
+import ScrabbleBuilder from './ScrabbleBuilder';
 import WordsearchBuilder from './WordsearchBuilder';
+import WordLadderBuilder from './WordLadderBuilder';
+import WordWheelBuilder from './WordWheelBuilder';
 
 const PUZZLE_TYPES = [
     'word',
@@ -72,6 +82,46 @@ export default function PuzzleForm({ puzzle }: Props) {
         setForm((prev) => ({ ...prev, question, answer }));
     }, []);
 
+    const handleChoiceChange = useCallback((question: string, answer: string) => {
+        setForm((prev) => ({ ...prev, question, answer }));
+    }, []);
+
+    const handleConnectionsChange = useCallback((question: string, answer: string) => {
+        setForm((prev) => ({ ...prev, question, answer }));
+    }, []);
+
+    const handleClueRevealChange = useCallback((question: string, answer: string) => {
+        setForm((prev) => ({ ...prev, question, answer }));
+    }, []);
+
+    const handleCountdownChange = useCallback((question: string, answer: string) => {
+        setForm((prev) => ({ ...prev, question, answer }));
+    }, []);
+
+    const handleOrderChange = useCallback((question: string, answer: string) => {
+        setForm((prev) => ({ ...prev, question, answer }));
+    }, []);
+
+    const handleMatchChange = useCallback((question: string, answer: string) => {
+        setForm((prev) => ({ ...prev, question, answer }));
+    }, []);
+
+    const handleNumgridChange = useCallback((question: string, answer: string) => {
+        setForm((prev) => ({ ...prev, question, answer }));
+    }, []);
+
+    const handleScrabbleChange = useCallback((question: string, answer: string) => {
+        setForm((prev) => ({ ...prev, question, answer }));
+    }, []);
+
+    const handleWordLadderChange = useCallback((question: string, answer: string) => {
+        setForm((prev) => ({ ...prev, question, answer }));
+    }, []);
+
+    const handleWordWheelChange = useCallback((question: string, answer: string) => {
+        setForm((prev) => ({ ...prev, question, answer }));
+    }, []);
+
     function set(field: string, value: string) {
         setForm((prev) => ({ ...prev, [field]: value }));
     }
@@ -111,6 +161,50 @@ export default function PuzzleForm({ puzzle }: Props) {
                     return;
                 }
             }
+        }
+        if (form.puzzle_type === 'choice' && !form.answer.trim()) {
+            setError('Correct option is required');
+            return;
+        }
+        if (form.puzzle_type === 'order' && !form.answer.trim()) {
+            setError('Correct order is required');
+            return;
+        }
+        if (form.puzzle_type === 'match' && !form.answer.trim()) {
+            setError('Match answer mapping is required');
+            return;
+        }
+        if (form.puzzle_type === 'connections' && !form.answer.trim()) {
+            setError('Connection groups are required');
+            return;
+        }
+        if (form.puzzle_type === 'countdown' && !form.answer.trim()) {
+            setError('Countdown answer is required');
+            return;
+        }
+        if (form.puzzle_type === 'scrabble' && !form.answer.trim()) {
+            setError('Scrabble answer is required');
+            return;
+        }
+        if (form.puzzle_type === 'clue-reveal' && !form.answer.trim()) {
+            setError('Clue reveal answer is required');
+            return;
+        }
+        if (form.puzzle_type === 'numgrid' && !form.answer.trim()) {
+            setError('Missing number is required');
+            return;
+        }
+        if (form.puzzle_type === 'ladder' && !form.question.includes('____')) {
+            setError('At least one blank step is required');
+            return;
+        }
+        if (form.puzzle_type === 'ladder' && !form.answer.trim()) {
+            setError('At least one blank answer is required');
+            return;
+        }
+        if (form.puzzle_type === 'word-wheel' && !form.answer.trim()) {
+            setError('At least one answer word is required');
+            return;
         }
         setLoading(true);
         setError('');
@@ -191,6 +285,116 @@ export default function PuzzleForm({ puzzle }: Props) {
                         question={form.question}
                         answer={form.answer}
                         onChange={handleWordsearchChange}
+                    />
+                </div>
+            ) : form.puzzle_type === 'choice' ? (
+                <div style={fieldStyle}>
+                    <label style={labelStyle}>
+                        <span className="gt">&gt;</span> Choice Builder
+                    </label>
+                    <ChoiceBuilder
+                        question={form.question}
+                        answer={form.answer}
+                        onChange={handleChoiceChange}
+                    />
+                </div>
+            ) : form.puzzle_type === 'connections' ? (
+                <div style={fieldStyle}>
+                    <label style={labelStyle}>
+                        <span className="gt">&gt;</span> Connections Builder
+                    </label>
+                    <ConnectionsBuilder
+                        question={form.question}
+                        answer={form.answer}
+                        onChange={handleConnectionsChange}
+                    />
+                </div>
+            ) : form.puzzle_type === 'countdown' ? (
+                <div style={fieldStyle}>
+                    <label style={labelStyle}>
+                        <span className="gt">&gt;</span> Countdown Builder
+                    </label>
+                    <CountdownBuilder
+                        question={form.question}
+                        answer={form.answer}
+                        onChange={handleCountdownChange}
+                    />
+                </div>
+            ) : form.puzzle_type === 'clue-reveal' ? (
+                <div style={fieldStyle}>
+                    <label style={labelStyle}>
+                        <span className="gt">&gt;</span> Clue Reveal Builder
+                    </label>
+                    <ClueRevealBuilder
+                        question={form.question}
+                        answer={form.answer}
+                        onChange={handleClueRevealChange}
+                    />
+                </div>
+            ) : form.puzzle_type === 'order' ? (
+                <div style={fieldStyle}>
+                    <label style={labelStyle}>
+                        <span className="gt">&gt;</span> Order Builder
+                    </label>
+                    <OrderBuilder
+                        question={form.question}
+                        answer={form.answer}
+                        onChange={handleOrderChange}
+                    />
+                </div>
+            ) : form.puzzle_type === 'match' ? (
+                <div style={fieldStyle}>
+                    <label style={labelStyle}>
+                        <span className="gt">&gt;</span> Match Builder
+                    </label>
+                    <MatchBuilder
+                        question={form.question}
+                        answer={form.answer}
+                        onChange={handleMatchChange}
+                    />
+                </div>
+            ) : form.puzzle_type === 'ladder' ? (
+                <div style={fieldStyle}>
+                    <label style={labelStyle}>
+                        <span className="gt">&gt;</span> Word Ladder Builder
+                    </label>
+                    <WordLadderBuilder
+                        question={form.question}
+                        answer={form.answer}
+                        onChange={handleWordLadderChange}
+                    />
+                </div>
+            ) : form.puzzle_type === 'numgrid' ? (
+                <div style={fieldStyle}>
+                    <label style={labelStyle}>
+                        <span className="gt">&gt;</span> Number Grid Builder
+                    </label>
+                    <NumgridBuilder
+                        question={form.question}
+                        answer={form.answer}
+                        onChange={handleNumgridChange}
+                    />
+                </div>
+            ) : form.puzzle_type === 'scrabble' ? (
+                <div style={fieldStyle}>
+                    <label style={labelStyle}>
+                        <span className="gt">&gt;</span> Scrabble Builder
+                    </label>
+                    <ScrabbleBuilder
+                        question={form.question}
+                        answer={form.answer}
+                        onChange={handleScrabbleChange}
+                    />
+                </div>
+            ) : form.puzzle_type === 'word-wheel' ? (
+                <div style={fieldStyle}>
+                    <label style={labelStyle}>
+                        <span className="gt">&gt;</span> Word Wheel Builder
+                    </label>
+                    <WordWheelBuilder
+                        question={form.question}
+                        answer={form.answer}
+                        onChange={handleWordWheelChange}
                     />
                 </div>
             ) : (

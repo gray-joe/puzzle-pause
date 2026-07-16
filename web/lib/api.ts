@@ -82,6 +82,10 @@ export type AccountStats = {
 
 export type Account = User & { stats: AccountStats };
 
+export type CompletedDatesResponse = { completed_dates: string[] };
+
+export type CalendarPuzzle = Pick<Puzzle, 'id' | 'puzzle_date'>;
+
 export type AdminPuzzle = Puzzle & { answer: string };
 
 export type AdminStats = {
@@ -146,6 +150,7 @@ export type AdminCompletionEventFilters = {
 export type ArchiveListFilters = {
     limit?: number;
     offset?: number;
+    status?: 'all' | 'solved' | 'unsolved';
 };
 
 export type AdminListFilters = {
@@ -157,6 +162,9 @@ function paginationParams(filters: AdminListFilters | ArchiveListFilters) {
     const params = new URLSearchParams();
     if (filters.limit) params.set('limit', String(filters.limit));
     if (filters.offset) params.set('offset', String(filters.offset));
+    if ('status' in filters && filters.status && filters.status !== 'all') {
+        params.set('status', filters.status);
+    }
     return params;
 }
 
@@ -228,6 +236,15 @@ export const api = {
 
     puzzle: {
         today: (cookieHeader?: string) => apiFetch<Puzzle>('/api/puzzle/today', {}, cookieHeader),
+
+        calendar: (start: string, end: string, cookieHeader?: string) => {
+            const params = new URLSearchParams({ start, end });
+            return apiFetch<CalendarPuzzle[]>(
+                `/api/puzzle/calendar?${params.toString()}`,
+                {},
+                cookieHeader
+            );
+        },
 
         attempt: (
             puzzle_id: number,
@@ -319,6 +336,15 @@ export const api = {
 
     account: {
         get: (cookieHeader?: string) => apiFetch<Account>('/api/account', {}, cookieHeader),
+
+        completedDates: (start: string, end: string, cookieHeader?: string) => {
+            const params = new URLSearchParams({ start, end });
+            return apiFetch<CompletedDatesResponse>(
+                `/api/account/completed-dates?${params.toString()}`,
+                {},
+                cookieHeader
+            );
+        },
 
         update: (display_name: string) =>
             apiFetch<User>('/api/account', {
