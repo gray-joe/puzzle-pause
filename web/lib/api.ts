@@ -21,6 +21,7 @@ export type Puzzle = {
 
 export type AttemptDetail = {
     solved: boolean;
+    gave_up?: boolean;
     score: number | null;
     incorrect_guesses: number;
     hint_used: number;
@@ -33,6 +34,7 @@ export type AttemptResult = {
     score: number | null;
     incorrect_guesses: number;
     solved: boolean;
+    gave_up?: boolean;
     answer: string | null;
     question?: string | null;
     explanation?: string | null;
@@ -116,6 +118,7 @@ export type AdminAttempt = {
     opened_at: string | null;
     completed_at: string | null;
     solved: boolean;
+    gave_up: boolean;
     score: number | null;
     incorrect_guesses: number;
     hint_used: boolean;
@@ -132,6 +135,7 @@ export type AdminCompletionEvent = {
     user_display_name: string | null;
     guest_session_id: string | null;
     source: 'daily' | 'archive';
+    gave_up: boolean;
     completed_at: string;
     wrong_guess_count: number | null;
     time_to_complete_seconds: number | null;
@@ -428,7 +432,10 @@ export const api = {
             return apiFetch<AdminUser[]>(path, {}, cookieHeader);
         },
 
-        listCompletionEvents: (filters: AdminCompletionEventFilters = {}, cookieHeader?: string) => {
+        listCompletionEvents: (
+            filters: AdminCompletionEventFilters = {},
+            cookieHeader?: string
+        ) => {
             const params = new URLSearchParams();
             if (filters.source) params.set('source', filters.source);
             if (filters.actor) params.set('actor', filters.actor);

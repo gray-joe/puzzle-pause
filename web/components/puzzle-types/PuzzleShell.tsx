@@ -64,9 +64,11 @@ export default function PuzzleShell({
     const [openedAt] = useState(() => initialAttempt?.opened_at ?? new Date().toISOString());
 
     const solved = attempt?.solved ?? false;
+    const gaveUp = attempt?.gave_up ?? false;
+    const completed = solved || gaveUp;
 
     async function submitGuess(guess: string) {
-        if (solved || loading) return;
+        if (completed || loading) return;
         setLoading(true);
         setFeedback('');
         try {
@@ -74,9 +76,24 @@ export default function PuzzleShell({
                 incorrect_guesses: incorrectGuesses,
                 hints_used: isMultiHint ? hintsRevealed : hintUsed ? 1 : 0,
             });
-            if (result.correct) {
+            if (result.gave_up) {
+                setAttempt({
+                    solved: false,
+                    gave_up: true,
+                    score: 0,
+                    incorrect_guesses: incorrectGuesses,
+                    hint_used: isMultiHint ? hintsRevealed : hintUsed ? 1 : 0,
+                    completed_at: new Date().toISOString(),
+                    opened_at: openedAt,
+                });
+                setAnswer(result.answer ?? null);
+                if (result.question) setPuzzleQuestion(result.question);
+                setExplanation(result.explanation ?? null);
+                setStreak(null);
+            } else if (result.correct) {
                 setAttempt({
                     solved: true,
+                    gave_up: false,
                     score: result.score,
                     incorrect_guesses: incorrectGuesses,
                     hint_used: isMultiHint ? hintsRevealed : hintUsed ? 1 : 0,
@@ -123,14 +140,15 @@ export default function PuzzleShell({
     }
 
     async function giveUp() {
-        if (solved || loading) return;
+        if (completed || loading) return;
         setLoading(true);
         setFeedback('');
         try {
             const result = await onGiveUp();
-            if (result.solved) {
+            if (result.gave_up) {
                 setAttempt({
-                    solved: true,
+                    solved: false,
+                    gave_up: true,
                     score: result.score ?? 0,
                     incorrect_guesses: incorrectGuesses,
                     hint_used: isMultiHint ? hintsRevealed : hintUsed ? 1 : 0,
@@ -153,12 +171,12 @@ export default function PuzzleShell({
     const isClueReveal = puzzle.puzzle_type === 'clue-reveal';
     const isMultiHint = isConnections || isClueReveal;
     const showHintBtn = isMultiHint
-        ? !solved && hintsRevealed < totalHints
-        : puzzle.has_hint && !hintUsed;
+        ? !completed && hintsRevealed < totalHints
+        : puzzle.has_hint && !hintUsed && !completed;
 
     const puzzleProps = {
         puzzle,
-        solved,
+        solved: completed,
         onSubmit: submitGuess,
         onHint: revealHint,
         loading,
@@ -166,7 +184,7 @@ export default function PuzzleShell({
         hintsRevealed,
     };
 
-    if (solved && attempt) {
+    if (completed && attempt) {
         return (
             <div data-testid="puzzle-shell">
                 <div className="content-meta" data-testid="puzzle-date">

@@ -25,7 +25,8 @@ describe('PuzzleShell', () => {
         const onAttempt = vi.fn();
         const onGiveUp = vi.fn().mockResolvedValue({
             correct: false,
-            solved: true,
+            solved: false,
+            gave_up: true,
             score: 0,
             incorrect_guesses: 0,
             answer: 'hello',
@@ -45,7 +46,8 @@ describe('PuzzleShell', () => {
         await userEvent.click(screen.getByTestId('give-up-btn'));
 
         await waitFor(() => expect(screen.getByTestId('result-panel')).toBeInTheDocument());
-        expect(screen.getByTestId('result-panel')).toHaveTextContent('0');
+        expect(screen.getByTestId('result-panel')).toHaveTextContent('Gave up');
+        expect(screen.getByTestId('result-panel')).not.toHaveTextContent('Congratulations');
         expect(screen.queryByTestId('answer-input')).not.toBeInTheDocument();
         expect(screen.queryByTestId('submit-btn')).not.toBeInTheDocument();
         expect(onAttempt).not.toHaveBeenCalled();

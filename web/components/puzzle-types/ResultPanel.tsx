@@ -127,15 +127,20 @@ export default function ResultPanel({
     const archivePenalty = isArchive ? 10 : 0;
 
     const puzzleName = puzzle.puzzle_name || puzzle.puzzle_type;
+    const gaveUp = attempt.gave_up ?? false;
     const duration = formatDuration(attempt.opened_at, attempt.completed_at);
     const timeStr = duration ? ` in ${duration}` : '';
-    const shareText = isLoggedIn
+    const shareText = gaveUp
         ? isArchive
-            ? `I scored ${attempt.score} on Puzzle Pause #${puzzle.puzzle_number ?? puzzle.id}${timeStr}! puzzlepause.app/archive/${puzzle.id}`
-            : `I scored ${attempt.score} on today's Puzzle Pause${timeStr}! puzzlepause.app`
-        : isArchive
-          ? `I solved ${puzzleName} on Puzzle Pause! puzzlepause.app/archive/${puzzle.id}`
-          : `I solved ${puzzleName} on Puzzle Pause${timeStr}! puzzlepause.app`;
+            ? `I tried ${puzzleName} on Puzzle Pause! puzzlepause.app/archive/${puzzle.id}`
+            : `I tried today's Puzzle Pause! puzzlepause.app`
+        : isLoggedIn
+          ? isArchive
+              ? `I scored ${attempt.score} on Puzzle Pause #${puzzle.puzzle_number ?? puzzle.id}${timeStr}! puzzlepause.app/archive/${puzzle.id}`
+              : `I scored ${attempt.score} on today's Puzzle Pause${timeStr}! puzzlepause.app`
+          : isArchive
+            ? `I solved ${puzzleName} on Puzzle Pause! puzzlepause.app/archive/${puzzle.id}`
+            : `I solved ${puzzleName} on Puzzle Pause${timeStr}! puzzlepause.app`;
 
     function share() {
         navigator.clipboard.writeText(shareText).catch(() => {});
@@ -158,7 +163,9 @@ export default function ResultPanel({
             {matchPairs ? (
                 <div style={{ marginBottom: 16 }} data-testid="result-answer">
                     <div style={{ marginBottom: 8 }}>
-                        Congratulations! The correct matches were:
+                        {gaveUp
+                            ? 'The correct matches were:'
+                            : 'Congratulations! The correct matches were:'}
                     </div>
                     {matchPairs.map((pair, i) => (
                         <div key={i} style={{ marginBottom: 4 }}>
@@ -170,7 +177,9 @@ export default function ResultPanel({
                 </div>
             ) : connectionsGroups ? (
                 <div style={{ marginBottom: 16 }} data-testid="result-answer">
-                    <div style={{ marginBottom: 8 }}>Congratulations! The groups were:</div>
+                    <div style={{ marginBottom: 8 }}>
+                        {gaveUp ? 'The groups were:' : 'Congratulations! The groups were:'}
+                    </div>
                     {connectionsGroups.map((group, i) => (
                         <div key={i} style={{ marginBottom: 4 }}>
                             <span style={{ color: 'var(--teal)' }}>{group.category}:</span>{' '}
@@ -181,7 +190,8 @@ export default function ResultPanel({
             ) : (
                 displayAnswers.length > 0 && (
                     <div style={{ marginBottom: 16 }} data-testid="result-answer">
-                        Congratulations! The correct {isOrderPuzzle ? 'order' : 'answer'} was{' '}
+                        {gaveUp ? '' : 'Congratulations! '}The correct{' '}
+                        {isOrderPuzzle ? 'order' : 'answer'} was{' '}
                         <span style={{ color: 'var(--teal)' }}>
                             {isOrderPuzzle
                                 ? displayAnswers.map((item, i) => (
@@ -199,15 +209,19 @@ export default function ResultPanel({
             {/* Score box */}
             <div className="puzzle-box" style={{ flexDirection: 'column' }}>
                 <div
-                    style={{ fontSize: '3em', color: 'var(--teal)', fontWeight: 'bold' }}
+                    style={{
+                        fontSize: gaveUp ? '2em' : '3em',
+                        color: 'var(--teal)',
+                        fontWeight: 'bold',
+                    }}
                     data-testid="result-score"
                 >
-                    {attempt.score}
+                    {gaveUp ? 'Gave up' : attempt.score}
                 </div>
-                <div className="muted">points</div>
+                {!gaveUp && <div className="muted">points</div>}
             </div>
 
-            {isLoggedIn && (
+            {isLoggedIn && !gaveUp && (
                 <div style={{ marginTop: 16 }}>
                     {completedStr && (
                         <div className="muted" style={{ marginBottom: 8 }}>
@@ -246,7 +260,7 @@ export default function ResultPanel({
                 </div>
             )}
 
-            {!isArchive && streak != null && streak > 0 && (
+            {!gaveUp && !isArchive && streak != null && streak > 0 && (
                 <div style={{ color: 'var(--teal)', marginBottom: 16 }} data-testid="result-streak">
                     Streak: {streak} day{streak !== 1 ? 's' : ''}
                 </div>

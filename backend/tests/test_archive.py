@@ -150,6 +150,29 @@ class TestArchiveList:
         assert resp.status_code == 200
         assert [p["id"] for p in resp.json()] == [solved.id]
 
+    def test_guest_give_up_is_not_filtered_as_solved(self, client, db):
+        puzzle = _make_puzzle(db, days_ago=1)
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                guest_session_id="guest-123",
+                completed_at=datetime.now(timezone.utc),
+                source="archive",
+                gave_up=1,
+            )
+        )
+        db.commit()
+
+        solved = client.get(
+            "/api/archive?status=solved", cookies={"guest_session": "guest-123"}
+        )
+        unsolved = client.get(
+            "/api/archive?status=unsolved", cookies={"guest_session": "guest-123"}
+        )
+
+        assert solved.json() == []
+        assert [row["id"] for row in unsolved.json()] == [puzzle.id]
+
 
 class TestArchiveGet:
     def test_returns_puzzle(self, client, db):
@@ -285,22 +308,73 @@ class TestArchiveAttempt:
         resp = client.post(f"/api/archive/{puzzle.id}/give-up", cookies=cookies)
 
         assert resp.status_code == 200
-        assert resp.json()["solved"] is True
+        assert resp.json()["solved"] is False
+        assert resp.json()["gave_up"] is True
         assert resp.json()["score"] == 0
         assert resp.json()["answer"] == "hello"
 
         attempt = db.query(Attempt).filter(Attempt.user_id == user.id).first()
-        assert attempt.solved == 1
+        assert attempt.solved == 0
+        assert attempt.gave_up == 1
         assert attempt.score == 0
         assert attempt.source == "archive"
+        assert db.query(PuzzleCompletionEvent).count() == 1
+
+        repeated = client.post(f"/api/archive/{puzzle.id}/give-up", cookies=cookies)
+        assert repeated.json()["gave_up"] is True
+        assert db.query(PuzzleCompletionEvent).count() == 1
+
+        refreshed = client.get(f"/api/archive/{puzzle.id}", cookies=cookies).json()
+        assert refreshed["attempt"]["solved"] is False
+        assert refreshed["attempt"]["gave_up"] is True
+
+        resubmit = client.post(
+            f"/api/archive/{puzzle.id}/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "wrong"},
+            cookies=cookies,
+        )
+        assert resubmit.status_code == 200
+        assert resubmit.json()["correct"] is False
+        assert resubmit.json()["gave_up"] is True
+        assert resubmit.json()["score"] == 0
+        assert db.query(PuzzleCompletionEvent).count() == 1
+
+    def test_guest_give_up_survives_refresh_and_is_idempotent(self, client, db):
+        puzzle = _make_puzzle(db, days_ago=1, answer="hello")
+
+        first = client.post(f"/api/archive/{puzzle.id}/give-up")
+        second = client.post(f"/api/archive/{puzzle.id}/give-up")
+
+        assert first.json()["gave_up"] is True
+        assert second.json()["gave_up"] is True
+        assert db.query(PuzzleCompletionEvent).count() == 1
+
+        refreshed = client.get(f"/api/archive/{puzzle.id}").json()
+        assert refreshed["attempt"]["solved"] is False
+        assert refreshed["attempt"]["gave_up"] is True
+        assert refreshed["answer"] == "hello"
 
         resubmit = client.post(
             f"/api/archive/{puzzle.id}/attempt",
             json={"puzzle_id": puzzle.id, "guess": "hello"},
-            cookies=cookies,
         )
-        assert resubmit.status_code == 200
-        assert resubmit.json()["score"] == 0
+        assert resubmit.json()["correct"] is False
+        assert resubmit.json()["gave_up"] is True
+        assert db.query(PuzzleCompletionEvent).count() == 1
+
+    def test_guest_cannot_give_up_after_solving(self, client, db):
+        puzzle = _make_puzzle(db, days_ago=1, answer="hello")
+        solved = client.post(
+            f"/api/archive/{puzzle.id}/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "hello"},
+        )
+
+        give_up = client.post(f"/api/archive/{puzzle.id}/give-up")
+
+        assert solved.json()["correct"] is True
+        assert give_up.status_code == 409
+        assert db.query(PuzzleCompletionEvent).count() == 1
+        assert db.query(PuzzleCompletionEvent).one().gave_up == 0
 
     def test_archive_score_has_ten_point_deduction(self, client, db):
         puzzle = _make_puzzle(db, days_ago=1, answer="hello")

@@ -39,6 +39,12 @@ export class ResultPage {
         await expect(this.panel).toContainText(text);
     }
 
+    async expectRevealedAnswer(text: string) {
+        await expect(this.panel).toContainText('The correct answer was');
+        await expect(this.panel).not.toContainText('Congratulations');
+        await expect(this.panel).toContainText(text);
+    }
+
     async expectScore() {
         await expect(this.score).toBeVisible();
     }

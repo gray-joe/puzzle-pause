@@ -54,6 +54,7 @@ class AttemptResponse(BaseModel):
     score: int | None = None
     incorrect_guesses: int
     solved: bool
+    gave_up: bool = False
     answer: str | None = None
     question: str | None = None
     explanation: str | None = None
@@ -77,6 +78,7 @@ class ResultResponse(BaseModel):
 
 class AttemptDetailResponse(BaseModel):
     solved: bool
+    gave_up: bool = False
     score: int | None = None
     incorrect_guesses: int
     hint_used: bool

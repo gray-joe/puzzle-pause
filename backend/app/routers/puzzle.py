@@ -8,9 +8,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..auth import get_current_user, get_or_create_guest_session_id, require_user
+from ..auth import (
+    GUEST_SESSION_COOKIE,
+    get_current_user,
+    get_or_create_guest_session_id,
+    require_user,
+)
 from ..database import get_db
 from ..models import Attempt, Puzzle, PuzzleCompletionEvent
 from ..puzzle import calculate_score, check_answer, get_puzzle_date
@@ -150,6 +156,23 @@ def _parse_date_param(value: str) -> str:
         raise HTTPException(status_code=400, detail="Invalid date") from exc
 
 
+def _guest_give_up_event(
+    request: Request, puzzle_id: int, db: Session
+) -> PuzzleCompletionEvent | None:
+    guest_session_id = request.cookies.get(GUEST_SESSION_COOKIE)
+    if not guest_session_id:
+        return None
+    return (
+        db.query(PuzzleCompletionEvent)
+        .filter(
+            PuzzleCompletionEvent.puzzle_id == puzzle_id,
+            PuzzleCompletionEvent.guest_session_id == guest_session_id,
+            PuzzleCompletionEvent.gave_up == 1,
+        )
+        .first()
+    )
+
+
 def _give_up_attempt(
     *,
     request: Request,
@@ -163,30 +186,69 @@ def _give_up_attempt(
 
     if not user:
         guest_session_id = get_or_create_guest_session_id(request, response)
-        db.add(
-            PuzzleCompletionEvent(
-                puzzle_id=puzzle.id,
-                guest_session_id=guest_session_id,
-                completed_at=now,
-                source=source,
-                wrong_guess_count=None,
-                time_to_complete_seconds=None,
+        solved_event = (
+            db.query(PuzzleCompletionEvent)
+            .filter(
+                PuzzleCompletionEvent.puzzle_id == puzzle.id,
+                PuzzleCompletionEvent.guest_session_id == guest_session_id,
+                PuzzleCompletionEvent.gave_up == 0,
             )
+            .first()
         )
-        db.commit()
+        if solved_event:
+            raise HTTPException(status_code=409, detail="Puzzle already completed")
+
+        event = (
+            db.query(PuzzleCompletionEvent)
+            .filter(
+                PuzzleCompletionEvent.puzzle_id == puzzle.id,
+                PuzzleCompletionEvent.guest_session_id == guest_session_id,
+                PuzzleCompletionEvent.gave_up == 1,
+            )
+            .first()
+        )
+        if not event:
+            db.add(
+                PuzzleCompletionEvent(
+                    puzzle_id=puzzle.id,
+                    guest_session_id=guest_session_id,
+                    completed_at=now,
+                    source=source,
+                    gave_up=1,
+                    wrong_guess_count=None,
+                    time_to_complete_seconds=None,
+                )
+            )
+            try:
+                db.commit()
+            except IntegrityError:
+                db.rollback()
         return AttemptResponse(
             correct=False,
             score=0,
             incorrect_guesses=0,
-            solved=True,
+            solved=False,
+            gave_up=True,
             answer=puzzle.answer,
             question=puzzle.question,
             explanation=puzzle.explanation,
         )
 
     attempt = _ensure_attempt(user.id, puzzle.id, db)
-    if not attempt.solved:
-        attempt.solved = 1
+    if attempt.solved:
+        return AttemptResponse(
+            correct=True,
+            score=attempt.score,
+            incorrect_guesses=attempt.incorrect_guesses,
+            solved=True,
+            answer=puzzle.answer,
+            question=puzzle.question,
+            explanation=puzzle.explanation,
+            streak=_get_streak(user.id, db) if source == "daily" else None,
+        )
+
+    if not attempt.gave_up:
+        attempt.gave_up = 1
         attempt.score = 0
         attempt.source = source
         attempt.completed_at = now
@@ -196,6 +258,7 @@ def _give_up_attempt(
                 user_id=user.id,
                 completed_at=now,
                 source=source,
+                gave_up=1,
                 wrong_guess_count=attempt.incorrect_guesses,
                 time_to_complete_seconds=_seconds_between(attempt.opened_at, now),
             )
@@ -206,7 +269,8 @@ def _give_up_attempt(
         correct=False,
         score=attempt.score,
         incorrect_guesses=attempt.incorrect_guesses,
-        solved=True,
+        solved=False,
+        gave_up=True,
         answer=puzzle.answer,
         question=puzzle.question,
         explanation=puzzle.explanation,
@@ -255,6 +319,7 @@ def today(request: Request, user=Depends(get_current_user), db: Session = Depend
         attempt = _ensure_attempt(user.id, puzzle.id, db)
         data["attempt"] = {
             "solved": bool(attempt.solved),
+            "gave_up": bool(attempt.gave_up),
             "score": attempt.score,
             "incorrect_guesses": attempt.incorrect_guesses,
             "hint_used": bool(attempt.hint_used),
@@ -265,7 +330,7 @@ def today(request: Request, user=Depends(get_current_user), db: Session = Depend
                 attempt.opened_at.isoformat() if attempt.opened_at else None
             ),
         }
-        if attempt.solved:
+        if attempt.solved or attempt.gave_up:
             data["question"] = puzzle.question
             data["answer"] = puzzle.answer
             data["explanation"] = puzzle.explanation
@@ -274,6 +339,21 @@ def today(request: Request, user=Depends(get_current_user), db: Session = Depend
             revealed = items[:attempt.hint_used]
             if revealed:
                 data["revealed_hint"] = "|".join(revealed)
+    else:
+        give_up_event = _guest_give_up_event(request, puzzle.id, db)
+        if give_up_event:
+            data["attempt"] = {
+                "solved": False,
+                "gave_up": True,
+                "score": 0,
+                "incorrect_guesses": 0,
+                "hint_used": 0,
+                "completed_at": give_up_event.completed_at.isoformat(),
+                "opened_at": None,
+            }
+            data["question"] = puzzle.question
+            data["answer"] = puzzle.answer
+            data["explanation"] = puzzle.explanation
     return data
 
 
@@ -299,6 +379,17 @@ def submit_attempt(
         raise HTTPException(status_code=404, detail="Puzzle not found")
 
     if not user:
+        if _guest_give_up_event(request, puzzle.id, db):
+            return AttemptResponse(
+                correct=False,
+                score=0,
+                incorrect_guesses=0,
+                solved=False,
+                gave_up=True,
+                answer=puzzle.answer,
+                question=puzzle.question,
+                explanation=puzzle.explanation,
+            )
         correct = check_answer(body.guess, puzzle.answer)
         if correct:
             now = datetime.now(timezone.utc)
@@ -331,6 +422,18 @@ def submit_attempt(
         )
 
     attempt = _ensure_attempt(user.id, puzzle.id, db)
+
+    if attempt.gave_up:
+        return AttemptResponse(
+            correct=False,
+            score=0,
+            incorrect_guesses=attempt.incorrect_guesses,
+            solved=False,
+            gave_up=True,
+            answer=puzzle.answer,
+            question=puzzle.question,
+            explanation=puzzle.explanation,
+        )
 
     if attempt.solved:
         now = datetime.now(timezone.utc)

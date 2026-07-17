@@ -149,6 +149,7 @@ def get_completed_dates(
                 "SELECT DISTINCT p.puzzle_date FROM puzzle_completion_events e "
                 "JOIN puzzles p ON e.puzzle_id = p.id "
                 "WHERE e.guest_session_id = :guest_session_id "
+                "AND e.gave_up = 0 "
                 "AND p.puzzle_date >= :start_date AND p.puzzle_date <= :end_date"
             ),
             {

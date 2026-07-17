@@ -32,6 +32,25 @@ with engine.connect() as _conn:
             _text("ALTER TABLE attempts ADD COLUMN source TEXT NOT NULL DEFAULT 'daily'")
         )
         _conn.commit()
+    if "gave_up" not in _columns:
+        _conn.execute(
+            _text("ALTER TABLE attempts ADD COLUMN gave_up INTEGER NOT NULL DEFAULT 0")
+        )
+        _conn.commit()
+
+with engine.connect() as _conn:
+    _columns = {
+        column["name"]
+        for column in _inspect(_conn).get_columns("puzzle_completion_events")
+    }
+    if "gave_up" not in _columns:
+        _conn.execute(
+            _text(
+                "ALTER TABLE puzzle_completion_events "
+                "ADD COLUMN gave_up INTEGER NOT NULL DEFAULT 0"
+            )
+        )
+        _conn.commit()
 
 
 def _parse_dt(value):
@@ -46,7 +65,8 @@ def _backfill_archive_attempt_scores() -> None:
             _text(
                 "SELECT a.id, a.opened_at, a.completed_at, a.incorrect_guesses, a.hint_used "
                 "FROM attempts a JOIN puzzles p ON a.puzzle_id = p.id "
-                "WHERE a.solved = 1 AND COALESCE(a.score, 0) = 0 "
+                "WHERE a.solved = 1 AND COALESCE(a.gave_up, 0) = 0 "
+                "AND COALESCE(a.score, 0) = 0 "
                 "AND p.puzzle_date < date('now')"
             )
         ).fetchall()
@@ -81,6 +101,9 @@ with engine.connect() as _conn:
         "CREATE INDEX IF NOT EXISTS ix_completion_events_puzzle_completed ON puzzle_completion_events (puzzle_id, completed_at)",
         "CREATE INDEX IF NOT EXISTS ix_completion_events_user_completed ON puzzle_completion_events (user_id, completed_at)",
         "CREATE INDEX IF NOT EXISTS ix_completion_events_guest_session_completed ON puzzle_completion_events (guest_session_id, completed_at)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS ux_completion_events_guest_give_up "
+        "ON puzzle_completion_events (puzzle_id, guest_session_id) "
+        "WHERE gave_up = 1 AND guest_session_id IS NOT NULL",
     ]:
         _conn.execute(_text(_stmt))
     _conn.commit()

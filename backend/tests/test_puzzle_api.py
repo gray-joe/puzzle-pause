@@ -174,6 +174,32 @@ class TestTodayPuzzle:
         resp = client.get("/api/puzzle/today")
         assert resp.status_code == 404
 
+    def test_score_backfill_skips_give_ups(self, db, monkeypatch):
+        from app import main
+
+        puzzle = _make_puzzle(
+            db,
+            puzzle_date=(date.today() - timedelta(days=1)).isoformat(),
+        )
+        user, _ = _make_user(db)
+        attempt = Attempt(
+            user_id=user.id,
+            puzzle_id=puzzle.id,
+            solved=1,
+            gave_up=1,
+            score=0,
+            source="daily",
+        )
+        db.add(attempt)
+        db.commit()
+
+        monkeypatch.setattr(main, "engine", db.get_bind())
+        main._backfill_archive_attempt_scores()
+        db.refresh(attempt)
+
+        assert attempt.score == 0
+        assert attempt.source == "daily"
+
 
 class TestCalendarPuzzles:
     def test_returns_puzzles_in_date_range(self, client, db):
@@ -348,24 +374,81 @@ class TestAttempt:
 
         assert resp.status_code == 200
         data = resp.json()
-        assert data["solved"] is True
+        assert data["solved"] is False
+        assert data["gave_up"] is True
         assert data["score"] == 0
         assert data["answer"] == "hello"
 
         attempt = db.query(Attempt).filter(Attempt.user_id == user.id).first()
-        assert attempt.solved == 1
+        assert attempt.solved == 0
+        assert attempt.gave_up == 1
         assert attempt.score == 0
+        assert db.query(PuzzleCompletionEvent).count() == 1
+
+        repeated = client.post(
+            "/api/puzzle/give-up", json={"puzzle_id": 1}, cookies=cookies
+        )
+        assert repeated.json()["gave_up"] is True
+        assert db.query(PuzzleCompletionEvent).count() == 1
+
+        refreshed = client.get("/api/puzzle/today", cookies=cookies).json()
+        assert refreshed["attempt"]["solved"] is False
+        assert refreshed["attempt"]["gave_up"] is True
 
         resubmit = client.post(
             "/api/puzzle/attempt",
-            json={"puzzle_id": 1, "guess": "hello"},
+            json={"puzzle_id": 1, "guess": "wrong"},
             cookies=cookies,
         )
         assert resubmit.status_code == 200
+        assert resubmit.json()["correct"] is False
+        assert resubmit.json()["solved"] is False
+        assert resubmit.json()["gave_up"] is True
         assert resubmit.json()["score"] == 0
+        assert db.query(PuzzleCompletionEvent).count() == 1
 
         db.refresh(attempt)
         assert attempt.score == 0
+
+        account = client.get("/api/account", cookies=cookies).json()["stats"]
+        assert account["puzzles_solved"] == 0
+        assert account["streak"] == 0
+
+    def test_guest_give_up_survives_refresh_and_is_idempotent(self, client, db):
+        _make_puzzle(db, answer="hello")
+
+        first = client.post("/api/puzzle/give-up", json={"puzzle_id": 1})
+        second = client.post("/api/puzzle/give-up", json={"puzzle_id": 1})
+
+        assert first.json()["gave_up"] is True
+        assert second.json()["gave_up"] is True
+        assert db.query(PuzzleCompletionEvent).count() == 1
+        assert db.query(PuzzleCompletionEvent).one().gave_up == 1
+
+        refreshed = client.get("/api/puzzle/today").json()
+        assert refreshed["attempt"]["solved"] is False
+        assert refreshed["attempt"]["gave_up"] is True
+        assert refreshed["answer"] == "hello"
+
+        resubmit = client.post(
+            "/api/puzzle/attempt", json={"puzzle_id": 1, "guess": "hello"}
+        )
+        assert resubmit.json()["correct"] is False
+        assert resubmit.json()["gave_up"] is True
+        assert db.query(PuzzleCompletionEvent).count() == 1
+
+    def test_guest_cannot_give_up_after_solving(self, client, db):
+        _make_puzzle(db, answer="hello")
+        solved = client.post(
+            "/api/puzzle/attempt", json={"puzzle_id": 1, "guess": "hello"}
+        )
+
+        give_up = client.post("/api/puzzle/give-up", json={"puzzle_id": 1})
+
+        assert solved.json()["correct"] is True
+        assert give_up.status_code == 409
+        assert db.query(PuzzleCompletionEvent).count() == 1
+        assert db.query(PuzzleCompletionEvent).one().gave_up == 0
 
 
 class TestHint:

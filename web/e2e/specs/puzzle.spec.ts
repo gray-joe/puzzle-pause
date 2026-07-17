@@ -59,8 +59,8 @@ test.describe('Authenticated puzzle solving', () => {
         await puzzle.giveUp();
 
         await result.expectVisible();
-        await result.expectAnswer('2');
-        await result.expectScoreValue('0');
+        await result.expectRevealedAnswer('2');
+        await result.expectScoreValue('Gave up');
         await expect(puzzle.answerInput).not.toBeVisible();
         await expect(puzzle.submitBtn).not.toBeVisible();
 
@@ -68,11 +68,14 @@ test.describe('Authenticated puzzle solving', () => {
             data: { puzzle_id: today.id, guess: '2' },
         });
         expect(resubmit.ok()).toBeTruthy();
-        expect((await resubmit.json()).score).toBe(0);
+        const resubmitBody = await resubmit.json();
+        expect(resubmitBody.correct).toBe(false);
+        expect(resubmitBody.gave_up).toBe(true);
+        expect(resubmitBody.score).toBe(0);
 
         await page.goto('/puzzle');
         await result.expectVisible();
-        await result.expectScoreValue('0');
+        await result.expectScoreValue('Gave up');
         await expect(puzzle.answerInput).not.toBeVisible();
         await expect(puzzle.submitBtn).not.toBeVisible();
     });

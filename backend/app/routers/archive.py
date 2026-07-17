@@ -12,6 +12,7 @@ from ..models import Attempt, Puzzle, PuzzleCompletionEvent
 from ..puzzle import calculate_archive_score, check_answer, get_puzzle_date
 from ..routers.puzzle import (
     _ensure_attempt,
+    _guest_give_up_event,
     _get_puzzle_number,
     _give_up_attempt,
     _hint_items,
@@ -79,7 +80,8 @@ def list_archive(
                 "FROM puzzles p "
                 "LEFT JOIN ("
                 "  SELECT puzzle_id, 1 AS solved FROM puzzle_completion_events "
-                "  WHERE guest_session_id = :guest_session_id GROUP BY puzzle_id"
+                "  WHERE guest_session_id = :guest_session_id AND gave_up = 0 "
+                "  GROUP BY puzzle_id"
                 ") e ON e.puzzle_id = p.id "
                 "WHERE p.puzzle_date < :today "
                 "AND ((:status = 'solved' AND e.solved = 1) "
@@ -157,6 +159,7 @@ def get_archive_puzzle(
             data["solved"] = bool(attempt.solved)
             data["attempt"] = {
                 "solved": bool(attempt.solved),
+                "gave_up": bool(attempt.gave_up),
                 "score": attempt.score,
                 "incorrect_guesses": attempt.incorrect_guesses,
                 "hint_used": bool(attempt.hint_used),
@@ -167,10 +170,26 @@ def get_archive_puzzle(
                     attempt.opened_at.isoformat() if attempt.opened_at else None
                 ),
             }
-            if attempt.solved:
+            if attempt.solved or attempt.gave_up:
                 data["question"] = puzzle.question
                 data["answer"] = puzzle.answer
                 data["explanation"] = puzzle.explanation
+    else:
+        give_up_event = _guest_give_up_event(request, puzzle.id, db)
+        if give_up_event:
+            data["solved"] = False
+            data["attempt"] = {
+                "solved": False,
+                "gave_up": True,
+                "score": 0,
+                "incorrect_guesses": 0,
+                "hint_used": 0,
+                "completed_at": give_up_event.completed_at.isoformat(),
+                "opened_at": None,
+            }
+            data["question"] = puzzle.question
+            data["answer"] = puzzle.answer
+            data["explanation"] = puzzle.explanation
 
     return data
 
@@ -199,6 +218,17 @@ def archive_attempt(
 
     # Guest flow: check answer without persisting
     if not user:
+        if _guest_give_up_event(request, puzzle.id, db):
+            return AttemptResponse(
+                correct=False,
+                score=0,
+                incorrect_guesses=0,
+                solved=False,
+                gave_up=True,
+                answer=puzzle.answer,
+                question=puzzle.question,
+                explanation=puzzle.explanation,
+            )
         correct = check_answer(body.guess, puzzle.answer)
         if correct:
             now = datetime.now(timezone.utc)
@@ -231,6 +261,18 @@ def archive_attempt(
         )
 
     attempt = _ensure_attempt(user.id, puzzle.id, db)
+
+    if attempt.gave_up:
+        return AttemptResponse(
+            correct=False,
+            score=0,
+            incorrect_guesses=attempt.incorrect_guesses,
+            solved=False,
+            gave_up=True,
+            answer=puzzle.answer,
+            question=puzzle.question,
+            explanation=puzzle.explanation,
+        )
 
     if attempt.solved:
         now = datetime.now(timezone.utc)

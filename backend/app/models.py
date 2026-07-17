@@ -8,6 +8,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -102,6 +103,9 @@ class Attempt(Base):
     hint_used: Mapped[int] = mapped_column(Integer, default=0)
     score: Mapped[int | None] = mapped_column(Integer)
     solved: Mapped[int] = mapped_column(Integer, default=0)
+    gave_up: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
     source: Mapped[str] = mapped_column(String, default="daily", nullable=False)
 
     user: Mapped["User"] = relationship(back_populates="attempts")
@@ -120,6 +124,13 @@ class PuzzleCompletionEvent(Base):
             "guest_session_id",
             "completed_at",
         ),
+        Index(
+            "ux_completion_events_guest_give_up",
+            "puzzle_id",
+            "guest_session_id",
+            unique=True,
+            sqlite_where=text("gave_up = 1 AND guest_session_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -132,6 +143,9 @@ class PuzzleCompletionEvent(Base):
         DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
     )
     source: Mapped[str] = mapped_column(String, nullable=False)
+    gave_up: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
     wrong_guess_count: Mapped[int | None] = mapped_column(Integer)
     time_to_complete_seconds: Mapped[int | None] = mapped_column(Integer)
 

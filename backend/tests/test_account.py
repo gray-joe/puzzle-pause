@@ -193,6 +193,36 @@ class TestGetCompletedDates:
         assert resp.status_code == 200
         assert resp.json() == {"completed_dates": [puzzle.puzzle_date]}
 
+    def test_excludes_guest_give_up_dates(self, client, db):
+        puzzle = Puzzle(
+            puzzle_date=(date.today() - timedelta(days=1)).isoformat(),
+            puzzle_type="word",
+            puzzle_name="P",
+            question="Q",
+            answer="A",
+        )
+        db.add(puzzle)
+        db.flush()
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                guest_session_id="guest-123",
+                completed_at=datetime.now(timezone.utc),
+                source="daily",
+                gave_up=1,
+            )
+        )
+        db.commit()
+
+        resp = client.get(
+            "/api/account/completed-dates",
+            params={"start": puzzle.puzzle_date, "end": puzzle.puzzle_date},
+            cookies={"guest_session": "guest-123"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json() == {"completed_dates": []}
+
     def test_returns_empty_without_completion_identity(self, client):
         today = date.today().isoformat()
         resp = client.get(
