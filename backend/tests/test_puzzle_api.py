@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from app.auth import create_jwt, generate_token
-from app.models import Puzzle, PuzzleCompletionEvent
+from app.models import Attempt, Puzzle, PuzzleCompletionEvent
 from app.models import Session as SessionModel
 from app.models import User
 
@@ -338,6 +338,34 @@ class TestAttempt:
         assert len(events) == 2
         assert all(e.source == "daily" for e in events)
         assert all(e.user_id is not None for e in events)
+
+    def test_give_up_records_zero_and_locks_attempt(self, client, db):
+        _make_puzzle(db, answer="hello")
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+
+        resp = client.post("/api/puzzle/give-up", json={"puzzle_id": 1}, cookies=cookies)
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["solved"] is True
+        assert data["score"] == 0
+        assert data["answer"] == "hello"
+
+        attempt = db.query(Attempt).filter(Attempt.user_id == user.id).first()
+        assert attempt.solved == 1
+        assert attempt.score == 0
+
+        resubmit = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": 1, "guess": "hello"},
+            cookies=cookies,
+        )
+        assert resubmit.status_code == 200
+        assert resubmit.json()["score"] == 0
+
+        db.refresh(attempt)
+        assert attempt.score == 0
 
 
 class TestHint:

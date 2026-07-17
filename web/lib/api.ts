@@ -263,6 +263,12 @@ export const api = {
                 body: JSON.stringify({ puzzle_id }),
             }),
 
+        giveUp: (puzzle_id: number) =>
+            apiFetch<AttemptResult>('/api/puzzle/give-up', {
+                method: 'POST',
+                body: JSON.stringify({ puzzle_id }),
+            }),
+
         result: (cookieHeader?: string) =>
             apiFetch<{ puzzle: Puzzle; attempt: AttemptDetail }>(
                 '/api/puzzle/result',
@@ -295,6 +301,11 @@ export const api = {
 
         hint: (puzzle_id: number) =>
             apiFetch<{ hint: string; total_hints: number }>(`/api/archive/${puzzle_id}/hint`, {
+                method: 'POST',
+            }),
+
+        giveUp: (puzzle_id: number) =>
+            apiFetch<AttemptResult>(`/api/archive/${puzzle_id}/give-up`, {
                 method: 'POST',
             }),
 

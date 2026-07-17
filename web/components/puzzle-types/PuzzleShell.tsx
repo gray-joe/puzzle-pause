@@ -31,6 +31,7 @@ interface Props {
         penalties: { incorrect_guesses: number; hints_used: number }
     ) => Promise<AttemptResult>;
     onHint: () => Promise<{ hint: string; total_hints: number }>;
+    onGiveUp: () => Promise<AttemptResult>;
 }
 
 export default function PuzzleShell({
@@ -40,6 +41,7 @@ export default function PuzzleShell({
     isLoggedIn,
     onAttempt,
     onHint,
+    onGiveUp,
 }: Props) {
     const [attempt, setAttempt] = useState<AttemptDetail | undefined>(initialAttempt);
     const [feedback, setFeedback] = useState<string>('');
@@ -115,6 +117,33 @@ export default function PuzzleShell({
             }
         } catch (err: any) {
             setFeedback(err.message ?? 'No hint available');
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function giveUp() {
+        if (solved || loading) return;
+        setLoading(true);
+        setFeedback('');
+        try {
+            const result = await onGiveUp();
+            if (result.solved) {
+                setAttempt({
+                    solved: true,
+                    score: result.score ?? 0,
+                    incorrect_guesses: incorrectGuesses,
+                    hint_used: isMultiHint ? hintsRevealed : hintUsed ? 1 : 0,
+                    completed_at: new Date().toISOString(),
+                    opened_at: openedAt,
+                });
+                setAnswer(result.answer ?? null);
+                if (result.question) setPuzzleQuestion(result.question);
+                setExplanation(result.explanation ?? null);
+                setStreak(result.streak ?? null);
+            }
+        } catch (err: any) {
+            setFeedback(err.message ?? 'Error giving up');
         } finally {
             setLoading(false);
         }
@@ -207,6 +236,16 @@ export default function PuzzleShell({
                         Hint: {hint}
                     </div>
                 )}
+                <button
+                    className="action-btn secondary"
+                    onClick={giveUp}
+                    disabled={loading}
+                    data-testid="give-up-btn"
+                >
+                    <span className="gt">&gt;</span>
+                    Give up
+                    <span className="muted"> (score 0)</span>
+                </button>
             </div>
 
             {feedback && (

@@ -277,6 +277,31 @@ class TestArchiveAttempt:
         assert len(events) == 2
         assert all(e.source == "archive" for e in events)
 
+    def test_give_up_records_zero_and_locks_attempt(self, client, db):
+        puzzle = _make_puzzle(db, days_ago=1, answer="hello")
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+
+        resp = client.post(f"/api/archive/{puzzle.id}/give-up", cookies=cookies)
+
+        assert resp.status_code == 200
+        assert resp.json()["solved"] is True
+        assert resp.json()["score"] == 0
+        assert resp.json()["answer"] == "hello"
+
+        attempt = db.query(Attempt).filter(Attempt.user_id == user.id).first()
+        assert attempt.solved == 1
+        assert attempt.score == 0
+        assert attempt.source == "archive"
+
+        resubmit = client.post(
+            f"/api/archive/{puzzle.id}/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "hello"},
+            cookies=cookies,
+        )
+        assert resubmit.status_code == 200
+        assert resubmit.json()["score"] == 0
+
     def test_archive_score_has_ten_point_deduction(self, client, db):
         puzzle = _make_puzzle(db, days_ago=1, answer="hello")
         user, jwt = _make_user(db)

@@ -42,4 +42,38 @@ test.describe('Authenticated puzzle solving', () => {
         await expect(puzzle.hintBtn).toBeVisible();
         await expect(puzzle.hintBtn).toContainText('(-10 pts)');
     });
+
+    test('Giving up records zero and prevents resubmission', async ({ page }) => {
+        const puzzle = new PuzzlePage(page);
+        const result = new ResultPage(page);
+        const email = `give-up-${Date.now()}@example.com`;
+
+        await loginAs(page, email);
+
+        const todayResponse = await page.request.get('/api/puzzle/today');
+        expect(todayResponse.ok()).toBeTruthy();
+        const today = await todayResponse.json();
+
+        await page.goto('/puzzle');
+        await expect(puzzle.giveUpBtn).toBeVisible();
+        await puzzle.giveUp();
+
+        await result.expectVisible();
+        await result.expectAnswer('2');
+        await result.expectScoreValue('0');
+        await expect(puzzle.answerInput).not.toBeVisible();
+        await expect(puzzle.submitBtn).not.toBeVisible();
+
+        const resubmit = await page.request.post('/api/puzzle/attempt', {
+            data: { puzzle_id: today.id, guess: '2' },
+        });
+        expect(resubmit.ok()).toBeTruthy();
+        expect((await resubmit.json()).score).toBe(0);
+
+        await page.goto('/puzzle');
+        await result.expectVisible();
+        await result.expectScoreValue('0');
+        await expect(puzzle.answerInput).not.toBeVisible();
+        await expect(puzzle.submitBtn).not.toBeVisible();
+    });
 });

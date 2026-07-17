@@ -10,7 +10,13 @@ from ..auth import GUEST_SESSION_COOKIE, get_current_user, get_or_create_guest_s
 from ..database import get_db
 from ..models import Attempt, Puzzle, PuzzleCompletionEvent
 from ..puzzle import calculate_archive_score, check_answer, get_puzzle_date
-from ..routers.puzzle import _ensure_attempt, _get_puzzle_number, _hint_items, _puzzle_to_response
+from ..routers.puzzle import (
+    _ensure_attempt,
+    _get_puzzle_number,
+    _give_up_attempt,
+    _hint_items,
+    _puzzle_to_response,
+)
 from ..schemas import AttemptRequest, AttemptResponse, HintResponse
 
 router = APIRouter(prefix="/archive", tags=["archive"])
@@ -291,6 +297,37 @@ def archive_attempt(
             incorrect_guesses=attempt.incorrect_guesses,
             solved=False,
         )
+
+
+@router.post("/{puzzle_id}/give-up")
+@limiter.limit("5/minute")
+def archive_give_up(
+    request: Request,
+    response: Response,
+    puzzle_id: int,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    puzzle_date = get_puzzle_date()
+    puzzle = (
+        db.query(Puzzle)
+        .filter(
+            Puzzle.id == puzzle_id,
+            Puzzle.puzzle_date < puzzle_date,
+        )
+        .first()
+    )
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="Puzzle not found")
+
+    return _give_up_attempt(
+        request=request,
+        response=response,
+        puzzle=puzzle,
+        source="archive",
+        user=user,
+        db=db,
+    )
 
 
 @router.post("/{puzzle_id}/hint")

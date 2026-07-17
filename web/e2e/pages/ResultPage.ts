@@ -43,6 +43,10 @@ export class ResultPage {
         await expect(this.score).toBeVisible();
     }
 
+    async expectScoreValue(score: string) {
+        await expect(this.score).toHaveText(score);
+    }
+
     async expectGuestCTAs() {
         await expect(this.panel).toContainText('Log in to save your scores');
         await expect(this.shareBtn).toBeVisible();

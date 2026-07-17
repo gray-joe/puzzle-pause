@@ -150,6 +150,70 @@ def _parse_date_param(value: str) -> str:
         raise HTTPException(status_code=400, detail="Invalid date") from exc
 
 
+def _give_up_attempt(
+    *,
+    request: Request,
+    response: Response,
+    puzzle: Puzzle,
+    source: str,
+    user,
+    db: Session,
+) -> AttemptResponse:
+    now = datetime.now(timezone.utc)
+
+    if not user:
+        guest_session_id = get_or_create_guest_session_id(request, response)
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                guest_session_id=guest_session_id,
+                completed_at=now,
+                source=source,
+                wrong_guess_count=None,
+                time_to_complete_seconds=None,
+            )
+        )
+        db.commit()
+        return AttemptResponse(
+            correct=False,
+            score=0,
+            incorrect_guesses=0,
+            solved=True,
+            answer=puzzle.answer,
+            question=puzzle.question,
+            explanation=puzzle.explanation,
+        )
+
+    attempt = _ensure_attempt(user.id, puzzle.id, db)
+    if not attempt.solved:
+        attempt.solved = 1
+        attempt.score = 0
+        attempt.source = source
+        attempt.completed_at = now
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=puzzle.id,
+                user_id=user.id,
+                completed_at=now,
+                source=source,
+                wrong_guess_count=attempt.incorrect_guesses,
+                time_to_complete_seconds=_seconds_between(attempt.opened_at, now),
+            )
+        )
+        db.commit()
+
+    return AttemptResponse(
+        correct=False,
+        score=attempt.score,
+        incorrect_guesses=attempt.incorrect_guesses,
+        solved=True,
+        answer=puzzle.answer,
+        question=puzzle.question,
+        explanation=puzzle.explanation,
+        streak=_get_streak(user.id, db) if source == "daily" else None,
+    )
+
+
 @router.get("/calendar")
 @limiter.limit("60/minute")
 def calendar(
@@ -336,6 +400,37 @@ def submit_attempt(
             incorrect_guesses=attempt.incorrect_guesses,
             solved=False,
         )
+
+
+@router.post("/give-up")
+@limiter.limit("5/minute")
+def give_up(
+    request: Request,
+    response: Response,
+    body: HintRequest,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    puzzle_date = get_puzzle_date()
+    puzzle = (
+        db.query(Puzzle)
+        .filter(
+            Puzzle.id == body.puzzle_id,
+            Puzzle.puzzle_date == puzzle_date,
+        )
+        .first()
+    )
+    if not puzzle:
+        raise HTTPException(status_code=404, detail="Puzzle not found")
+
+    return _give_up_attempt(
+        request=request,
+        response=response,
+        puzzle=puzzle,
+        source="daily",
+        user=user,
+        db=db,
+    )
 
 
 @router.post("/hint")

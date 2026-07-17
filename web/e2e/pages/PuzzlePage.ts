@@ -9,6 +9,7 @@ export class PuzzlePage {
     readonly answerInput: Locator;
     readonly submitBtn: Locator;
     readonly hintBtn: Locator;
+    readonly giveUpBtn: Locator;
     readonly hint: Locator;
     readonly feedback: Locator;
 
@@ -21,6 +22,7 @@ export class PuzzlePage {
         this.answerInput = page.getByTestId('answer-input');
         this.submitBtn = page.getByTestId('submit-btn');
         this.hintBtn = page.getByTestId('hint-btn');
+        this.giveUpBtn = page.getByTestId('give-up-btn');
         this.hint = page.getByTestId('hint');
         this.feedback = page.getByTestId('puzzle-feedback');
     }
@@ -32,6 +34,10 @@ export class PuzzlePage {
 
     async revealHint() {
         await this.hintBtn.click();
+    }
+
+    async giveUp() {
+        await this.giveUpBtn.click();
     }
 
     async expectQuestion(text: string) {
