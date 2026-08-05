@@ -269,6 +269,25 @@ class TestAttempt:
         assert data["correct"] is False
         assert data["incorrect_guesses"] == 1
 
+    def test_countdown_compares_equivalent_numbers(self, client, db):
+        puzzle = Puzzle(
+            puzzle_date=date.today().isoformat(),
+            puzzle_type="countdown",
+            puzzle_name="Countdown",
+            question='{"prompt":"Reach it","target":306,"numbers":[300,6],"operators":["+"]}',
+            answer="306.0",
+        )
+        db.add(puzzle)
+        db.commit()
+
+        resp = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "306"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["correct"] is True
+
     def test_guest_can_attempt(self, client, db):
         _make_puzzle(db, answer="hello", explanation="The clue asks for a greeting.")
         resp = client.post(

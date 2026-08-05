@@ -221,11 +221,16 @@ describe('apiFetch', () => {
         mockFetch.mockResolvedValueOnce({
             ok: true,
             status: 200,
-            json: () => Promise.resolve({ completed_dates: [] }),
+            json: () => Promise.resolve({ completed_dates: [], gave_up_dates: [] }),
         });
 
-        await api.account.completedDates('2026-06-01', '2026-06-30', 'session=abc123');
+        const result = await api.account.completedDates(
+            '2026-06-01',
+            '2026-06-30',
+            'session=abc123'
+        );
 
+        expect(result).toEqual({ completed_dates: [], gave_up_dates: [] });
         expect(mockFetch).toHaveBeenCalledWith(
             '/api/account/completed-dates?start=2026-06-01&end=2026-06-30',
             expect.objectContaining({ credentials: 'include' })

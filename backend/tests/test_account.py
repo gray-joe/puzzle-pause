@@ -139,7 +139,10 @@ class TestGetCompletedDates:
         )
 
         assert resp.status_code == 200
-        assert resp.json() == {"completed_dates": [puzzle.puzzle_date]}
+        assert resp.json() == {
+            "completed_dates": [puzzle.puzzle_date],
+            "gave_up_dates": [],
+        }
 
     def test_excludes_unsolved_attempts(self, client, db):
         user, jwt = _make_user(db)
@@ -162,7 +165,33 @@ class TestGetCompletedDates:
         )
 
         assert resp.status_code == 200
-        assert resp.json() == {"completed_dates": []}
+        assert resp.json() == {"completed_dates": [], "gave_up_dates": []}
+
+    def test_returns_give_up_attempt_dates_for_user(self, client, db):
+        user, jwt = _make_user(db)
+        puzzle = Puzzle(
+            puzzle_date=(date.today() - timedelta(days=1)).isoformat(),
+            puzzle_type="word",
+            puzzle_name="P",
+            question="Q",
+            answer="A",
+        )
+        db.add(puzzle)
+        db.flush()
+        db.add(Attempt(user_id=user.id, puzzle_id=puzzle.id, gave_up=1, score=0))
+        db.commit()
+
+        resp = client.get(
+            "/api/account/completed-dates",
+            params={"start": puzzle.puzzle_date, "end": puzzle.puzzle_date},
+            cookies={"session": jwt},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json() == {
+            "completed_dates": [],
+            "gave_up_dates": [puzzle.puzzle_date],
+        }
 
     def test_returns_guest_completion_dates(self, client, db):
         puzzle = Puzzle(
@@ -191,9 +220,12 @@ class TestGetCompletedDates:
         )
 
         assert resp.status_code == 200
-        assert resp.json() == {"completed_dates": [puzzle.puzzle_date]}
+        assert resp.json() == {
+            "completed_dates": [puzzle.puzzle_date],
+            "gave_up_dates": [],
+        }
 
-    def test_excludes_guest_give_up_dates(self, client, db):
+    def test_returns_guest_give_up_dates(self, client, db):
         puzzle = Puzzle(
             puzzle_date=(date.today() - timedelta(days=1)).isoformat(),
             puzzle_type="word",
@@ -221,7 +253,10 @@ class TestGetCompletedDates:
         )
 
         assert resp.status_code == 200
-        assert resp.json() == {"completed_dates": []}
+        assert resp.json() == {
+            "completed_dates": [],
+            "gave_up_dates": [puzzle.puzzle_date],
+        }
 
     def test_returns_empty_without_completion_identity(self, client):
         today = date.today().isoformat()
@@ -231,7 +266,7 @@ class TestGetCompletedDates:
         )
 
         assert resp.status_code == 200
-        assert resp.json() == {"completed_dates": []}
+        assert resp.json() == {"completed_dates": [], "gave_up_dates": []}
 
 
 class TestUpdateAccount:

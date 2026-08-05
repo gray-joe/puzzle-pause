@@ -78,5 +78,14 @@ test.describe('Authenticated puzzle solving', () => {
         await result.expectScoreValue('Gave up');
         await expect(puzzle.answerInput).not.toBeVisible();
         await expect(puzzle.submitBtn).not.toBeVisible();
+
+        await page.goto('/');
+        const gaveUpDay = page.getByTestId('landing-gave-up-day');
+        await expect(gaveUpDay).toBeVisible();
+        await expect(gaveUpDay).toHaveCSS('background-color', 'rgb(255, 159, 67)');
+        await expect(page.getByTestId('landing-selected-day')).toHaveAttribute(
+            'aria-label',
+            `${today.puzzle_date}, gave up`
+        );
     });
 });

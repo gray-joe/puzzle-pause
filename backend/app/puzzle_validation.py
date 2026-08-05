@@ -187,8 +187,12 @@ def _validate_countdown(question: str, answer: str) -> None:
         raise ValueError("countdown question 'numbers' must be a non-empty array")
     if not isinstance(data["target"], (int, float)):
         raise ValueError("countdown question 'target' must be a number")
-    if not re.fullmatch(r"-?\d+(\.\d+)?", answer.strip()):
+    if not re.fullmatch(
+        r"-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", answer.strip()
+    ):
         raise ValueError("countdown answer must be a number")
+    if float(answer) != float(data["target"]):
+        raise ValueError("countdown answer must match the target")
 
 
 def _validate_scrabble(question: str, answer: str) -> None:

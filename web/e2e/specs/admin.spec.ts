@@ -379,7 +379,7 @@ test.describe('Admin puzzle CRUD', () => {
             await expect(page.getByTestId('countdown-builder')).toBeVisible();
             await page.getByTestId('countdown-target').fill('306');
             await page.getByTestId('countdown-numbers').fill('75,50,6,3,2,1');
-            await page.getByTestId('countdown-answer').fill('306');
+            await expect(page.getByTestId('countdown-answer')).toHaveValue('306');
             await saveAndExpectPuzzle(page, 'E2E Builder Countdown', '2099-11-09');
         });
 

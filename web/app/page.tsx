@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { api, type AccountStats, type Puzzle } from '@/lib/api';
+import { api, type AccountStats, type CompletedDatesResponse, type Puzzle } from '@/lib/api';
 import { getCookieHeader, getUser } from '@/lib/auth';
 import Nav from '@/components/ui/Nav';
 
@@ -16,6 +16,7 @@ type CalendarDay = {
     muted: boolean;
     selected: boolean;
     completed: boolean;
+    gaveUp: boolean;
     future: boolean;
 };
 
@@ -71,6 +72,7 @@ function buildCalendarDays(
     calendarMonthDate: Date,
     todayDate: Date,
     completedDates: string[],
+    gaveUpDates: string[],
     puzzleHrefs: Record<string, string>
 ): CalendarDay[] {
     const year = calendarMonthDate.getFullYear();
@@ -85,6 +87,7 @@ function buildCalendarDays(
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const daysInPreviousMonth = new Date(year, month, 0).getDate();
     const completedDateSet = new Set(completedDates);
+    const gaveUpDateSet = new Set(gaveUpDates);
     const days: CalendarDay[] = [];
 
     for (let index = firstDay - 1; index >= 0; index -= 1) {
@@ -95,6 +98,7 @@ function buildCalendarDays(
             muted: true,
             selected: false,
             completed: false,
+            gaveUp: false,
             future: dayDate > selectedDate,
         });
     }
@@ -102,13 +106,15 @@ function buildCalendarDays(
     for (let day = 1; day <= daysInMonth; day += 1) {
         const dayDate = new Date(year, month, day);
         const dateString = formatDate(dayDate);
+        const completed = completedDateSet.has(dateString);
         days.push({
             day,
             date: dateString,
             href: dayDate <= selectedDate ? puzzleHrefs[dateString] : undefined,
             muted: false,
             selected: dateString === selectedDateString,
-            completed: completedDateSet.has(dateString),
+            completed,
+            gaveUp: !completed && gaveUpDateSet.has(dateString),
             future: dayDate > selectedDate,
         });
     }
@@ -122,6 +128,7 @@ function buildCalendarDays(
             muted: true,
             selected: false,
             completed: false,
+            gaveUp: false,
             future: dayDate > selectedDate,
         });
     }
@@ -158,14 +165,16 @@ async function getAccountStats(cookieHeader?: string): Promise<AccountStats | nu
     }
 }
 
-async function getCompletedDates(cookieHeader: string | undefined, calendarDate: Date): Promise<string[]> {
+async function getCalendarDates(
+    cookieHeader: string | undefined,
+    calendarDate: Date
+): Promise<CompletedDatesResponse> {
     const { start, end } = monthRange(calendarDate);
 
     try {
-        const response = await api.account.completedDates(start, end, cookieHeader);
-        return response.completed_dates;
+        return await api.account.completedDates(start, end, cookieHeader);
     } catch {
-        return [];
+        return { completed_dates: [], gave_up_dates: [] };
     }
 }
 
@@ -219,11 +228,17 @@ export default async function Home({
     const monthName = calendarDate.toLocaleString('en', { month: 'long', year: 'numeric' });
     const previousMonthHref = monthHref(addMonths(calendarDate, -1), todayDate);
     const nextMonthHref = monthHref(addMonths(calendarDate, 1), todayDate);
-    const [completedDates, puzzleHrefs] = await Promise.all([
-        getCompletedDates(cookieHeader, calendarDate),
+    const [calendarDates, puzzleHrefs] = await Promise.all([
+        getCalendarDates(cookieHeader, calendarDate),
         getCalendarPuzzleHrefs(cookieHeader, calendarDate, puzzle),
     ]);
-    const calendarDays = buildCalendarDays(calendarDate, todayDate, completedDates, puzzleHrefs);
+    const calendarDays = buildCalendarDays(
+        calendarDate,
+        todayDate,
+        calendarDates.completed_dates,
+        calendarDates.gave_up_dates,
+        puzzleHrefs
+    );
 
     return (
         <>
@@ -260,9 +275,9 @@ export default async function Home({
                         {calendarDays.map((day, index) => (
                             <div
                                 key={`${day.date}-${index}`}
-                                className={`landing-calendar-day${day.muted ? ' muted' : ''}${day.selected ? ' selected' : ''}${day.completed ? ' completed' : ''}${!day.muted && !day.completed && !day.future ? ' incomplete' : ''}${day.future ? ' future' : ''}`}
+                                className={`landing-calendar-day${day.muted ? ' muted' : ''}${day.selected ? ' selected' : ''}${day.completed ? ' completed' : ''}${day.gaveUp ? ' gave-up' : ''}${!day.muted && !day.completed && !day.gaveUp && !day.future ? ' incomplete' : ''}${day.future ? ' future' : ''}`}
                                 aria-current={day.selected ? 'date' : undefined}
-                                aria-label={`${day.date}${day.completed ? ', completed' : !day.muted && !day.future ? ', not completed' : ''}${day.future ? ', future' : ''}`}
+                                aria-label={`${day.date}${day.completed ? ', completed' : day.gaveUp ? ', gave up' : !day.muted && !day.future ? ', not completed' : ''}${day.future ? ', future' : ''}`}
                                 data-testid={day.selected ? 'landing-selected-day' : undefined}
                             >
                                 {day.href ? (
@@ -272,7 +287,9 @@ export default async function Home({
                                             data-testid={
                                                 day.completed
                                                     ? 'landing-completed-day'
-                                                    : 'landing-incomplete-day'
+                                                    : day.gaveUp
+                                                      ? 'landing-gave-up-day'
+                                                      : 'landing-incomplete-day'
                                             }
                                         >
                                             {day.day}
@@ -285,7 +302,9 @@ export default async function Home({
                                             data-testid={
                                                 day.completed
                                                     ? 'landing-completed-day'
-                                                    : 'landing-incomplete-day'
+                                                    : day.gaveUp
+                                                      ? 'landing-gave-up-day'
+                                                      : 'landing-incomplete-day'
                                             }
                                         >
                                             {day.day}

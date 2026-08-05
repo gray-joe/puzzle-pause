@@ -20,6 +20,11 @@ function buildQuestion(prompt: string, target: string, numbers: string, operator
     });
 }
 
+function normaliseTarget(target: string) {
+    const value = Number(target);
+    return Number.isFinite(value) ? String(value) : target;
+}
+
 function parseQuestion(question: string) {
     try {
         const parsed = JSON.parse(question) as {
@@ -40,12 +45,11 @@ function parseQuestion(question: string) {
     }
 }
 
-export default function CountdownBuilder({ question, answer, onChange }: Props) {
+export default function CountdownBuilder({ question, onChange }: Props) {
     const [prompt, setPrompt] = useState('Reach the target using the numbers and operators below:');
     const [target, setTarget] = useState('306');
     const [numbers, setNumbers] = useState('75,50,6,3,2,1');
     const [operators, setOperators] = useState<string[]>(['+', '-', '×', '÷']);
-    const [answerValue, setAnswerValue] = useState(answer);
     const [initialised, setInitialised] = useState(false);
 
     useEffect(() => {
@@ -57,23 +61,26 @@ export default function CountdownBuilder({ question, answer, onChange }: Props) 
         const nextTarget = parsed?.target || '306';
         const nextNumbers = parsed?.numbers || '75,50,6,3,2,1';
         const nextOperators = parsed?.operators ?? ['+', '-', '×', '÷'];
-        const nextAnswer = answer || nextTarget;
         setPrompt(nextPrompt);
         setTarget(nextTarget);
         setNumbers(nextNumbers);
         setOperators(nextOperators);
-        setAnswerValue(nextAnswer);
-        onChange(buildQuestion(nextPrompt, nextTarget, nextNumbers, nextOperators), nextAnswer);
-    }, [answer, initialised, onChange, question]);
+        onChange(
+            buildQuestion(nextPrompt, nextTarget, nextNumbers, nextOperators),
+            normaliseTarget(nextTarget)
+        );
+    }, [initialised, onChange, question]);
 
     function emit(
         nextPrompt = prompt,
         nextTarget = target,
         nextNumbers = numbers,
-        nextOperators = operators,
-        nextAnswer = answerValue
+        nextOperators = operators
     ) {
-        onChange(buildQuestion(nextPrompt, nextTarget, nextNumbers, nextOperators), nextAnswer);
+        onChange(
+            buildQuestion(nextPrompt, nextTarget, nextNumbers, nextOperators),
+            normaliseTarget(nextTarget)
+        );
     }
 
     function toggleOperator(operator: string) {
@@ -81,7 +88,7 @@ export default function CountdownBuilder({ question, answer, onChange }: Props) 
             ? operators.filter((op) => op !== operator)
             : [...operators, operator];
         setOperators(next);
-        emit(prompt, target, numbers, next, answerValue);
+        emit(prompt, target, numbers, next);
     }
 
     return (
@@ -137,11 +144,8 @@ export default function CountdownBuilder({ question, answer, onChange }: Props) 
                 data-testid="countdown-answer"
                 required
                 inputMode="numeric"
-                value={answerValue}
-                onChange={(e) => {
-                    setAnswerValue(e.target.value);
-                    emit(prompt, target, numbers, operators, e.target.value);
-                }}
+                value={normaliseTarget(target)}
+                readOnly
                 placeholder="306"
             />
         </div>

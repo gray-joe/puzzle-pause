@@ -67,6 +67,15 @@ def _strip_sensitive(question: str, puzzle_type: str) -> str:
         return question
 
 
+def _check_puzzle_answer(puzzle: Puzzle, guess: str) -> bool:
+    if puzzle.puzzle_type == "countdown":
+        try:
+            return float(guess) == float(puzzle.answer)
+        except ValueError:
+            return False
+    return check_answer(guess, puzzle.answer)
+
+
 def _hint_items(puzzle_type: str, question: str, hint: str | None) -> list[str]:
     """Return the ordered list of hintable items for a puzzle type."""
     try:
@@ -390,7 +399,7 @@ def submit_attempt(
                 question=puzzle.question,
                 explanation=puzzle.explanation,
             )
-        correct = check_answer(body.guess, puzzle.answer)
+        correct = _check_puzzle_answer(puzzle, body.guess)
         if correct:
             now = datetime.now(timezone.utc)
             score = calculate_score(
@@ -461,7 +470,7 @@ def submit_attempt(
             streak=_get_streak(user.id, db),
         )
 
-    correct = check_answer(body.guess, puzzle.answer)
+    correct = _check_puzzle_answer(puzzle, body.guess)
 
     if correct:
         now = datetime.now(timezone.utc)

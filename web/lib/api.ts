@@ -84,7 +84,10 @@ export type AccountStats = {
 
 export type Account = User & { stats: AccountStats };
 
-export type CompletedDatesResponse = { completed_dates: string[] };
+export type CompletedDatesResponse = {
+    completed_dates: string[];
+    gave_up_dates: string[];
+};
 
 export type CalendarPuzzle = Pick<Puzzle, 'id' | 'puzzle_date'>;
 

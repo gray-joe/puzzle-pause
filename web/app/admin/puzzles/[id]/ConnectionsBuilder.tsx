@@ -10,7 +10,12 @@ interface Props {
 
 type Group = {
     category: string;
-    items: string[];
+    items: GroupItem[];
+};
+
+type GroupItem = {
+    id: number;
+    value: string;
 };
 
 type ConnectionsQuestion = {
@@ -24,8 +29,20 @@ const MIN_ITEMS_PER_GROUP = 2;
 
 function defaultGroups(): Group[] {
     return [
-        { category: 'Group 1', items: ['Item A', 'Item B'] },
-        { category: 'Group 2', items: ['Item C', 'Item D'] },
+        {
+            category: 'Group 1',
+            items: [
+                { id: 0, value: 'Item A' },
+                { id: 1, value: 'Item B' },
+            ],
+        },
+        {
+            category: 'Group 2',
+            items: [
+                { id: 2, value: 'Item C' },
+                { id: 3, value: 'Item D' },
+            ],
+        },
     ];
 }
 
@@ -86,28 +103,32 @@ function parseGroups(question: string, answer: string) {
     const answerGroups = parseAnswer(answer, parsed.items.length, parsed.categories.length);
     const groups = parsed.categories.map((category, categoryIndex) => ({
         category,
-        items: answerGroups[categoryIndex].map((itemIndex) => parsed.items[itemIndex] ?? ''),
+        items: answerGroups[categoryIndex].map((itemIndex) => ({
+            id: itemIndex,
+            value: parsed.items[itemIndex] ?? '',
+        })),
     }));
 
     return { prompt: parsed.prompt, groups };
 }
 
 function buildQuestion(prompt: string, groups: Group[]) {
+    const items = groups
+        .flatMap((group) => group.items)
+        .sort((a, b) => a.id - b.id)
+        .map((item) => item.value.trim());
     return JSON.stringify({
         prompt: prompt.trim() || 'Find the groups:',
-        items: groups.flatMap((group) => group.items.map((item) => item.trim())),
+        items,
         categories: groups.map((group) => group.category.trim()),
     });
 }
 
 function buildAnswer(groups: Group[]) {
-    let start = 0;
+    const orderedItems = groups.flatMap((group) => group.items).sort((a, b) => a.id - b.id);
+    const indexById = new Map(orderedItems.map((item, index) => [item.id, index]));
     return groups
-        .map((group) => {
-            const indices = group.items.map((_, itemIndex) => start + itemIndex);
-            start += group.items.length;
-            return indices.join(',');
-        })
+        .map((group) => group.items.map((item) => indexById.get(item.id)).join(','))
         .join('|');
 }
 
@@ -149,7 +170,7 @@ export default function ConnectionsBuilder({ question, answer, onChange }: Props
                 ? {
                       ...group,
                       items: group.items.map((item, currentItemIndex) =>
-                          currentItemIndex === itemIndex ? value : item
+                          currentItemIndex === itemIndex ? { ...item, value } : item
                       ),
                   }
                 : group
@@ -160,14 +181,16 @@ export default function ConnectionsBuilder({ question, answer, onChange }: Props
 
     function handleAddGroup() {
         const itemCount = groups[0]?.items.length ?? MIN_ITEMS_PER_GROUP;
+        const nextItemId =
+            Math.max(-1, ...groups.flatMap((group) => group.items.map((item) => item.id))) + 1;
         const nextGroups = [
             ...groups,
             {
                 category: `Group ${groups.length + 1}`,
-                items: Array.from(
-                    { length: itemCount },
-                    (_, index) => `Item ${groups.length + 1}.${index + 1}`
-                ),
+                items: Array.from({ length: itemCount }, (_, index) => ({
+                    id: nextItemId + index,
+                    value: `Item ${groups.length + 1}.${index + 1}`,
+                })),
             },
         ];
         setGroups(nextGroups);
@@ -249,9 +272,9 @@ export default function ConnectionsBuilder({ question, answer, onChange }: Props
                     >
                         {group.items.map((item, itemIndex) => (
                             <input
-                                key={itemIndex}
+                                key={item.id}
                                 type="text"
-                                value={item}
+                                value={item.value}
                                 onChange={(e) =>
                                     handleItemChange(groupIndex, itemIndex, e.target.value)
                                 }

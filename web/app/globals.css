@@ -474,6 +474,7 @@ button:hover {
 }
 
 .landing-calendar-day.completed,
+.landing-calendar-day.gave-up,
 .landing-calendar-day.incomplete {
     overflow: visible;
     z-index: 1;
@@ -482,6 +483,12 @@ button:hover {
 .landing-calendar-day.completed {
     --piece-fill: var(--teal);
     --piece-stroke: var(--teal);
+    --piece-text: var(--bg);
+}
+
+.landing-calendar-day.gave-up {
+    --piece-fill: var(--orange);
+    --piece-stroke: var(--orange);
     --piece-text: var(--bg);
 }
 
@@ -549,6 +556,7 @@ button:hover {
 }
 
 .landing-calendar-day.completed::before,
+.landing-calendar-day.gave-up::before,
 .landing-calendar-day.incomplete::before {
     background: var(--piece-fill);
     border: 2px solid var(--piece-stroke);

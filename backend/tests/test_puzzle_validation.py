@@ -151,6 +151,17 @@ class TestCountdownValidation:
         with pytest.raises(ValueError, match="must be a number"):
             validate_puzzle("countdown", self.QUESTION, "three hundred")
 
+    def test_answer_must_match_target(self):
+        with pytest.raises(ValueError, match="must match the target"):
+            validate_puzzle("countdown", self.QUESTION, "100")
+
+    def test_equivalent_number_format_is_valid(self):
+        validate_puzzle("countdown", self.QUESTION, "306.0")
+
+    def test_scientific_number_format_is_valid(self):
+        question = '{"prompt":"Reach:","target":1e-7,"numbers":[1,10],"operators":["÷"]}'
+        validate_puzzle("countdown", question, "1e-7")
+
     def test_missing_target(self):
         with pytest.raises(ValueError, match="missing required field"):
             validate_puzzle("countdown", '{"prompt":"R","numbers":[1],"operators":["+"]}', "1")

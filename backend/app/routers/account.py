@@ -129,27 +129,28 @@ def get_completed_dates(
     start_date = _parse_date_param(start)
     end_date = _parse_date_param(end)
     completed_dates: set[str] = set()
+    gave_up_dates: set[str] = set()
 
     if user:
         rows = db.execute(
             text(
-                "SELECT DISTINCT p.puzzle_date FROM attempts a "
+                "SELECT DISTINCT p.puzzle_date, a.solved, a.gave_up FROM attempts a "
                 "JOIN puzzles p ON a.puzzle_id = p.id "
-                "WHERE a.user_id = :uid AND a.solved = 1 "
+                "WHERE a.user_id = :uid AND (a.solved = 1 OR a.gave_up = 1) "
                 "AND p.puzzle_date >= :start_date AND p.puzzle_date <= :end_date"
             ),
             {"uid": user.id, "start_date": start_date, "end_date": end_date},
         ).fetchall()
-        completed_dates.update(row[0] for row in rows)
+        completed_dates.update(row[0] for row in rows if row[1])
+        gave_up_dates.update(row[0] for row in rows if row[2])
 
     guest_session_id = request.cookies.get(GUEST_SESSION_COOKIE)
     if guest_session_id:
         rows = db.execute(
             text(
-                "SELECT DISTINCT p.puzzle_date FROM puzzle_completion_events e "
+                "SELECT DISTINCT p.puzzle_date, e.gave_up FROM puzzle_completion_events e "
                 "JOIN puzzles p ON e.puzzle_id = p.id "
                 "WHERE e.guest_session_id = :guest_session_id "
-                "AND e.gave_up = 0 "
                 "AND p.puzzle_date >= :start_date AND p.puzzle_date <= :end_date"
             ),
             {
@@ -158,9 +159,13 @@ def get_completed_dates(
                 "end_date": end_date,
             },
         ).fetchall()
-        completed_dates.update(row[0] for row in rows)
+        completed_dates.update(row[0] for row in rows if not row[1])
+        gave_up_dates.update(row[0] for row in rows if row[1])
 
-    return {"completed_dates": sorted(completed_dates)}
+    return {
+        "completed_dates": sorted(completed_dates),
+        "gave_up_dates": sorted(gave_up_dates),
+    }
 
 
 @router.get("")

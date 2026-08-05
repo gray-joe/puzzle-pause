@@ -9,8 +9,9 @@ from sqlalchemy.orm import Session
 from ..auth import GUEST_SESSION_COOKIE, get_current_user, get_or_create_guest_session_id, require_user
 from ..database import get_db
 from ..models import Attempt, Puzzle, PuzzleCompletionEvent
-from ..puzzle import calculate_archive_score, check_answer, get_puzzle_date
+from ..puzzle import calculate_archive_score, get_puzzle_date
 from ..routers.puzzle import (
+    _check_puzzle_answer,
     _ensure_attempt,
     _guest_give_up_event,
     _get_puzzle_number,
@@ -50,13 +51,17 @@ def list_archive(
     if user:
         rows = db.execute(
             text(
+                "WITH numbered AS ("
+                "  SELECT p.*, "
+                "    ROW_NUMBER() OVER (ORDER BY p.puzzle_date ASC) AS puzzle_number "
+                "  FROM puzzles p WHERE p.puzzle_date < :today"
+                ") "
                 "SELECT p.id, p.puzzle_date, p.puzzle_type, p.puzzle_name, p.hint, "
-                "  ROW_NUMBER() OVER (ORDER BY p.puzzle_date ASC) AS puzzle_number, "
+                "  p.puzzle_number, "
                 "  CASE WHEN a.solved = 1 THEN 1 ELSE 0 END AS solved "
-                "FROM puzzles p "
+                "FROM numbered p "
                 "LEFT JOIN attempts a ON a.puzzle_id = p.id AND a.user_id = :uid "
-                "WHERE p.puzzle_date < :today "
-                "AND (:status = 'all' "
+                "WHERE (:status = 'all' "
                 "  OR (:status = 'solved' AND a.solved = 1) "
                 "  OR (:status = 'unsolved' AND COALESCE(a.solved, 0) != 1)) "
                 "ORDER BY p.puzzle_date DESC "
@@ -74,17 +79,21 @@ def list_archive(
         guest_session_id = request.cookies.get(GUEST_SESSION_COOKIE)
         rows = db.execute(
             text(
+                "WITH numbered AS ("
+                "  SELECT p.*, "
+                "    ROW_NUMBER() OVER (ORDER BY p.puzzle_date ASC) AS puzzle_number "
+                "  FROM puzzles p WHERE p.puzzle_date < :today"
+                ") "
                 "SELECT p.id, p.puzzle_date, p.puzzle_type, p.puzzle_name, p.hint, "
-                "  ROW_NUMBER() OVER (ORDER BY p.puzzle_date ASC) AS puzzle_number, "
+                "  p.puzzle_number, "
                 "  CASE WHEN e.solved = 1 THEN 1 ELSE 0 END AS solved "
-                "FROM puzzles p "
+                "FROM numbered p "
                 "LEFT JOIN ("
                 "  SELECT puzzle_id, 1 AS solved FROM puzzle_completion_events "
                 "  WHERE guest_session_id = :guest_session_id AND gave_up = 0 "
                 "  GROUP BY puzzle_id"
                 ") e ON e.puzzle_id = p.id "
-                "WHERE p.puzzle_date < :today "
-                "AND ((:status = 'solved' AND e.solved = 1) "
+                "WHERE ((:status = 'solved' AND e.solved = 1) "
                 "  OR (:status = 'unsolved' AND COALESCE(e.solved, 0) != 1)) "
                 "ORDER BY p.puzzle_date DESC "
                 "LIMIT :limit OFFSET :offset"
@@ -229,7 +238,7 @@ def archive_attempt(
                 question=puzzle.question,
                 explanation=puzzle.explanation,
             )
-        correct = check_answer(body.guess, puzzle.answer)
+        correct = _check_puzzle_answer(puzzle, body.guess)
         if correct:
             now = datetime.now(timezone.utc)
             score = calculate_archive_score(
@@ -299,7 +308,7 @@ def archive_attempt(
             explanation=puzzle.explanation,
         )
 
-    correct = check_answer(body.guess, puzzle.answer)
+    correct = _check_puzzle_answer(puzzle, body.guess)
 
     if correct:
         now = datetime.now(timezone.utc)
