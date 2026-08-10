@@ -204,6 +204,34 @@ export default function ConnectionsBuilder({ question, answer, onChange }: Props
         emit(prompt, nextGroups);
     }
 
+    function handleAddItem() {
+        const nextItemId =
+            Math.max(-1, ...groups.flatMap((group) => group.items.map((item) => item.id))) + 1;
+        let idOffset = 0;
+        const nextGroups = groups.map((group, groupIndex) => ({
+            ...group,
+            items: [
+                ...group.items,
+                {
+                    id: nextItemId + idOffset++,
+                    value: `Item ${groupIndex + 1}.${group.items.length + 1}`,
+                },
+            ],
+        }));
+        setGroups(nextGroups);
+        emit(prompt, nextGroups);
+    }
+
+    function handleRemoveItem(itemIndex: number) {
+        if (groups[0]?.items.length <= MIN_ITEMS_PER_GROUP) return;
+        const nextGroups = groups.map((group) => ({
+            ...group,
+            items: group.items.filter((_, index) => index !== itemIndex),
+        }));
+        setGroups(nextGroups);
+        emit(prompt, nextGroups);
+    }
+
     return (
         <div
             data-testid="connections-builder"
@@ -271,31 +299,54 @@ export default function ConnectionsBuilder({ question, answer, onChange }: Props
                         }}
                     >
                         {group.items.map((item, itemIndex) => (
-                            <input
-                                key={item.id}
-                                type="text"
-                                value={item.value}
-                                onChange={(e) =>
-                                    handleItemChange(groupIndex, itemIndex, e.target.value)
-                                }
-                                required
-                                data-testid={`connections-item-${groupIndex}-${itemIndex}`}
-                                placeholder={`Item ${itemIndex + 1}`}
-                                style={{ width: '100%' }}
-                            />
+                            <div key={item.id} style={{ display: 'flex', gap: 4 }}>
+                                <input
+                                    type="text"
+                                    value={item.value}
+                                    onChange={(e) =>
+                                        handleItemChange(groupIndex, itemIndex, e.target.value)
+                                    }
+                                    required
+                                    data-testid={`connections-item-${groupIndex}-${itemIndex}`}
+                                    placeholder={`Item ${itemIndex + 1}`}
+                                    style={{ width: '100%' }}
+                                />
+                                {group.items.length > MIN_ITEMS_PER_GROUP && (
+                                    <button
+                                        type="button"
+                                        className="action-btn"
+                                        onClick={() => handleRemoveItem(itemIndex)}
+                                        data-testid={`connections-remove-item-${groupIndex}-${itemIndex}`}
+                                        style={{ padding: '2px 6px', fontSize: '0.8em' }}
+                                    >
+                                        ×
+                                    </button>
+                                )}
+                            </div>
                         ))}
                     </div>
                 </div>
             ))}
 
-            <button
-                type="button"
-                className="action-btn"
-                onClick={handleAddGroup}
-                style={{ padding: '4px 10px', alignSelf: 'flex-start' }}
-            >
-                + Add group
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+                <button
+                    type="button"
+                    className="action-btn"
+                    onClick={handleAddGroup}
+                    style={{ padding: '4px 10px' }}
+                >
+                    + Add group
+                </button>
+                <button
+                    type="button"
+                    className="action-btn"
+                    onClick={handleAddItem}
+                    data-testid="connections-add-item"
+                    style={{ padding: '4px 10px' }}
+                >
+                    + Add item to all groups
+                </button>
+            </div>
 
             <div className="muted" style={{ fontSize: '0.9em' }}>
                 Categories and their items are saved to the puzzle JSON. The answer is saved as one
