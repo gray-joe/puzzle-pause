@@ -365,6 +365,37 @@ test.describe('Admin puzzle CRUD', () => {
             await saveAndExpectPuzzle(page, 'E2E Builder Connections', '2099-11-07');
         });
 
+        await test.step('connections builder with more than 2 items per group', async () => {
+            await startNewAdminPuzzle(
+                page,
+                '2099-11-11',
+                'connections',
+                'E2E Builder Connections 4 Items'
+            );
+            await expect(page.getByTestId('connections-builder')).toBeVisible();
+
+            await page.getByTestId('connections-add-item').click();
+            await page.getByTestId('connections-add-item').click();
+
+            await expect(page.getByTestId('connections-item-0-2')).toBeVisible();
+            await expect(page.getByTestId('connections-item-0-3')).toBeVisible();
+            await expect(page.getByTestId('connections-item-1-2')).toBeVisible();
+            await expect(page.getByTestId('connections-item-1-3')).toBeVisible();
+
+            await page.getByTestId('connections-prompt').fill('Group these by type:');
+            await page.getByTestId('connections-category-0').fill('Fruits');
+            await page.getByTestId('connections-item-0-0').fill('Apple');
+            await page.getByTestId('connections-item-0-1').fill('Banana');
+            await page.getByTestId('connections-item-0-2').fill('Cherry');
+            await page.getByTestId('connections-item-0-3').fill('Date');
+            await page.getByTestId('connections-category-1').fill('Vegetables');
+            await page.getByTestId('connections-item-1-0').fill('Carrot');
+            await page.getByTestId('connections-item-1-1').fill('Broccoli');
+            await page.getByTestId('connections-item-1-2').fill('Spinach');
+            await page.getByTestId('connections-item-1-3').fill('Kale');
+            await saveAndExpectPuzzle(page, 'E2E Builder Connections 4 Items', '2099-11-11');
+        });
+
         await test.step('scrabble builder', async () => {
             await startNewAdminPuzzle(page, '2099-11-08', 'scrabble', 'E2E Builder Scrabble');
             await expect(page.getByTestId('scrabble-builder')).toBeVisible();

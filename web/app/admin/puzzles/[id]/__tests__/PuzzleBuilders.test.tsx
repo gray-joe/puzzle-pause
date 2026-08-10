@@ -22,6 +22,61 @@ describe('ConnectionsBuilder', () => {
         expect(JSON.parse(nextQuestion).items).toEqual(['APPLE', 'RED', 'BANANA', 'BLUE']);
         expect(nextAnswer).toBe('0,2|1,3');
     });
+
+    it('adds a new item to all groups when clicking add item button', async () => {
+        const onChange = vi.fn();
+
+        render(<ConnectionsBuilder question="" answer="" onChange={onChange} />);
+
+        await waitFor(() => expect(onChange).toHaveBeenCalled());
+        onChange.mockClear();
+
+        const addItemButton = screen.getByTestId('connections-add-item');
+        fireEvent.click(addItemButton);
+
+        await waitFor(() => expect(onChange).toHaveBeenCalled());
+        const [nextQuestion] = onChange.mock.calls.at(-1)!;
+        const parsed = JSON.parse(nextQuestion);
+
+        expect(parsed.items).toHaveLength(6);
+        expect(parsed.categories).toHaveLength(2);
+    });
+
+    it('removes an item from all groups when clicking remove item button', async () => {
+        const onChange = vi.fn();
+
+        render(<ConnectionsBuilder question="" answer="" onChange={onChange} />);
+
+        await waitFor(() => expect(onChange).toHaveBeenCalled());
+        onChange.mockClear();
+
+        const addItemButton = screen.getByTestId('connections-add-item');
+        fireEvent.click(addItemButton);
+
+        await waitFor(() => expect(onChange).toHaveBeenCalled());
+        onChange.mockClear();
+
+        const removeItemButton = screen.getByTestId('connections-remove-item-0-2');
+        fireEvent.click(removeItemButton);
+
+        await waitFor(() => expect(onChange).toHaveBeenCalled());
+        const [nextQuestion] = onChange.mock.calls.at(-1)!;
+        const parsed = JSON.parse(nextQuestion);
+
+        expect(parsed.items).toHaveLength(4);
+        expect(parsed.categories).toHaveLength(2);
+    });
+
+    it('does not show remove button when at minimum items per group', async () => {
+        const onChange = vi.fn();
+
+        render(<ConnectionsBuilder question="" answer="" onChange={onChange} />);
+
+        await waitFor(() => expect(onChange).toHaveBeenCalled());
+
+        expect(screen.queryByTestId('connections-remove-item-0-0')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('connections-remove-item-0-1')).not.toBeInTheDocument();
+    });
 });
 
 describe('CountdownBuilder', () => {
