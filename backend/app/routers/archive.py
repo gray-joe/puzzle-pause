@@ -6,16 +6,21 @@ from slowapi.util import get_remote_address
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from ..auth import GUEST_SESSION_COOKIE, get_current_user, get_or_create_guest_session_id, require_user
+from ..auth import (
+    GUEST_SESSION_COOKIE,
+    get_current_user,
+    get_or_create_guest_session_id,
+    require_user,
+)
 from ..database import get_db
 from ..models import Attempt, Puzzle, PuzzleCompletionEvent
 from ..puzzle import calculate_archive_score, get_puzzle_date
 from ..routers.puzzle import (
     _check_puzzle_answer,
     _ensure_attempt,
-    _guest_give_up_event,
     _get_puzzle_number,
     _give_up_attempt,
+    _guest_give_up_event,
     _hint_items,
     _puzzle_to_response,
 )
@@ -138,7 +143,10 @@ def list_archive(
 @router.get("/{puzzle_id}")
 @limiter.limit("60/minute")
 def get_archive_puzzle(
-    request: Request, puzzle_id: int, user=Depends(get_current_user), db: Session = Depends(get_db)
+    request: Request,
+    puzzle_id: int,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     puzzle_date = get_puzzle_date()
     puzzle = (
@@ -384,7 +392,10 @@ def archive_give_up(
 @router.post("/{puzzle_id}/hint")
 @limiter.limit("5/minute")
 def archive_hint(
-    request: Request, puzzle_id: int, user=Depends(get_current_user), db: Session = Depends(get_db)
+    request: Request,
+    puzzle_id: int,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     puzzle_date = get_puzzle_date()
     puzzle = (
@@ -460,8 +471,6 @@ def archive_result(
             "completed_at": (
                 attempt.completed_at.isoformat() if attempt.completed_at else None
             ),
-            "opened_at": (
-                attempt.opened_at.isoformat() if attempt.opened_at else None
-            ),
+            "opened_at": (attempt.opened_at.isoformat() if attempt.opened_at else None),
         },
     }

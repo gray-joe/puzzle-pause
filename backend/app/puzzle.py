@@ -17,8 +17,7 @@ def _normalize_groups(s: str) -> frozenset:
     """Normalize a pipe-separated, comma-separated index answer (e.g. connections/order).
     Groups are order-independent; indices within each group are order-independent."""
     return frozenset(
-        frozenset(item.strip() for item in group.split(","))
-        for group in s.split("|")
+        frozenset(item.strip() for item in group.split(",")) for group in s.split("|")
     )
 
 
@@ -96,7 +95,9 @@ def calculate_archive_score(
     incorrect_guesses: int,
     hints_used: int,
 ) -> int:
-    return max(calculate_score(opened_at, solved_at, incorrect_guesses, hints_used) - 10, 10)
+    return max(
+        calculate_score(opened_at, solved_at, incorrect_guesses, hints_used) - 10, 10
+    )
 
 
 def get_puzzle_date() -> str:

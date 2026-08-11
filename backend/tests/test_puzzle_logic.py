@@ -1,7 +1,5 @@
 from datetime import datetime, timezone
 
-import pytest
-
 from app.puzzle import (
     calculate_archive_score,
     calculate_score,
@@ -58,16 +56,28 @@ class TestCheckAnswer:
         assert check_answer("a,b,c", "a b c") is True
 
     def test_connections_exact_order(self):
-        assert check_answer("0,1,2,5|3,4,6,7|8,9,10,11", "0,1,2,5|3,4,6,7|8,9,10,11") is True
+        assert (
+            check_answer("0,1,2,5|3,4,6,7|8,9,10,11", "0,1,2,5|3,4,6,7|8,9,10,11")
+            is True
+        )
 
     def test_connections_groups_reordered(self):
-        assert check_answer("8,9,10,11|0,1,2,5|3,4,6,7", "0,1,2,5|3,4,6,7|8,9,10,11") is True
+        assert (
+            check_answer("8,9,10,11|0,1,2,5|3,4,6,7", "0,1,2,5|3,4,6,7|8,9,10,11")
+            is True
+        )
 
     def test_connections_items_within_group_reordered(self):
-        assert check_answer("5,2,1,0|7,6,4,3|11,10,9,8", "0,1,2,5|3,4,6,7|8,9,10,11") is True
+        assert (
+            check_answer("5,2,1,0|7,6,4,3|11,10,9,8", "0,1,2,5|3,4,6,7|8,9,10,11")
+            is True
+        )
 
     def test_connections_wrong_grouping(self):
-        assert check_answer("0,1,2,3|4,5,6,7|8,9,10,11", "0,1,2,5|3,4,6,7|8,9,10,11") is False
+        assert (
+            check_answer("0,1,2,3|4,5,6,7|8,9,10,11", "0,1,2,5|3,4,6,7|8,9,10,11")
+            is False
+        )
 
 
 class TestCalculateScore:
@@ -139,7 +149,6 @@ class TestCalculateScore:
         assert calculate_score(release, solved, 0, 0) == 30
 
     def test_none_opened_at_gives_max_base(self):
-        from datetime import timedelta
 
         solved = self._release("2024-01-01")
         assert calculate_score(None, solved, 0, 0) == 100

@@ -2,9 +2,8 @@ import json
 from datetime import date, datetime, timedelta, timezone
 
 from app.auth import create_jwt, generate_token
-from app.models import Attempt, Puzzle, PuzzleCompletionEvent
+from app.models import Attempt, Puzzle, PuzzleCompletionEvent, User
 from app.models import Session as SessionModel
-from app.models import User
 
 
 def _make_user(db, email="user@example.com"):

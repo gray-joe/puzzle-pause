@@ -323,7 +323,9 @@ def seed():
         # Third league reserved for the e2e account-deletion test.
         # delete-account (user 8) is the creator; delete-witness (user 9) is a
         # co-member so the ownership-transfer path is exercised on deletion.
-        league3 = League(id=3, name="Delete Test League", invite_code="DEL003", creator_id=8)
+        league3 = League(
+            id=3, name="Delete Test League", invite_code="DEL003", creator_id=8
+        )
         db.add(league3)
         db.flush()
         for user_id in [8, 9]:
@@ -381,9 +383,7 @@ def seed():
                     score=score,
                     incorrect_guesses=guesses,
                     hint_used=hint,
-                    completed_at=datetime.fromisoformat(
-                        _ts(days_ago, hour, minute)
-                    ),
+                    completed_at=datetime.fromisoformat(_ts(days_ago, hour, minute)),
                 )
             )
 
@@ -452,7 +452,7 @@ def seed():
 
         db.commit()
 
-        past_count = sum(1 for p in SEED_PUZZLES if p.get("puzzle_date", "") <= today)
+        _past_count = sum(1 for p in SEED_PUZZLES if p.get("puzzle_date", "") <= today)
         total = db.query(Puzzle).count()
         user_count = db.query(User).count()
         league_count = db.query(League).count()

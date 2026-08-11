@@ -22,9 +22,7 @@ def init_sentry() -> None:
     environment = os.environ.get("SENTRY_ENVIRONMENT") or os.environ.get(
         "PUZZLE_ENV", "dev"
     )
-    default_traces_sample_rate = (
-        0.1 if environment in {"prod", "production"} else 1.0
-    )
+    default_traces_sample_rate = 0.1 if environment in {"prod", "production"} else 1.0
 
     sentry_sdk.init(
         dsn=dsn,

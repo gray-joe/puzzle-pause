@@ -1,9 +1,8 @@
 from datetime import datetime, timedelta
 
 from app.auth import create_jwt, generate_token
-from app.models import Attempt, League, LeagueMember, Puzzle
+from app.models import Attempt, League, LeagueMember, Puzzle, User
 from app.models import Session as SessionModel
-from app.models import User
 
 
 def _make_user(db, email="user@example.com"):
@@ -118,7 +117,7 @@ class TestJoinLeague:
     def test_join_by_code(self, client, db):
         creator, _ = _make_user(db, "creator@example.com")
         new_member, jwt = _make_user(db, "new_member@example.com")
-        league = _make_league(db, creator)
+        _league = _make_league(db, creator)
 
         resp = client.post(
             "/api/leagues/join",
@@ -232,7 +231,14 @@ def _make_puzzle(db, days_ago=1):
 
 
 def _make_attempt(
-    db, user_id, puzzle_id, solved=1, score=80, incorrect_guesses=0, hint_used=0, hour=12
+    db,
+    user_id,
+    puzzle_id,
+    solved=1,
+    score=80,
+    incorrect_guesses=0,
+    hint_used=0,
+    hour=12,
 ):
     attempt = Attempt(
         user_id=user_id,

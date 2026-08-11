@@ -6,13 +6,13 @@ Usage:
     DATABASE_URL=sqlite:///path/to/puzzle.db python verify_db.py
 """
 
-import sys
 import os
+import sys
 
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.database import SessionLocal
-from app.models import User, Puzzle, Attempt, League, LeagueMember
+from app.models import Attempt, League, LeagueMember, Puzzle, User
 
 
 def verify():

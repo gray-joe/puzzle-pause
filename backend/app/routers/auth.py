@@ -16,9 +16,8 @@ from ..auth import (
 )
 from ..database import get_db
 from ..email import send_otac_email
-from ..models import AuthToken
+from ..models import AuthToken, User
 from ..models import Session as SessionModel
-from ..models import User
 from ..schemas import AuthResponse, LoginRequest, UserResponse, VerifyRequest
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -58,7 +57,9 @@ async def login(request: Request, body: LoginRequest, db: Session = Depends(get_
         .first()
     )
     if locked_token:
-        raise HTTPException(status_code=429, detail="Too many attempts. Try again later.")
+        raise HTTPException(
+            status_code=429, detail="Too many attempts. Try again later."
+        )
 
     user = db.query(User).filter(User.email == email).first()
     user_id = user.id if user else None

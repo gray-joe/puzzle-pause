@@ -1,9 +1,8 @@
 from datetime import datetime
 
 from app.auth import create_jwt, generate_token
-from app.models import Attempt, Puzzle, PuzzleCompletionEvent
+from app.models import Attempt, Puzzle, PuzzleCompletionEvent, User
 from app.models import Session as SessionModel
-from app.models import User
 
 
 def _make_user(db, email="user@example.com"):
@@ -54,7 +53,9 @@ class TestAdminListPuzzles:
         middle = _make_puzzle(db, "2024-01-02")
         newest = _make_puzzle(db, "2024-01-03")
 
-        resp = client.get("/api/admin/puzzles?limit=1&offset=1", cookies=_admin_cookies(db))
+        resp = client.get(
+            "/api/admin/puzzles?limit=1&offset=1", cookies=_admin_cookies(db)
+        )
 
         assert resp.status_code == 200
         assert [p["id"] for p in resp.json()] == [middle.id]
@@ -152,7 +153,7 @@ class TestAdminCreatePuzzle:
             resp = client.post(
                 "/api/admin/puzzles",
                 json={
-                    "puzzle_date": f"2030-01-{i+1:02d}",
+                    "puzzle_date": f"2030-01-{i + 1:02d}",
                     "puzzle_type": ptype,
                     "puzzle_name": ptype,
                     "question": question,
@@ -340,8 +341,12 @@ class TestAdminAttempts:
         middle_puzzle = _make_puzzle(db, "2024-01-02")
         newest_puzzle = _make_puzzle(db, "2024-01-03")
         oldest = Attempt(user_id=admin.id, puzzle_id=oldest_puzzle.id, solved=0)
-        middle = Attempt(user_id=admin.id, puzzle_id=middle_puzzle.id, solved=1, score=80)
-        newest = Attempt(user_id=admin.id, puzzle_id=newest_puzzle.id, solved=1, score=90)
+        middle = Attempt(
+            user_id=admin.id, puzzle_id=middle_puzzle.id, solved=1, score=80
+        )
+        newest = Attempt(
+            user_id=admin.id, puzzle_id=newest_puzzle.id, solved=1, score=90
+        )
         db.add_all([oldest, middle, newest])
         db.commit()
 
