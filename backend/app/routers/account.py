@@ -208,7 +208,7 @@ def delete_account(
             text("SELECT COUNT(*) FROM league_members WHERE league_id = :lid"),
             {"lid": league_id},
         ).scalar()
-        if member_count > 1:
+        if member_count is not None and member_count > 1:
             new_creator = db.execute(
                 text(
                     "SELECT user_id FROM league_members "
