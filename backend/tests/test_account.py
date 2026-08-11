@@ -1,5 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 
+import pytest
+
 from app.auth import create_jwt, generate_token
 from app.models import (
     Attempt,
@@ -11,6 +13,8 @@ from app.models import (
     User,
 )
 from app.models import Session as SessionModel
+
+pytestmark = pytest.mark.api
 
 
 def _make_user(db, email="user@example.com"):

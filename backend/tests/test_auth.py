@@ -1,8 +1,12 @@
 from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
+import pytest
+
 from app.auth import OTAC_CHARSET, generate_otac
 from app.models import AuthToken, User
+
+pytestmark = pytest.mark.api
 
 
 class TestOtac:

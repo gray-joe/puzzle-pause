@@ -14,8 +14,13 @@ backend-run:
 backend-run-prod:
 	cd backend && uvicorn app.main:app --port 8000
 
-backend-test:
-	cd backend && python -m pytest
+backend-unit-test:
+	cd backend && python -m pytest -m unit
+
+backend-api-test:
+	cd backend && python -m pytest -m api
+
+backend-test: backend-unit-test backend-api-test
 
 verify-db:
 	cd backend && DATABASE_URL=sqlite:///$(CURDIR)/data/puzzle.db python verify_db.py
@@ -66,5 +71,5 @@ v2-install: backend-install web-install
 v2-test: backend-test
 
 .PHONY: all clean run run-prod seed deps test test-db test-auth test-puzzle test-league test-admin \
-	backend-install backend-run backend-run-prod backend-test verify-db seed-dev \
+	backend-install backend-run backend-run-prod backend-test backend-unit-test backend-api-test verify-db seed-dev \
 	web-install web-run web-build web-test fly-deploy fly-pull-db v2-install v2-test

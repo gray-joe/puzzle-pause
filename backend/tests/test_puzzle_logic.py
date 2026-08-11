@@ -1,11 +1,15 @@
 from datetime import datetime, timezone
 
+import pytest
+
 from app.puzzle import (
     calculate_archive_score,
     calculate_score,
     check_answer,
     normalize_answer,
 )
+
+pytestmark = pytest.mark.unit
 
 
 class TestNormalizeAnswer:
