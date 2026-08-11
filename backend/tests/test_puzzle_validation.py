@@ -4,6 +4,8 @@ import pytest
 
 from app.puzzle_validation import validate_puzzle
 
+pytestmark = pytest.mark.unit
+
 # ---------------------------------------------------------------------------
 # choice
 # ---------------------------------------------------------------------------
