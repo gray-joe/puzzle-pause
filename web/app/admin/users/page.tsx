@@ -62,7 +62,12 @@ export default async function AdminUsersPage({
                 </tbody>
             </table>
 
-            <PaginationControls basePath="/admin/users" params={params} page={page} hasNextPage={hasNextPage} />
+            <PaginationControls
+                basePath="/admin/users"
+                params={params}
+                page={page}
+                hasNextPage={hasNextPage}
+            />
         </PageShell>
     );
 }

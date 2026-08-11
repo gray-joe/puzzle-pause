@@ -209,7 +209,10 @@ describe('apiFetch', () => {
             json: () => Promise.resolve([]),
         });
 
-        await api.admin.listCompletionEvents({ source: 'daily', limit: 51, offset: 50 }, 'session=abc123');
+        await api.admin.listCompletionEvents(
+            { source: 'daily', limit: 51, offset: 50 },
+            'session=abc123'
+        );
 
         expect(mockFetch).toHaveBeenCalledWith(
             '/api/admin/completion-events?source=daily&limit=51&offset=50',

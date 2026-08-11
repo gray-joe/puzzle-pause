@@ -21,7 +21,9 @@ function pageFromSearchParams(params: Record<string, string | string[] | undefin
     return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
 }
 
-function statusFromSearchParams(params: Record<string, string | string[] | undefined>): ArchiveStatus {
+function statusFromSearchParams(
+    params: Record<string, string | string[] | undefined>
+): ArchiveStatus {
     const status = single(params.status);
 
     return status === 'solved' || status === 'unsolved' ? status : 'all';
@@ -85,7 +87,11 @@ export default async function ArchivePage({
                 <>
                     <div className="muted">{emptyMessage(page, status)}</div>
                     {page > 1 && (
-                        <Link href={archiveHref(page - 1, status)} className="back-link" style={{ marginTop: 16 }}>
+                        <Link
+                            href={archiveHref(page - 1, status)}
+                            className="back-link"
+                            style={{ marginTop: 16 }}
+                        >
                             <span className="gt">&gt;</span>Previous page
                         </Link>
                     )}
@@ -93,8 +99,8 @@ export default async function ArchivePage({
             ) : (
                 <div>
                     <div className="muted" style={{ marginBottom: 12 }}>
-                        Showing {status === 'all' ? 'archived' : status} puzzles {firstPuzzleNumber}-
-                        {lastPuzzleNumber}
+                        Showing {status === 'all' ? 'archived' : status} puzzles {firstPuzzleNumber}
+                        -{lastPuzzleNumber}
                     </div>
                     {visiblePuzzles.map((p) => (
                         <div key={p.id} className="list-row" data-testid={`archive-row-${p.id}`}>
@@ -140,14 +146,22 @@ export default async function ArchivePage({
                         }}
                     >
                         {page > 1 ? (
-                            <Link href={archiveHref(page - 1, status)} className="action-btn" style={{ width: 'auto' }}>
+                            <Link
+                                href={archiveHref(page - 1, status)}
+                                className="action-btn"
+                                style={{ width: 'auto' }}
+                            >
                                 <span className="gt">&gt;</span>Previous
                             </Link>
                         ) : (
                             <span />
                         )}
                         {hasNextPage && (
-                            <Link href={archiveHref(page + 1, status)} className="action-btn" style={{ width: 'auto' }}>
+                            <Link
+                                href={archiveHref(page + 1, status)}
+                                className="action-btn"
+                                style={{ width: 'auto' }}
+                            >
                                 <span className="gt">&gt;</span>Next
                             </Link>
                         )}

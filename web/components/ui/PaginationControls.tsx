@@ -21,14 +21,22 @@ export default function PaginationControls({ basePath, params, page, hasNextPage
             }}
         >
             {page > 1 ? (
-                <Link href={hrefWithPage(basePath, params, page - 1)} className="action-btn" style={{ width: 'auto' }}>
+                <Link
+                    href={hrefWithPage(basePath, params, page - 1)}
+                    className="action-btn"
+                    style={{ width: 'auto' }}
+                >
                     <span className="gt">&gt;</span>Previous
                 </Link>
             ) : (
                 <span />
             )}
             {hasNextPage && (
-                <Link href={hrefWithPage(basePath, params, page + 1)} className="action-btn" style={{ width: 'auto' }}>
+                <Link
+                    href={hrefWithPage(basePath, params, page + 1)}
+                    className="action-btn"
+                    style={{ width: 'auto' }}
+                >
                     <span className="gt">&gt;</span>Next
                 </Link>
             )}

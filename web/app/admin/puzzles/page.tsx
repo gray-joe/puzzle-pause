@@ -103,7 +103,12 @@ export default async function AdminPuzzlesPage({
                 </tbody>
             </table>
 
-            <PaginationControls basePath="/admin/puzzles" params={params} page={page} hasNextPage={hasNextPage} />
+            <PaginationControls
+                basePath="/admin/puzzles"
+                params={params}
+                page={page}
+                hasNextPage={hasNextPage}
+            />
         </PageShell>
     );
 }

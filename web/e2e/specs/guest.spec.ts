@@ -100,7 +100,9 @@ test('Guests can view and complete archived puzzles', async ({ page }) => {
     await expect(result.score).toHaveText('90');
     await result.expectGuestCTAs();
 
-    await expect(page.locator('body')).toContainText('Archived puzzles score like the daily puzzle');
+    await expect(page.locator('body')).toContainText(
+        'Archived puzzles score like the daily puzzle'
+    );
 });
 
 test('Guest can reveal a hint on daily puzzle', async ({ page }) => {
