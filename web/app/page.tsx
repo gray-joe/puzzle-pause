@@ -206,11 +206,7 @@ async function getCalendarPuzzleHrefs(
     return hrefs;
 }
 
-export default async function Home({
-    searchParams,
-}: {
-    searchParams?: Promise<PageSearchParams>;
-}) {
+export default async function Home({ searchParams }: { searchParams?: Promise<PageSearchParams> }) {
     const params = (await searchParams) ?? {};
     const [user, cookieHeader] = await Promise.all([getUser(), getCookieHeader()]);
     const [puzzle, stats] = await Promise.all([
@@ -248,125 +244,127 @@ export default async function Home({
                         <span>Puzzle Pause</span>
                     </h1>
 
-                <div className="landing-calendar" data-testid="landing-calendar">
-                    <div className="landing-calendar-month">
-                        <Link
-                            href={previousMonthHref}
-                            className="landing-calendar-month-link"
-                            aria-label="Previous month"
-                        >
-                            &lt;
-                        </Link>
-                        <span>{monthName}</span>
-                        <Link
-                            href={nextMonthHref}
-                            className="landing-calendar-month-link"
-                            aria-label="Next month"
-                        >
-                            &gt;
-                        </Link>
-                    </div>
-                    <div className="landing-calendar-weekdays" aria-hidden="true">
-                        {WEEKDAY_LABELS.map((label, index) => (
-                            <div key={`${label}-${index}`}>{label}</div>
-                        ))}
-                    </div>
-                    <div className="landing-calendar-grid">
-                        {calendarDays.map((day, index) => (
-                            <div
-                                key={`${day.date}-${index}`}
-                                className={`landing-calendar-day${day.muted ? ' muted' : ''}${day.selected ? ' selected' : ''}${day.completed ? ' completed' : ''}${day.gaveUp ? ' gave-up' : ''}${!day.muted && !day.completed && !day.gaveUp && !day.future ? ' incomplete' : ''}${day.future ? ' future' : ''}`}
-                                aria-current={day.selected ? 'date' : undefined}
-                                aria-label={`${day.date}${day.completed ? ', completed' : day.gaveUp ? ', gave up' : !day.muted && !day.future ? ', not completed' : ''}${day.future ? ', future' : ''}`}
-                                data-testid={day.selected ? 'landing-selected-day' : undefined}
+                    <div className="landing-calendar" data-testid="landing-calendar">
+                        <div className="landing-calendar-month">
+                            <Link
+                                href={previousMonthHref}
+                                className="landing-calendar-month-link"
+                                aria-label="Previous month"
                             >
-                                {day.href ? (
-                                    <Link href={day.href} className="landing-calendar-day-link">
-                                        <span
-                                            className="landing-puzzle-piece"
-                                            data-testid={
-                                                day.completed
-                                                    ? 'landing-completed-day'
-                                                    : day.gaveUp
-                                                      ? 'landing-gave-up-day'
-                                                      : 'landing-incomplete-day'
-                                            }
-                                        >
+                                &lt;
+                            </Link>
+                            <span>{monthName}</span>
+                            <Link
+                                href={nextMonthHref}
+                                className="landing-calendar-month-link"
+                                aria-label="Next month"
+                            >
+                                &gt;
+                            </Link>
+                        </div>
+                        <div className="landing-calendar-weekdays" aria-hidden="true">
+                            {WEEKDAY_LABELS.map((label, index) => (
+                                <div key={`${label}-${index}`}>{label}</div>
+                            ))}
+                        </div>
+                        <div className="landing-calendar-grid">
+                            {calendarDays.map((day, index) => (
+                                <div
+                                    key={`${day.date}-${index}`}
+                                    className={`landing-calendar-day${day.muted ? ' muted' : ''}${day.selected ? ' selected' : ''}${day.completed ? ' completed' : ''}${day.gaveUp ? ' gave-up' : ''}${!day.muted && !day.completed && !day.gaveUp && !day.future ? ' incomplete' : ''}${day.future ? ' future' : ''}`}
+                                    aria-current={day.selected ? 'date' : undefined}
+                                    aria-label={`${day.date}${day.completed ? ', completed' : day.gaveUp ? ', gave up' : !day.muted && !day.future ? ', not completed' : ''}${day.future ? ', future' : ''}`}
+                                    data-testid={day.selected ? 'landing-selected-day' : undefined}
+                                >
+                                    {day.href ? (
+                                        <Link href={day.href} className="landing-calendar-day-link">
+                                            <span
+                                                className="landing-puzzle-piece"
+                                                data-testid={
+                                                    day.completed
+                                                        ? 'landing-completed-day'
+                                                        : day.gaveUp
+                                                          ? 'landing-gave-up-day'
+                                                          : 'landing-incomplete-day'
+                                                }
+                                            >
+                                                {day.day}
+                                            </span>
+                                        </Link>
+                                    ) : !day.muted && !day.future ? (
+                                        <span className="landing-calendar-day-link inactive">
+                                            <span
+                                                className="landing-puzzle-piece"
+                                                data-testid={
+                                                    day.completed
+                                                        ? 'landing-completed-day'
+                                                        : day.gaveUp
+                                                          ? 'landing-gave-up-day'
+                                                          : 'landing-incomplete-day'
+                                                }
+                                            >
+                                                {day.day}
+                                            </span>
+                                        </span>
+                                    ) : (
+                                        <span className="landing-calendar-day-number">
                                             {day.day}
                                         </span>
-                                    </Link>
-                                ) : !day.muted && !day.future ? (
-                                    <span className="landing-calendar-day-link inactive">
-                                        <span
-                                            className="landing-puzzle-piece"
-                                            data-testid={
-                                                day.completed
-                                                    ? 'landing-completed-day'
-                                                    : day.gaveUp
-                                                      ? 'landing-gave-up-day'
-                                                      : 'landing-incomplete-day'
-                                            }
-                                        >
-                                            {day.day}
-                                        </span>
-                                    </span>
-                                ) : (
-                                    <span className="landing-calendar-day-number">{day.day}</span>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-
-            </section>
-
-            <section className="landing-stats" aria-label="Puzzle stats">
-                {stats ? (
-                    <>
-                        <div className="landing-stat-block">
-                            <span className="landing-stat-icon" aria-hidden="true">
-                                &gt;
-                            </span>
-                            <div>
-                                <div className="landing-stat-value" data-testid="landing-streak">
-                                    {stats.streak}
+                                    )}
                                 </div>
-                                <div className="landing-stat-label">Day Streak</div>
-                            </div>
+                            ))}
                         </div>
-                        <div className="landing-stat-divider" aria-hidden="true" />
-                        <div className="landing-stat-block">
-                            <div>
-                                <div className="landing-stat-value" data-testid="landing-solved">
-                                    {stats.puzzles_solved}
-                                </div>
-                                <div className="landing-stat-label">Puzzles Solved</div>
-                            </div>
-                            <span className="landing-stat-icon trophy" aria-hidden="true">
-                                &gt;
-                            </span>
-                        </div>
-                    </>
-                ) : (
-                    <div className="landing-login-prompt" data-testid="landing-login-prompt">
-                        <p>Log in to track your streak and puzzles solved.</p>
-                        <Link
-                            href="/login"
-                            className="landing-login-link"
-                            data-testid="landing-login-link"
-                        >
-                            Log in for stats
-                        </Link>
                     </div>
-                )}
-            </section>
+                </section>
+
+                <section className="landing-stats" aria-label="Puzzle stats">
+                    {stats ? (
+                        <>
+                            <div className="landing-stat-block">
+                                <span className="landing-stat-icon" aria-hidden="true">
+                                    &gt;
+                                </span>
+                                <div>
+                                    <div
+                                        className="landing-stat-value"
+                                        data-testid="landing-streak"
+                                    >
+                                        {stats.streak}
+                                    </div>
+                                    <div className="landing-stat-label">Day Streak</div>
+                                </div>
+                            </div>
+                            <div className="landing-stat-divider" aria-hidden="true" />
+                            <div className="landing-stat-block">
+                                <div>
+                                    <div
+                                        className="landing-stat-value"
+                                        data-testid="landing-solved"
+                                    >
+                                        {stats.puzzles_solved}
+                                    </div>
+                                    <div className="landing-stat-label">Puzzles Solved</div>
+                                </div>
+                                <span className="landing-stat-icon trophy" aria-hidden="true">
+                                    &gt;
+                                </span>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="landing-login-prompt" data-testid="landing-login-prompt">
+                            <p>Log in to track your streak and puzzles solved.</p>
+                            <Link
+                                href="/login"
+                                className="landing-login-link"
+                                data-testid="landing-login-link"
+                            >
+                                Log in for stats
+                            </Link>
+                        </div>
+                    )}
+                </section>
             </main>
-            <Nav
-                className="landing-bottom-nav"
-                isAdmin={isAdmin}
-                isLoggedIn={!!user}
-                linksOnly
-            />
+            <Nav className="landing-bottom-nav" isAdmin={isAdmin} isLoggedIn={!!user} linksOnly />
         </>
     );
 }

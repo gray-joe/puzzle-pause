@@ -40,6 +40,7 @@ def validate_puzzle(puzzle_type: str, question: str, answer: str) -> None:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _parse_json_question(question: str, required_keys: list[str]) -> dict:
     try:
         data = json.loads(question)
@@ -53,7 +54,9 @@ def _parse_json_question(question: str, required_keys: list[str]) -> dict:
     return data
 
 
-def _parse_index_answer(answer: str, expected_length: int, label: str = "answer") -> list[int]:
+def _parse_index_answer(
+    answer: str, expected_length: int, label: str = "answer"
+) -> list[int]:
     """Parse a comma-separated list of integers and validate it covers 0..n-1 exactly once."""
     parts = [p.strip() for p in answer.split(",")]
     if len(parts) != expected_length:
@@ -76,6 +79,7 @@ def _parse_index_answer(answer: str, expected_length: int, label: str = "answer"
 # ---------------------------------------------------------------------------
 # Per-type validators
 # ---------------------------------------------------------------------------
+
 
 def _validate_choice(question: str, answer: str) -> None:
     """choice — question: 'prompt|OptionA|OptionB|...', answer: single letter A/B/C/..."""
@@ -134,7 +138,9 @@ def _validate_connections(question: str, answer: str) -> None:
     if len(categories) < 2:
         raise ValueError("connections question must have at least 2 categories")
     if len(items) < len(categories):
-        raise ValueError("connections question must have at least as many items as categories")
+        raise ValueError(
+            "connections question must have at least as many items as categories"
+        )
     if len(items) % len(categories) != 0:
         raise ValueError(
             f"connections items ({len(items)}) must divide evenly across categories ({len(categories)})"
@@ -158,7 +164,9 @@ def _validate_connections(question: str, answer: str) -> None:
         try:
             indices = [int(p) for p in parts]
         except ValueError:
-            raise ValueError(f"connections answer group {i + 1} must contain only integers")
+            raise ValueError(
+                f"connections answer group {i + 1} must contain only integers"
+            )
         all_indices.extend(indices)
 
     if set(all_indices) != set(range(len(items))) or len(all_indices) != len(items):
@@ -175,7 +183,9 @@ def _validate_numgrid(question: str, answer: str) -> None:
         raise ValueError("numgrid question 'grid' must be an array")
     null_count = sum(1 for cell in grid if cell is None)
     if null_count != 1:
-        raise ValueError(f"numgrid question 'grid' must contain exactly one null, found {null_count}")
+        raise ValueError(
+            f"numgrid question 'grid' must contain exactly one null, found {null_count}"
+        )
     if not re.fullmatch(r"-?\d+(\.\d+)?", answer.strip()):
         raise ValueError("numgrid answer must be a number")
 
@@ -187,9 +197,7 @@ def _validate_countdown(question: str, answer: str) -> None:
         raise ValueError("countdown question 'numbers' must be a non-empty array")
     if not isinstance(data["target"], (int, float)):
         raise ValueError("countdown question 'target' must be a number")
-    if not re.fullmatch(
-        r"-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", answer.strip()
-    ):
+    if not re.fullmatch(r"-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?", answer.strip()):
         raise ValueError("countdown answer must be a number")
     if float(answer) != float(data["target"]):
         raise ValueError("countdown answer must match the target")
@@ -213,9 +221,13 @@ def _validate_word_wheel(question: str, answer: str) -> None:
         raise ValueError("word-wheel question 'wheels' must be a non-empty array")
     for i, wheel in enumerate(wheels):
         if not isinstance(wheel, dict) or "letters" not in wheel:
-            raise ValueError(f"word-wheel question wheel {i + 1} must have a 'letters' field")
+            raise ValueError(
+                f"word-wheel question wheel {i + 1} must have a 'letters' field"
+            )
         if not isinstance(wheel["letters"], list):
-            raise ValueError(f"word-wheel question wheel {i + 1} 'letters' must be an array")
+            raise ValueError(
+                f"word-wheel question wheel {i + 1} 'letters' must be an array"
+            )
 
     answer_words = answer.strip().split()
     if len(answer_words) != len(wheels):
@@ -243,7 +255,9 @@ def _validate_image_order(question: str, answer: str) -> None:
     data = _parse_json_question(question, ["prompt", "images"])
     images = data["images"]
     if not isinstance(images, list) or len(images) < 2:
-        raise ValueError("image-order question 'images' must be an array with at least 2 items")
+        raise ValueError(
+            "image-order question 'images' must be an array with at least 2 items"
+        )
     _parse_index_answer(answer, len(images))
 
 
@@ -257,7 +271,9 @@ def _validate_image_word(question: str, answer: str) -> None:
 def _validate_wordsearch(question: str, answer: str) -> None:
     """wordsearch — question must contain 'Find:' section; answer is the word(s) to find."""
     if "Find:" not in question and "find:" not in question.lower():
-        raise ValueError("wordsearch question must contain 'Find: WORD' specifying the target word(s)")
+        raise ValueError(
+            "wordsearch question must contain 'Find: WORD' specifying the target word(s)"
+        )
     if not answer.strip():
         raise ValueError("wordsearch answer must not be empty")
 
@@ -269,8 +285,12 @@ def _validate_clue_reveal(question: str, answer: str) -> None:
     if not isinstance(clues, list):
         raise ValueError("clue-reveal question 'clues' must be an array")
     if len(clues) < 2:
-        raise ValueError("clue-reveal question must have at least 2 clues (first shown automatically, rest revealed for -10 pts each)")
+        raise ValueError(
+            "clue-reveal question must have at least 2 clues (first shown automatically, rest revealed for -10 pts each)"
+        )
     if any(not isinstance(c, str) or not c.strip() for c in clues):
-        raise ValueError("clue-reveal question 'clues' must be an array of non-empty strings")
+        raise ValueError(
+            "clue-reveal question 'clues' must be an array of non-empty strings"
+        )
     if not answer.strip():
         raise ValueError("clue-reveal answer must not be empty")

@@ -63,8 +63,7 @@ def _get_stats(user_id: int, db: Session) -> AccountStatsResponse:
     ).fetchone()
     if percentile_row and percentile_row[0] > 1:
         percentile = max(
-            1,
-            round(100 * (percentile_row[0] - percentile_row[1]) / percentile_row[0])
+            1, round(100 * (percentile_row[0] - percentile_row[1]) / percentile_row[0])
         )
     else:
         percentile = None
@@ -209,7 +208,7 @@ def delete_account(
             text("SELECT COUNT(*) FROM league_members WHERE league_id = :lid"),
             {"lid": league_id},
         ).scalar()
-        if member_count > 1:
+        if member_count is not None and member_count > 1:
             new_creator = db.execute(
                 text(
                     "SELECT user_id FROM league_members "
@@ -236,12 +235,8 @@ def delete_account(
         text("DELETE FROM auth_tokens WHERE user_id = :uid OR email = :email"),
         {"uid": user.id, "email": user.email},
     )
-    db.execute(
-        text("DELETE FROM sessions WHERE user_id = :uid"), {"uid": user.id}
-    )
-    db.execute(
-        text("DELETE FROM attempts WHERE user_id = :uid"), {"uid": user.id}
-    )
+    db.execute(text("DELETE FROM sessions WHERE user_id = :uid"), {"uid": user.id})
+    db.execute(text("DELETE FROM attempts WHERE user_id = :uid"), {"uid": user.id})
     db.execute(
         text("DELETE FROM puzzle_completion_events WHERE user_id = :uid"),
         {"uid": user.id},

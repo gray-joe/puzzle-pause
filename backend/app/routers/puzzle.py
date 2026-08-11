@@ -315,7 +315,9 @@ def calendar(
 
 @router.get("/today")
 @limiter.limit("60/minute")
-def today(request: Request, user=Depends(get_current_user), db: Session = Depends(get_db)):
+def today(
+    request: Request, user=Depends(get_current_user), db: Session = Depends(get_db)
+):
     puzzle_date = get_puzzle_date()
     puzzle = db.query(Puzzle).filter(Puzzle.puzzle_date == puzzle_date).first()
     if not puzzle:
@@ -335,9 +337,7 @@ def today(request: Request, user=Depends(get_current_user), db: Session = Depend
             "completed_at": (
                 attempt.completed_at.isoformat() if attempt.completed_at else None
             ),
-            "opened_at": (
-                attempt.opened_at.isoformat() if attempt.opened_at else None
-            ),
+            "opened_at": (attempt.opened_at.isoformat() if attempt.opened_at else None),
         }
         if attempt.solved or attempt.gave_up:
             data["question"] = puzzle.question
@@ -345,7 +345,7 @@ def today(request: Request, user=Depends(get_current_user), db: Session = Depend
             data["explanation"] = puzzle.explanation
         elif attempt.hint_used > 0:
             items = _hint_items(puzzle.puzzle_type, puzzle.question, puzzle.hint)
-            revealed = items[:attempt.hint_used]
+            revealed = items[: attempt.hint_used]
             if revealed:
                 data["revealed_hint"] = "|".join(revealed)
     else:
@@ -618,8 +618,6 @@ def result(user=Depends(require_user), db: Session = Depends(get_db)):
             "completed_at": (
                 attempt.completed_at.isoformat() if attempt.completed_at else None
             ),
-            "opened_at": (
-                attempt.opened_at.isoformat() if attempt.opened_at else None
-            ),
+            "opened_at": (attempt.opened_at.isoformat() if attempt.opened_at else None),
         },
     }

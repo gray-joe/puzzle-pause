@@ -29,7 +29,8 @@ export default function Nav({
 }) {
     const pathname = usePathname();
     const links = isLoggedIn ? [...PUBLIC_LINKS, ...AUTH_LINKS] : PUBLIC_LINKS;
-    const isActive = (href: string) => (href === '/' ? pathname === '/' : pathname.startsWith(href));
+    const isActive = (href: string) =>
+        href === '/' ? pathname === '/' : pathname.startsWith(href);
 
     return (
         <div className={`page-header${className ? ` ${className}` : ''}`}>

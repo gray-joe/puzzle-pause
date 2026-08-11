@@ -95,7 +95,12 @@ export default async function AdminAttemptsPage({
                 </table>
             </div>
 
-            <PaginationControls basePath="/admin/attempts" params={params} page={page} hasNextPage={hasNextPage} />
+            <PaginationControls
+                basePath="/admin/attempts"
+                params={params}
+                page={page}
+                hasNextPage={hasNextPage}
+            />
         </PageShell>
     );
 }

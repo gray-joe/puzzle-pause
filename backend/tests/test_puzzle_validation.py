@@ -4,10 +4,10 @@ import pytest
 
 from app.puzzle_validation import validate_puzzle
 
-
 # ---------------------------------------------------------------------------
 # choice
 # ---------------------------------------------------------------------------
+
 
 class TestChoiceValidation:
     def test_valid(self):
@@ -36,6 +36,7 @@ class TestChoiceValidation:
 # ---------------------------------------------------------------------------
 # match
 # ---------------------------------------------------------------------------
+
 
 class TestMatchValidation:
     QUESTION = '{"prompt":"Match:","left":["A","B","C"],"right":["X","Y","Z"]}'
@@ -69,6 +70,7 @@ class TestMatchValidation:
 # order
 # ---------------------------------------------------------------------------
 
+
 class TestOrderValidation:
     QUESTION = '{"prompt":"Sort:","items":["C","A","B"]}'
 
@@ -91,6 +93,7 @@ class TestOrderValidation:
 # ---------------------------------------------------------------------------
 # connections
 # ---------------------------------------------------------------------------
+
 
 class TestConnectionsValidation:
     QUESTION = '{"prompt":"Group:","items":["a","b","c","d","e","f"],"categories":["X","Y","Z"]}'
@@ -120,6 +123,7 @@ class TestConnectionsValidation:
 # numgrid
 # ---------------------------------------------------------------------------
 
+
 class TestNumgridValidation:
     def test_valid(self):
         validate_puzzle("numgrid", '{"prompt":"?","grid":[1,2,null,4]}', "3")
@@ -141,8 +145,11 @@ class TestNumgridValidation:
 # countdown
 # ---------------------------------------------------------------------------
 
+
 class TestCountdownValidation:
-    QUESTION = '{"prompt":"Reach:","target":306,"numbers":[75,50,6],"operators":["+","-"]}'
+    QUESTION = (
+        '{"prompt":"Reach:","target":306,"numbers":[75,50,6],"operators":["+","-"]}'
+    )
 
     def test_valid(self):
         validate_puzzle("countdown", self.QUESTION, "306")
@@ -159,17 +166,22 @@ class TestCountdownValidation:
         validate_puzzle("countdown", self.QUESTION, "306.0")
 
     def test_scientific_number_format_is_valid(self):
-        question = '{"prompt":"Reach:","target":1e-7,"numbers":[1,10],"operators":["÷"]}'
+        question = (
+            '{"prompt":"Reach:","target":1e-7,"numbers":[1,10],"operators":["÷"]}'
+        )
         validate_puzzle("countdown", question, "1e-7")
 
     def test_missing_target(self):
         with pytest.raises(ValueError, match="missing required field"):
-            validate_puzzle("countdown", '{"prompt":"R","numbers":[1],"operators":["+"]}', "1")
+            validate_puzzle(
+                "countdown", '{"prompt":"R","numbers":[1],"operators":["+"]}', "1"
+            )
 
 
 # ---------------------------------------------------------------------------
 # scrabble
 # ---------------------------------------------------------------------------
+
 
 class TestScrabbleValidation:
     QUESTION = '{"prompt":"Score:","board":[null],"modifiers":[null],"rack":["A","B"]}'
@@ -190,6 +202,7 @@ class TestScrabbleValidation:
 # word-wheel
 # ---------------------------------------------------------------------------
 
+
 class TestWordWheelValidation:
     QUESTION = '{"prompt":"Find:","wheels":[{"letters":["A","B","C"]},{"letters":["D","E","F"]}]}'
 
@@ -209,6 +222,7 @@ class TestWordWheelValidation:
 # ---------------------------------------------------------------------------
 # image-tap
 # ---------------------------------------------------------------------------
+
 
 class TestImageTapValidation:
     QUESTION = '{"prompt":"Click:","image_url":"/img.jpg"}'
@@ -233,6 +247,7 @@ class TestImageTapValidation:
 # image-order
 # ---------------------------------------------------------------------------
 
+
 class TestImageOrderValidation:
     QUESTION = '{"prompt":"Sort:","images":["/a.jpg","/b.jpg","/c.jpg"]}'
 
@@ -251,6 +266,7 @@ class TestImageOrderValidation:
 # ---------------------------------------------------------------------------
 # image-word
 # ---------------------------------------------------------------------------
+
 
 class TestImageWordValidation:
     QUESTION = '{"prompt":"Name it:","image_url":"/img.jpg"}'
@@ -271,6 +287,7 @@ class TestImageWordValidation:
 # wordsearch
 # ---------------------------------------------------------------------------
 
+
 class TestWordsearchValidation:
     def test_valid(self):
         validate_puzzle("wordsearch", "A B C\nD E F\nFind: ABC", "ABC")
@@ -287,6 +304,7 @@ class TestWordsearchValidation:
 # ---------------------------------------------------------------------------
 # clue-reveal
 # ---------------------------------------------------------------------------
+
 
 class TestClueRevealValidation:
     QUESTION = '{"prompt":"Who am I?","clues":["Born in 1564","Wrote Hamlet","Wrote Romeo and Juliet"]}'
@@ -308,26 +326,35 @@ class TestClueRevealValidation:
 
     def test_clues_must_be_array(self):
         with pytest.raises(ValueError, match="must be an array"):
-            validate_puzzle("clue-reveal", '{"prompt":"Who?","clues":"not an array"}', "answer")
+            validate_puzzle(
+                "clue-reveal", '{"prompt":"Who?","clues":"not an array"}', "answer"
+            )
 
     def test_requires_at_least_two_clues(self):
         with pytest.raises(ValueError, match="at least 2 clues"):
-            validate_puzzle("clue-reveal", '{"prompt":"Who?","clues":["Only one clue"]}', "answer")
+            validate_puzzle(
+                "clue-reveal", '{"prompt":"Who?","clues":["Only one clue"]}', "answer"
+            )
 
     def test_clues_must_be_non_empty_strings(self):
         with pytest.raises(ValueError, match="non-empty strings"):
-            validate_puzzle("clue-reveal", '{"prompt":"Who?","clues":["Valid clue",""]}', "answer")
+            validate_puzzle(
+                "clue-reveal", '{"prompt":"Who?","clues":["Valid clue",""]}', "answer"
+            )
 
     def test_empty_answer_rejected(self):
         with pytest.raises(ValueError, match="must not be empty"):
             validate_puzzle("clue-reveal", self.QUESTION, "   ")
 
     def test_two_clues_is_valid_minimum(self):
-        validate_puzzle("clue-reveal", '{"prompt":"Who?","clues":["Clue 1","Clue 2"]}', "answer")
+        validate_puzzle(
+            "clue-reveal", '{"prompt":"Who?","clues":["Clue 1","Clue 2"]}', "answer"
+        )
 
     def test_many_clues_accepted(self):
         clues = [f"Clue {i}" for i in range(10)]
         import json
+
         q = json.dumps({"prompt": "Who?", "clues": clues})
         validate_puzzle("clue-reveal", q, "answer")
 
@@ -335,6 +362,7 @@ class TestClueRevealValidation:
 # ---------------------------------------------------------------------------
 # Unvalidated types pass through without error
 # ---------------------------------------------------------------------------
+
 
 class TestUnvalidatedTypes:
     def test_word_no_constraints(self):

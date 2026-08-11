@@ -1,11 +1,8 @@
 from datetime import date, datetime, timedelta, timezone
 
-import pytest
-
 from app.auth import create_jwt, generate_token
-from app.models import Attempt, Puzzle, PuzzleCompletionEvent
+from app.models import Attempt, Puzzle, PuzzleCompletionEvent, User
 from app.models import Session as SessionModel
-from app.models import User
 
 
 def _make_user(db, email="user@example.com"):
@@ -83,6 +80,7 @@ class TestConnections:
         resp = client.get("/api/puzzle/today")
         assert resp.status_code == 200
         import json
+
         question = json.loads(resp.json()["question"])
         assert "categories" not in question
         assert "items" in question
@@ -142,6 +140,7 @@ class TestConnections:
         assert resp.status_code == 200
         assert resp.json()["correct"] is True
         import json
+
         question = json.loads(resp.json()["question"])
         assert "categories" in question
         assert question["categories"] == ["Snakes", "Languages"]
@@ -156,6 +155,7 @@ class TestConnections:
         )
         assert resp.json()["correct"] is True
         import json
+
         question = json.loads(resp.json()["question"])
         assert "categories" in question
 
@@ -389,7 +389,9 @@ class TestAttempt:
         user, jwt = _make_user(db)
         cookies = {"session": jwt}
 
-        resp = client.post("/api/puzzle/give-up", json={"puzzle_id": 1}, cookies=cookies)
+        resp = client.post(
+            "/api/puzzle/give-up", json={"puzzle_id": 1}, cookies=cookies
+        )
 
         assert resp.status_code == 200
         data = resp.json()

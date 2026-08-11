@@ -7,7 +7,12 @@ from ..auth import require_admin
 from ..database import get_db
 from ..models import Attempt, Puzzle, PuzzleCompletionEvent, User
 from ..puzzle_validation import validate_puzzle
-from ..schemas import CreatePuzzleRequest, PuzzleAdminResponse, UpdateAttemptRequest, UpdatePuzzleRequest
+from ..schemas import (
+    CreatePuzzleRequest,
+    PuzzleAdminResponse,
+    UpdateAttemptRequest,
+    UpdatePuzzleRequest,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -84,7 +89,9 @@ def list_attempts(
 
 
 @router.get("/attempts/{attempt_id}")
-def get_attempt(attempt_id: int, admin=Depends(require_admin), db: Session = Depends(get_db)):
+def get_attempt(
+    attempt_id: int, admin=Depends(require_admin), db: Session = Depends(get_db)
+):
     row = (
         db.query(Attempt, User, Puzzle)
         .join(User, Attempt.user_id == User.id)
@@ -237,7 +244,12 @@ def list_completion_events(
         to_dt = datetime.combine(to_day + timedelta(days=1), time.min)
         query = query.filter(PuzzleCompletionEvent.completed_at < to_dt)
 
-    rows = query.order_by(PuzzleCompletionEvent.id.desc()).limit(limit).offset(offset).all()
+    rows = (
+        query.order_by(PuzzleCompletionEvent.id.desc())
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
     return [
         {
             "id": event.id,
@@ -282,7 +294,13 @@ def list_puzzles(
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ):
-    puzzles = db.query(Puzzle).order_by(Puzzle.puzzle_date.desc()).limit(limit).offset(offset).all()
+    puzzles = (
+        db.query(Puzzle)
+        .order_by(Puzzle.puzzle_date.desc())
+        .limit(limit)
+        .offset(offset)
+        .all()
+    )
     return [_to_admin_response(p) for p in puzzles]
 
 
@@ -349,7 +367,9 @@ def update_puzzle(
             status_code=400, detail=f"Invalid puzzle_type: {body.puzzle_type}"
         )
 
-    effective_type = body.puzzle_type if body.puzzle_type is not None else puzzle.puzzle_type
+    effective_type = (
+        body.puzzle_type if body.puzzle_type is not None else puzzle.puzzle_type
+    )
     effective_question = body.question if body.question is not None else puzzle.question
     effective_answer = body.answer if body.answer is not None else puzzle.answer
     try:

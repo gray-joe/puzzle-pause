@@ -1,8 +1,5 @@
-from unittest.mock import AsyncMock, patch
-
-import pytest
-
 from datetime import datetime
+from unittest.mock import AsyncMock, patch
 
 from app.auth import OTAC_CHARSET, generate_otac
 from app.models import AuthToken, User
@@ -54,7 +51,9 @@ class TestLogin:
         assert resp.json() == {"message": "Code sent"}
         mock_send.assert_not_called()
         token = (
-            db.query(AuthToken).filter(AuthToken.email == "crawlerrobo@gmail.com").first()
+            db.query(AuthToken)
+            .filter(AuthToken.email == "crawlerrobo@gmail.com")
+            .first()
         )
         assert token is None
 

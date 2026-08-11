@@ -10,8 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-
-from sqlalchemy import inspect as _inspect, text as _text
+from sqlalchemy import inspect as _inspect
+from sqlalchemy import text as _text
 
 from .database import Base, engine
 from .puzzle import calculate_archive_score
@@ -29,7 +29,9 @@ with engine.connect() as _conn:
     _columns = {column["name"] for column in _inspect(_conn).get_columns("attempts")}
     if "source" not in _columns:
         _conn.execute(
-            _text("ALTER TABLE attempts ADD COLUMN source TEXT NOT NULL DEFAULT 'daily'")
+            _text(
+                "ALTER TABLE attempts ADD COLUMN source TEXT NOT NULL DEFAULT 'daily'"
+            )
         )
         _conn.commit()
     if "gave_up" not in _columns:

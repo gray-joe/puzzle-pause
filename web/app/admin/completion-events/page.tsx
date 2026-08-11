@@ -67,7 +67,10 @@ export default async function AdminCompletionEventsPage({
                       : 'No completion events on this page.'}
             </p>
 
-            <form method="get" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+            <form
+                method="get"
+                style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}
+            >
                 <select name="source" defaultValue={source ?? ''}>
                     <option value="">All sources</option>
                     <option value="daily">daily</option>
@@ -110,11 +113,19 @@ export default async function AdminCompletionEventsPage({
                     style={{ width: 96 }}
                 />
 
-                <button className="action-btn" type="submit" style={{ width: 'auto', padding: '8px 14px' }}>
+                <button
+                    className="action-btn"
+                    type="submit"
+                    style={{ width: 'auto', padding: '8px 14px' }}
+                >
                     <span className="gt">&gt;</span>Apply
                 </button>
 
-                <Link href="/admin/completion-events" className="back-link" style={{ alignSelf: 'center' }}>
+                <Link
+                    href="/admin/completion-events"
+                    className="back-link"
+                    style={{ alignSelf: 'center' }}
+                >
                     <span className="gt">&gt;</span>Clear
                 </Link>
             </form>
@@ -140,7 +151,9 @@ export default async function AdminCompletionEventsPage({
                                 <td className="muted">{fmtDateTime(event.completed_at)}</td>
                                 <td>{event.source}</td>
                                 <td>
-                                    <span style={{ color: 'var(--teal)' }}>{event.puzzle_date}</span>{' '}
+                                    <span style={{ color: 'var(--teal)' }}>
+                                        {event.puzzle_date}
+                                    </span>{' '}
                                     <span className="muted">{event.puzzle_name}</span>
                                 </td>
                                 <td>
@@ -156,7 +169,9 @@ export default async function AdminCompletionEventsPage({
                                 <td className="muted">
                                     {event.wrong_guess_count ?? <span className="muted">—</span>}
                                 </td>
-                                <td className="muted">{fmtSeconds(event.time_to_complete_seconds)}</td>
+                                <td className="muted">
+                                    {fmtSeconds(event.time_to_complete_seconds)}
+                                </td>
                             </tr>
                         ))}
                     </tbody>

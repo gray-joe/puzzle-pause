@@ -8,9 +8,9 @@ from app.models import (
     LeagueMember,
     Puzzle,
     PuzzleCompletionEvent,
+    User,
 )
 from app.models import Session as SessionModel
-from app.models import User
 
 
 def _make_user(db, email="user@example.com"):
@@ -308,7 +308,9 @@ class TestDeleteAccount:
         user, jwt = _make_user(db)
         user_id = user.id
         client.delete("/api/account", cookies={"session": jwt})
-        assert db.query(SessionModel).filter(SessionModel.user_id == user_id).count() == 0
+        assert (
+            db.query(SessionModel).filter(SessionModel.user_id == user_id).count() == 0
+        )
 
     def test_deletes_auth_tokens_by_user_id_and_email(self, client, db):
         user, jwt = _make_user(db)
@@ -394,10 +396,7 @@ class TestDeleteAccount:
         db.commit()
         client.delete("/api/account", cookies={"session": jwt})
         assert (
-            db.query(LeagueMember)
-            .filter(LeagueMember.user_id == user_id)
-            .count()
-            == 0
+            db.query(LeagueMember).filter(LeagueMember.user_id == user_id).count() == 0
         )
 
     def test_deletes_leagues_user_created(self, client, db):
@@ -411,7 +410,9 @@ class TestDeleteAccount:
         client.delete("/api/account", cookies={"session": jwt})
         assert db.query(League).filter(League.id == league_id).count() == 0
 
-    def test_transfers_ownership_of_created_leagues_with_other_members(self, client, db):
+    def test_transfers_ownership_of_created_leagues_with_other_members(
+        self, client, db
+    ):
         creator, jwt = _make_user(db)
         creator_id = creator.id
         other, _ = _make_user(db, "other@example.com")
@@ -428,16 +429,11 @@ class TestDeleteAccount:
         db.refresh(league)
         assert league.creator_id == other_id
         assert (
-            db.query(LeagueMember)
-            .filter(LeagueMember.user_id == creator_id)
-            .count()
+            db.query(LeagueMember).filter(LeagueMember.user_id == creator_id).count()
             == 0
         )
         assert (
-            db.query(LeagueMember)
-            .filter(LeagueMember.user_id == other_id)
-            .count()
-            == 1
+            db.query(LeagueMember).filter(LeagueMember.user_id == other_id).count() == 1
         )
 
     def test_requires_auth(self, client):

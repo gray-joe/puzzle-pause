@@ -31,9 +31,7 @@ test('Users can see previous puzzle results in the archive', async ({ page }) =>
     }
 });
 
-test('Users can solve a previously unsolved puzzle for archive points', async ({
-    page,
-}) => {
+test('Users can solve a previously unsolved puzzle for archive points', async ({ page }) => {
     const puzzle = new PuzzlePage(page);
     const result = new ResultPage(page);
 
@@ -86,7 +84,9 @@ test('Users can see previous puzzles result and their points for that puzzle', a
 
     await result.expectAnswer('45');
 
-    await expect(page.locator('body')).toContainText('Archived puzzles score like the daily puzzle');
+    await expect(page.locator('body')).toContainText(
+        'Archived puzzles score like the daily puzzle'
+    );
 
     await page.goto('/archive/4');
 
