@@ -36,6 +36,8 @@ WORD_FILE_CANDIDATES = (
 MAX_PATHS = 200
 MIN_BLANKS = 2
 GENERATE_ATTEMPTS = 400
+MIN_PATH_DEGREE = 4
+MIN_END_DEGREE = 8
 
 
 def find_word_file():
@@ -52,7 +54,10 @@ def load_graph(length):
     word_file = find_word_file()
     words = {
         w.strip().lower() for w in open(word_file)
-        if len(w.strip()) == length and w.strip().isalpha() and w.strip().islower()
+        if len(w.strip()) == length
+        and w.strip().isascii()
+        and w.strip().isalpha()
+        and w.strip().islower()
     }
     graph = defaultdict(set)
     for w in words:
@@ -231,11 +236,14 @@ def cmd_shortest(args):
     print_paths(paths, truncated)
 
 
-def random_walk(start, steps, graph, rng):
+def random_walk(start, steps, graph, rng, min_degree=MIN_PATH_DEGREE):
     path = [start]
     used = {start}
     for _ in range(steps):
-        neighbours = [n for n in graph[path[-1]] if n not in used]
+        neighbours = [
+            n for n in graph[path[-1]]
+            if n not in used and len(graph[n]) >= min_degree
+        ]
         if not neighbours:
             return None
         nxt = rng.choice(neighbours)
@@ -314,14 +322,16 @@ def puzzle_from_paths(paths, graph, words):
 
 
 def generate_random(length, steps, words, graph, rng):
-    connected = [w for w in words if graph[w]]
+    connected = [w for w in words if len(graph[w]) >= MIN_END_DEGREE]
     if not connected:
-        sys.exit(f"No {length}-letter words with neighbours in the dictionary")
+        sys.exit(f"No {length}-letter words with enough neighbours in the dictionary")
 
     for _ in range(GENERATE_ATTEMPTS):
         start = rng.choice(connected)
         path = random_walk(start, steps, graph, rng)
         if not path or path[-1] == path[0]:
+            continue
+        if len(graph[path[-1]]) < MIN_END_DEGREE:
             continue
         anchors = uniquify_blanking(path, graph, words)
         if anchors is None:
