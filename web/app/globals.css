@@ -193,6 +193,15 @@ td .gt {
     color: var(--teal);
 }
 
+/* Admin wide tables — break out of the 600px page container */
+.admin-wide-table {
+    --page-width: min(600px, calc(100vw - 40px));
+    --table-width: min(1200px, calc(100vw - 40px));
+    width: var(--table-width);
+    margin-left: calc((var(--page-width) - var(--table-width)) / 2);
+    overflow-x: auto;
+}
+
 /* List rows */
 .list-row {
     padding: 8px 0;
