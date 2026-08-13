@@ -9,6 +9,44 @@ import { PuzzlePage } from '../pages/PuzzlePage';
 const ADMIN_EMAIL = 'admin@example.com';
 const PREVIEW_PUZZLE_NAME = 'Quick Maths';
 
+const ADMIN_ATTEMPTS_COLUMNS = [
+    'ID',
+    'User',
+    'Puzzle',
+    'Type',
+    'Opened',
+    'Completed',
+    'Solved',
+    'Score',
+    'Wrong',
+    'Hint',
+];
+
+const ADMIN_COMPLETION_EVENTS_COLUMNS = [
+    'ID',
+    'Completed',
+    'Source',
+    'Puzzle',
+    'User',
+    'Guest Session',
+    'Wrong Guesses',
+    'Time to Complete',
+];
+
+async function expectAllTableColumnsVisible(page: Page, columnHeaders: string[]) {
+    const container = page.locator('.admin-wide-table');
+    await expect(container).toBeVisible();
+
+    const table = container.locator('table');
+    for (const header of columnHeaders) {
+        await expect(table.getByRole('columnheader', { name: header, exact: true })).toBeVisible();
+    }
+
+    await expect
+        .poll(async () => container.evaluate((el) => el.scrollWidth <= el.clientWidth))
+        .toBe(true);
+}
+
 async function startNewAdminPuzzle(page: Page, date: string, type: string, name: string) {
     await page.goto('/admin/puzzles/new');
     await page.locator('input[type=date]').fill(date);
@@ -125,7 +163,36 @@ test.describe('Admin dashboard', () => {
     });
 });
 
+test.describe('Admin attempts', () => {
+    test('Admin attempts table shows all columns without horizontal scrolling', async ({
+        page,
+    }) => {
+        await loginAs(page, ADMIN_EMAIL);
+        await page.goto('/admin/attempts');
+
+        await expect(page.locator('text=Admin — Attempts')).toBeVisible();
+        expect(await page.locator('tbody tr').count()).toBeGreaterThan(0);
+
+        await expectAllTableColumnsVisible(page, ADMIN_ATTEMPTS_COLUMNS);
+        await expect(
+            page.locator('.admin-wide-table tbody tr').first().getByRole('link', { name: 'edit' })
+        ).toBeVisible();
+    });
+});
+
 test.describe('Admin completion events', () => {
+    test('Admin completion events table shows all columns without horizontal scrolling', async ({
+        page,
+    }) => {
+        await loginAs(page, ADMIN_EMAIL);
+        await page.goto('/admin/completion-events');
+
+        await expect(page.locator('text=Admin — Completion Events')).toBeVisible();
+        expect(await page.locator('tbody tr').count()).toBeGreaterThan(0);
+
+        await expectAllTableColumnsVisible(page, ADMIN_COMPLETION_EVENTS_COLUMNS);
+    });
+
     test('Admin can see seeded completion events', async ({ page }) => {
         await loginAs(page, ADMIN_EMAIL);
         await page.goto('/admin/completion-events');

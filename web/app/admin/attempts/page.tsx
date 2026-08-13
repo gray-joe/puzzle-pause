@@ -45,7 +45,7 @@ export default async function AdminAttemptsPage({
                       : 'No attempts on this page.'}
             </p>
 
-            <div style={{ overflowX: 'auto' }}>
+            <div className="admin-wide-table">
                 <table>
                     <thead>
                         <tr>

@@ -130,7 +130,7 @@ export default async function AdminCompletionEventsPage({
                 </Link>
             </form>
 
-            <div style={{ overflowX: 'auto' }}>
+            <div className="admin-wide-table">
                 <table>
                     <thead>
                         <tr>
