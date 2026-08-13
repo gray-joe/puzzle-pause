@@ -164,7 +164,9 @@ test.describe('Admin dashboard', () => {
 });
 
 test.describe('Admin attempts', () => {
-    test('Admin attempts table shows all columns without horizontal scrolling', async ({ page }) => {
+    test('Admin attempts table shows all columns without horizontal scrolling', async ({
+        page,
+    }) => {
         await loginAs(page, ADMIN_EMAIL);
         await page.goto('/admin/attempts');
 
