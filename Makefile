@@ -47,6 +47,7 @@ fly-deploy:
 	@test -n "$$SENTRY_ORG" || (echo "SENTRY_ORG is required" && exit 1)
 	@test -n "$$SENTRY_PROJECT" || (echo "SENTRY_PROJECT is required" && exit 1)
 	fly deploy \
+	  $(FLY_DEPLOY_FLAGS) \
 	  --build-arg NEXT_PUBLIC_SENTRY_DSN="$$NEXT_PUBLIC_SENTRY_DSN" \
 	  --build-arg NEXT_PUBLIC_SENTRY_ENVIRONMENT="$${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-production}" \
 	  --build-arg NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE="$${NEXT_PUBLIC_SENTRY_TRACES_SAMPLE_RATE:-0.1}" \
