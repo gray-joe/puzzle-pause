@@ -11,6 +11,9 @@ test('Guest landing page shows calendar and stats login prompt', async ({ page }
         'Log in to track your streak and puzzles solved.'
     );
 
-    await expect(page.getByTestId('start-puzzle-link')).toHaveAttribute('href', '/puzzle');
+    await expect(page.getByTestId('landing-selected-day').getByRole('link')).toHaveAttribute(
+        'href',
+        '/puzzle'
+    );
     await expect(page.getByTestId('landing-login-link')).toHaveAttribute('href', '/login');
 });
