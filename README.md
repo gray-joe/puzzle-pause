@@ -161,6 +161,20 @@ fly deploy
 
 Use `make fly-deploy` when deploying with frontend Sentry source-map upload build arguments.
 
+### CI deployment
+
+Merges to `main` automatically deploy to fly.io after CI passes. Configure these GitHub repository secrets before enabling deploys:
+
+| Secret | Purpose |
+| --- | --- |
+| `FLY_API_TOKEN` | Authenticates `fly deploy` in CI |
+| `NEXT_PUBLIC_SENTRY_DSN` | Browser Sentry DSN passed as a Docker build arg |
+| `SENTRY_AUTH_TOKEN` | Uploads frontend source maps during the Docker build |
+| `SENTRY_ORG` | Sentry organization for source-map upload |
+| `SENTRY_PROJECT` | Sentry project for source-map upload |
+
+Runtime Sentry settings for the backend (`SENTRY_DSN`, etc.) remain configured as fly.io secrets, not in GitHub Actions.
+
 ### Sentry
 
 - Backend runtime errors: set `SENTRY_DSN`.
