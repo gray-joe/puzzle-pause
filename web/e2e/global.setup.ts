@@ -4,7 +4,8 @@ import path from 'path';
 
 setup('seeding puzzle database', async ({}) => {
     console.log('seeding puzzle database...');
-    execSync('python seed_dev.py', {
+    const python = process.env.PYTHON ?? 'python3';
+    execSync(`${python} seed_dev.py`, {
         cwd: path.resolve(__dirname, '../../backend'),
         env: {
             ...process.env,
