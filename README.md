@@ -163,7 +163,7 @@ Use `make fly-deploy` when deploying with frontend Sentry source-map upload buil
 
 ### CI deployment
 
-Merges to `main` automatically deploy to fly.io after CI passes. Configure these GitHub repository secrets before enabling deploys:
+Pull requests to `main` run unit tests, linting, and e2e checks. Merges to `main` trigger a separate deploy workflow to fly.io. Configure these GitHub repository secrets before enabling deploys:
 
 | Secret | Purpose |
 | --- | --- |
