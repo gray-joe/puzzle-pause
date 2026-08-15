@@ -41,12 +41,14 @@ web-build:
 web-test:
 	cd web && npm run test:e2e -- $(ARGS)
 
+FLY ?= flyctl
+
 fly-deploy:
 	@test -n "$$NEXT_PUBLIC_SENTRY_DSN" || (echo "NEXT_PUBLIC_SENTRY_DSN is required" && exit 1)
 	@test -n "$$SENTRY_AUTH_TOKEN" || (echo "SENTRY_AUTH_TOKEN is required" && exit 1)
 	@test -n "$$SENTRY_ORG" || (echo "SENTRY_ORG is required" && exit 1)
 	@test -n "$$SENTRY_PROJECT" || (echo "SENTRY_PROJECT is required" && exit 1)
-	fly deploy \
+	$(FLY) deploy \
 	  $(FLY_DEPLOY_FLAGS) \
 	  --build-arg NEXT_PUBLIC_SENTRY_DSN="$$NEXT_PUBLIC_SENTRY_DSN" \
 	  --build-arg NEXT_PUBLIC_SENTRY_ENVIRONMENT="$${NEXT_PUBLIC_SENTRY_ENVIRONMENT:-production}" \
@@ -62,9 +64,9 @@ fly-pull-db:
 	@timestamp=$$(date -u +%Y%m%dT%H%M%SZ); \
 	  remote_db="/tmp/puzzle-$$timestamp.db"; \
 	  local_db="data/puzzle-$$timestamp.db"; \
-	  fly ssh console --command "sqlite3 /app/data/puzzle.db '.backup $$remote_db'" && \
-	  fly ssh sftp get "$$remote_db" "$$local_db" && \
-	  fly ssh console --command "rm -f $$remote_db" && \
+	  $(FLY) ssh console --command "sqlite3 /app/data/puzzle.db '.backup $$remote_db'" && \
+	  $(FLY) ssh sftp get "$$remote_db" "$$local_db" && \
+	  $(FLY) ssh console --command "rm -f $$remote_db" && \
 	  echo "Production database copied to $$local_db"
 
 v2-install: backend-install web-install
