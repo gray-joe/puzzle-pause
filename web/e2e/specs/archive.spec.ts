@@ -12,7 +12,7 @@ test('Users can only see previous puzzles in the archive', async ({ page }) => {
     await loginAs(page, 'alice@example.com');
     await archive.goto();
 
-    await archive.expectPuzzleCount(23);
+    await archive.expectPuzzleCount(24);
     await expect(page.getByText('Quick Maths')).not.toBeVisible();
     await expect(page.getByText('Future Puzzle')).not.toBeVisible();
 });

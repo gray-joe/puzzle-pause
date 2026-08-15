@@ -7,7 +7,9 @@ import { Puzzle } from '@/lib/api';
 vi.mock('../ChessBoardView', () => ({
     default: ({ fen }: { fen: string }) => <div data-testid="chess-board">{fen}</div>,
     ChessTurnBanner: ({ fen }: { fen: string }) => (
-        <div data-testid="chess-turn-banner">{fen.startsWith('r1bq') ? 'White' : 'Black'} to move, mate in 1</div>
+        <div data-testid="chess-turn-banner">
+            {fen.startsWith('r1bq') ? 'White' : 'Black'} to move, mate in 1
+        </div>
     ),
 }));
 

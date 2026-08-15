@@ -210,8 +210,8 @@ export default function ChessBuilder({ question, answer, onChange }: Props) {
             </div>
 
             <div className="muted" style={{ fontSize: '0.9em' }}>
-                Select a piece, click squares to place it, drag pieces to move them, or choose
-                Erase to remove a piece. Pick the correct mating move from the dropdown.
+                Select a piece, click squares to place it, drag pieces to move them, or choose Erase
+                to remove a piece. Pick the correct mating move from the dropdown.
             </div>
         </div>
     );

@@ -104,7 +104,10 @@ def validate_chess_puzzle(question: str, answer: str) -> None:
             raise ValueError(
                 f"chess answer '{candidate}' is not a mate-in-1 move for this position"
             )
-        if _normalize_san(board.san(move)) not in mate_sans and move.uci() not in mate_ucis:
+        if (
+            _normalize_san(board.san(move)) not in mate_sans
+            and move.uci() not in mate_ucis
+        ):
             raise ValueError(
                 f"chess answer '{candidate}' is not a mate-in-1 move for this position"
             )
@@ -122,7 +125,9 @@ def check_chess_answer(question: str, answer: str, guess: str) -> bool:
 
     accepted_moves: set[chess.Move] = set()
     for candidate in _answer_variants(answer):
-        parsed = _parse_guess_move(chess.Board(parse_chess_question(question)["fen"].strip()), candidate)
+        parsed = _parse_guess_move(
+            chess.Board(parse_chess_question(question)["fen"].strip()), candidate
+        )
         if parsed is not None:
             accepted_moves.add(parsed)
 

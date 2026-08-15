@@ -3,10 +3,9 @@
 import dynamic from 'next/dynamic';
 import { sideToMoveLabel } from '@/lib/chessHelpers';
 
-const Chessboard = dynamic(
-    () => import('react-chessboard').then((mod) => mod.Chessboard),
-    { ssr: false }
-);
+const Chessboard = dynamic(() => import('react-chessboard').then((mod) => mod.Chessboard), {
+    ssr: false,
+});
 
 interface Props {
     fen: string;

@@ -2,7 +2,12 @@ import json
 
 import pytest
 
-from app.chess_utils import board_from_question, check_chess_answer, side_to_move_label, validate_chess_puzzle
+from app.chess_utils import (
+    board_from_question,
+    check_chess_answer,
+    side_to_move_label,
+    validate_chess_puzzle,
+)
 
 
 SCHOLAR_QUESTION = json.dumps(
