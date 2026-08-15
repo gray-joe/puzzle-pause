@@ -292,6 +292,44 @@ class TestAttempt:
         assert resp.status_code == 200
         assert resp.json()["correct"] is True
 
+    def test_chess_accepts_mating_move(self, client, db):
+        puzzle = Puzzle(
+            puzzle_date=date.today().isoformat(),
+            puzzle_type="chess",
+            puzzle_name="Chess Mate",
+            question='{"fen":"r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"}',
+            answer="Qxf7#",
+        )
+        db.add(puzzle)
+        db.commit()
+
+        resp = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "Qxf7"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["correct"] is True
+
+    def test_chess_rejects_non_mating_move(self, client, db):
+        puzzle = Puzzle(
+            puzzle_date=date.today().isoformat(),
+            puzzle_type="chess",
+            puzzle_name="Chess Mate",
+            question='{"fen":"r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"}',
+            answer="Qxf7#",
+        )
+        db.add(puzzle)
+        db.commit()
+
+        resp = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "Nf3"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["correct"] is False
+
     def test_guest_can_attempt(self, client, db):
         _make_puzzle(db, answer="hello", explanation="The clue asks for a greeting.")
         resp = client.post(

@@ -41,3 +41,4 @@ playwright-report/
 blob-report/
 test-results/
 */.auth/
+backend/.venv/

@@ -19,6 +19,7 @@ from ..auth import (
 )
 from ..database import get_db
 from ..models import Attempt, Puzzle, PuzzleCompletionEvent
+from ..chess_utils import check_chess_answer
 from ..puzzle import calculate_score, check_answer, get_puzzle_date
 from ..schemas import AttemptRequest, AttemptResponse, HintRequest, HintResponse
 
@@ -71,6 +72,11 @@ def _check_puzzle_answer(puzzle: Puzzle, guess: str) -> bool:
     if puzzle.puzzle_type == "countdown":
         try:
             return float(guess) == float(puzzle.answer)
+        except ValueError:
+            return False
+    if puzzle.puzzle_type == "chess":
+        try:
+            return check_chess_answer(puzzle.question, puzzle.answer, guess)
         except ValueError:
             return False
     return check_answer(guess, puzzle.answer)

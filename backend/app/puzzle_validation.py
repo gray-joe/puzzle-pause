@@ -10,6 +10,8 @@ numerically correct, only that it looks like a number).
 import json
 import re
 
+from .chess_utils import validate_chess_puzzle
+
 
 def validate_puzzle(puzzle_type: str, question: str, answer: str) -> None:
     """Validate question and answer for the given puzzle type.
@@ -30,6 +32,7 @@ def validate_puzzle(puzzle_type: str, question: str, answer: str) -> None:
         "image-word": _validate_image_word,
         "wordsearch": _validate_wordsearch,
         "clue-reveal": _validate_clue_reveal,
+        "chess": _validate_chess,
     }
     validator = validators.get(puzzle_type)
     if validator:
@@ -276,6 +279,11 @@ def _validate_wordsearch(question: str, answer: str) -> None:
         )
     if not answer.strip():
         raise ValueError("wordsearch answer must not be empty")
+
+
+def _validate_chess(question: str, answer: str) -> None:
+    """chess — JSON with FEN; answer is the mating move in SAN or UCI."""
+    validate_chess_puzzle(question, answer)
 
 
 def _validate_clue_reveal(question: str, answer: str) -> None:
