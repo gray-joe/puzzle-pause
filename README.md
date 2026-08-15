@@ -109,6 +109,8 @@ cd web && npm run test:e2e
 
 Reports land in `web/playwright-report/`.
 
+See [docs/e2e-coverage.md](docs/e2e-coverage.md) for a coverage matrix of puzzle types and app areas.
+
 ## Linting
 
 ### Frontend (ESLint with Next.js config)
