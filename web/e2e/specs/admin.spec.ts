@@ -325,11 +325,10 @@ test.describe('Admin puzzle CRUD', () => {
         await page.goto('/admin/puzzles/new');
 
         await page.locator('input[type=date]').fill('2099-12-31');
-        await page.locator('select').selectOption('math');
+        await page.locator('form select').first().selectOption('math');
         await page.locator("input[placeholder='Puzzle display name']").fill('E2E Test Puzzle');
         await page.locator('textarea').first().fill('What is 1+1?');
         await page.locator('input[type=text]').last().fill(''); // clear hint
-        const answerInput = page.locator('input[type=text]').first();
         await page.locator('input[required][type=text]').fill('2');
         await page.locator('button[type=submit]').click();
 
