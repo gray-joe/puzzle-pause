@@ -1,6 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
+import type { ChessboardOptions } from 'react-chessboard';
 import { sideToMoveLabel } from '@/lib/chessHelpers';
 
 const Chessboard = dynamic(() => import('react-chessboard').then((mod) => mod.Chessboard), {
@@ -10,12 +11,8 @@ const Chessboard = dynamic(() => import('react-chessboard').then((mod) => mod.Ch
 interface Props {
     fen: string;
     allowDragging?: boolean;
-    onPieceDrop?: (args: {
-        piece: string;
-        sourceSquare: string;
-        targetSquare: string | null;
-    }) => boolean;
-    onSquareClick?: (args: { piece: string | null; square: string }) => void;
+    onPieceDrop?: ChessboardOptions['onPieceDrop'];
+    onSquareClick?: ChessboardOptions['onSquareClick'];
     boardWidth?: number;
 }
 
@@ -36,7 +33,7 @@ export default function ChessBoardView({
                     onSquareClick,
                     boardStyle: {
                         borderRadius: '4px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
                     },
                 }}
             />

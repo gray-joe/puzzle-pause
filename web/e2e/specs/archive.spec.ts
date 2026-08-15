@@ -50,7 +50,7 @@ test('Users can solve a previously unsolved puzzle for archive points', async ({
     await result.mockClipboard();
     const shareText = await result.shareAndGetText();
     expect(shareText).toContain('I scored 90');
-    expect(shareText).toContain('Puzzle Pause #20');
+    expect(shareText).toContain('Puzzle Pause #21');
     expect(shareText).toContain('puzzlepause.app/archive/10');
 });
 
