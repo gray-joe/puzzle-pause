@@ -151,6 +151,11 @@ class TestAdminCreatePuzzle:
             ),
             ("image-tap", '{"prompt":"Click:","image_url":"/img.jpg"}', "0.5,0.5"),
             ("image-order", '{"prompt":"Sort:","images":["/a.jpg","/b.jpg"]}', "0,1"),
+            (
+                "chess",
+                '{"fen":"r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"}',
+                "Qxf7#",
+            ),
         ]
         cookies = _admin_cookies(db)
         for i, (ptype, question, answer) in enumerate(valid_puzzles):

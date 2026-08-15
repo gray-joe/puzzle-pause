@@ -33,6 +33,7 @@ VALID_TYPES = {
     "word-wheel",
     "countdown",
     "clue-reveal",
+    "chess",
 }
 
 

@@ -362,6 +362,47 @@ class TestClueRevealValidation:
 
 
 # ---------------------------------------------------------------------------
+# chess
+# ---------------------------------------------------------------------------
+
+
+class TestChessValidation:
+    SCHOLAR_FEN = (
+        '{"fen":"r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"}'
+    )
+    BLACK_MATE_FEN = '{"fen":"8/8/8/8/8/8/5k2/4q2K b - - 0 1"}'
+
+    def test_valid_scholars_mate(self):
+        validate_puzzle("chess", self.SCHOLAR_FEN, "Qxf7#")
+
+    def test_valid_black_mate(self):
+        validate_puzzle("chess", self.BLACK_MATE_FEN, "Qg1#")
+
+    def test_alternative_answers(self):
+        validate_puzzle("chess", self.BLACK_MATE_FEN, "Qg1#|Kg3#")
+
+    def test_invalid_fen(self):
+        with pytest.raises(ValueError, match="valid"):
+            validate_puzzle("chess", '{"fen":"not-a-fen"}', "e2e4")
+
+    def test_missing_fen(self):
+        with pytest.raises(ValueError, match="'fen'"):
+            validate_puzzle("chess", '{"prompt":"x"}', "e2e4")
+
+    def test_non_mating_move_rejected(self):
+        with pytest.raises(ValueError, match="mate-in-1"):
+            validate_puzzle("chess", self.SCHOLAR_FEN, "Nf3")
+
+    def test_no_mate_in_position(self):
+        with pytest.raises(ValueError, match="mate-in-1"):
+            validate_puzzle(
+                "chess",
+                '{"fen":"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"}',
+                "e2e4",
+            )
+
+
+# ---------------------------------------------------------------------------
 # Unvalidated types pass through without error
 # ---------------------------------------------------------------------------
 

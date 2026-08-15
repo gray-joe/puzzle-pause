@@ -14,6 +14,7 @@ import ScrabbleBuilder from './ScrabbleBuilder';
 import WordsearchBuilder from './WordsearchBuilder';
 import WordLadderBuilder from './WordLadderBuilder';
 import WordWheelBuilder from './WordWheelBuilder';
+import ChessBuilder from './ChessBuilder';
 
 const PUZZLE_TYPES = [
     'word',
@@ -32,6 +33,7 @@ const PUZZLE_TYPES = [
     'word-wheel',
     'countdown',
     'clue-reveal',
+    'chess',
 ];
 
 const QUESTION_HINTS: Record<string, string> = {
@@ -56,6 +58,7 @@ const QUESTION_HINTS: Record<string, string> = {
         '{"prompt":"Reach the target using the numbers and operators below:","target":473,"numbers":[75,50,8,3,6,2],"operators":["+","-","×","÷"]}',
     'clue-reveal':
         '{"prompt":"Who am I?","clues":["First clue (always visible)","Second clue (-10 pts to reveal)","Third clue (-10 pts to reveal)"]}',
+    chess: '{"fen":"r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"}',
 };
 
 interface Props {
@@ -119,6 +122,10 @@ export default function PuzzleForm({ puzzle }: Props) {
     }, []);
 
     const handleWordWheelChange = useCallback((question: string, answer: string) => {
+        setForm((prev) => ({ ...prev, question, answer }));
+    }, []);
+
+    const handleChessChange = useCallback((question: string, answer: string) => {
         setForm((prev) => ({ ...prev, question, answer }));
     }, []);
 
@@ -204,6 +211,10 @@ export default function PuzzleForm({ puzzle }: Props) {
         }
         if (form.puzzle_type === 'word-wheel' && !form.answer.trim()) {
             setError('At least one answer word is required');
+            return;
+        }
+        if (form.puzzle_type === 'chess' && !form.answer.trim()) {
+            setError('Chess mating move is required');
             return;
         }
         setLoading(true);
@@ -395,6 +406,17 @@ export default function PuzzleForm({ puzzle }: Props) {
                         question={form.question}
                         answer={form.answer}
                         onChange={handleWordWheelChange}
+                    />
+                </div>
+            ) : form.puzzle_type === 'chess' ? (
+                <div style={fieldStyle}>
+                    <label style={labelStyle}>
+                        <span className="gt">&gt;</span> Chess Builder
+                    </label>
+                    <ChessBuilder
+                        question={form.question}
+                        answer={form.answer}
+                        onChange={handleChessChange}
                     />
                 </div>
             ) : (

@@ -18,6 +18,7 @@ import ScrabblePuzzle from './ScrabblePuzzle';
 import WordWheelPuzzle from './WordWheelPuzzle';
 import CountdownPuzzle from './CountdownPuzzle';
 import ClueRevealPuzzle from './ClueRevealPuzzle';
+import ChessPuzzle from './ChessPuzzle';
 import ResultPanel from './ResultPanel';
 
 interface Props {
@@ -316,6 +317,8 @@ function PuzzleTypeRenderer(props: {
             return <CountdownPuzzle {...props} />;
         case 'clue-reveal':
             return <ClueRevealPuzzle {...props} />;
+        case 'chess':
+            return <ChessPuzzle {...props} />;
         default:
             return <WordPuzzle {...props} />;
     }

@@ -244,6 +244,15 @@ SEED_PUZZLES = [
         "answer": "C",
         "hint": "Think about which faces are opposite each other",
     },
+    {
+        "days_ago": 27,
+        "puzzle_type": "chess",
+        "puzzle_name": "Scholar's Mate",
+        "question": '{"fen":"r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"}',
+        "answer": "Qxf7#",
+        "hint": "The queen and bishop both target f7",
+        "explanation": "Qxf7 is checkmate — the king cannot escape or block.",
+    },
 ]
 
 SEED_USERS = [
