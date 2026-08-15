@@ -17,9 +17,9 @@ from ..auth import (
     get_or_create_guest_session_id,
     require_user,
 )
+from ..chess_utils import check_chess_answer
 from ..database import get_db
 from ..models import Attempt, Puzzle, PuzzleCompletionEvent
-from ..chess_utils import check_chess_answer
 from ..puzzle import calculate_score, check_answer, get_puzzle_date
 from ..schemas import AttemptRequest, AttemptResponse, HintRequest, HintResponse
 

@@ -52,7 +52,7 @@ export default function ChessBuilder({ question, answer, onChange }: Props) {
         onChange(buildChessQuestion(nextFen), preservedAnswer);
     }
 
-    function handleSquareClick({ square }: { piece: string | null; square: string }) {
+    function handleSquareClick({ square }: { piece: unknown; square: string }) {
         if (!selectedPiece) return;
         const nextFen =
             selectedPiece === 'erase'
@@ -65,7 +65,7 @@ export default function ChessBuilder({ question, answer, onChange }: Props) {
         sourceSquare,
         targetSquare,
     }: {
-        piece: string;
+        piece: unknown;
         sourceSquare: string;
         targetSquare: string | null;
     }) {
