@@ -17,6 +17,12 @@ export type Puzzle = {
     puzzle_number: number | null;
     attempt?: AttemptDetail;
     solved?: boolean;
+    completion_stats?: {
+        completed_users: number;
+        completion_percentage: number;
+        average_seconds: number | null;
+        average_score: number | null;
+    };
 };
 
 export type AttemptDetail = {
@@ -39,6 +45,7 @@ export type AttemptResult = {
     question?: string | null;
     explanation?: string | null;
     streak?: number | null;
+    letter_feedback?: boolean[][] | null;
 };
 
 export type League = {
@@ -291,6 +298,11 @@ export const api = {
             const path = query ? `/api/archive?${query}` : '/api/archive';
             return apiFetch<Puzzle[]>(path, {}, cookieHeader);
         },
+
+        randomUncompleted: () =>
+            apiFetch<{ puzzle_id: number | null }>('/api/archive/random-uncompleted', {
+                cache: 'no-store',
+            }),
 
         get: (id: number, cookieHeader?: string) =>
             apiFetch<Puzzle>(`/api/archive/${id}`, {}, cookieHeader),

@@ -6,6 +6,7 @@ export class ResultPage {
     readonly score: Locator;
     readonly explanation: Locator;
     readonly shareBtn: Locator;
+    readonly anotherPuzzleBtn: Locator;
 
     constructor(page: Page) {
         this.page = page;
@@ -13,6 +14,7 @@ export class ResultPage {
         this.score = page.getByTestId('result-score');
         this.explanation = page.getByTestId('result-explanation');
         this.shareBtn = page.getByTestId('share-btn');
+        this.anotherPuzzleBtn = page.getByTestId('another-puzzle-btn');
     }
 
     async mockClipboard() {

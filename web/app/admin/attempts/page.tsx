@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { requireUser, getCookieHeader } from '@/lib/auth';
+import { requireAdmin, getCookieHeader } from '@/lib/auth';
 import { pageFromSearchParams, PageSearchParams } from '@/lib/pagination';
 import PageShell from '@/components/ui/PageShell';
 import PaginationControls from '@/components/ui/PaginationControls';
@@ -17,7 +17,7 @@ export default async function AdminAttemptsPage({
 }: {
     searchParams?: Promise<PageSearchParams>;
 }) {
-    await requireUser();
+    await requireAdmin();
     const cookieHeader = await getCookieHeader();
     const params = (await searchParams) ?? {};
     const page = pageFromSearchParams(params);

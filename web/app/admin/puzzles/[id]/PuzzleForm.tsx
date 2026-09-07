@@ -13,6 +13,7 @@ import OrderBuilder from './OrderBuilder';
 import ScrabbleBuilder from './ScrabbleBuilder';
 import WordsearchBuilder from './WordsearchBuilder';
 import WordLadderBuilder from './WordLadderBuilder';
+import WordLadderV2Builder from './WordLadderV2Builder';
 import WordWheelBuilder from './WordWheelBuilder';
 import ChessBuilder from './ChessBuilder';
 
@@ -34,6 +35,7 @@ const PUZZLE_TYPES = [
     'countdown',
     'clue-reveal',
     'chess',
+    'word-ladder-v2',
 ];
 
 const QUESTION_HINTS: Record<string, string> = {
@@ -59,6 +61,7 @@ const QUESTION_HINTS: Record<string, string> = {
     'clue-reveal':
         '{"prompt":"Who am I?","clues":["First clue (always visible)","Second clue (-10 pts to reveal)","Third clue (-10 pts to reveal)"]}',
     chess: '{"fen":"r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"}',
+    'word-ladder-v2': 'start, end',
 };
 
 interface Props {
@@ -207,6 +210,17 @@ export default function PuzzleForm({ puzzle }: Props) {
         }
         if (form.puzzle_type === 'ladder' && !form.answer.trim()) {
             setError('At least one blank answer is required');
+            return;
+        }
+        if (
+            form.puzzle_type === 'word-ladder-v2' &&
+            form.question.split(',').filter((word) => word.trim()).length !== 2
+        ) {
+            setError('A start and end word are required');
+            return;
+        }
+        if (form.puzzle_type === 'word-ladder-v2' && !form.answer.trim()) {
+            setError('At least one reference word is required');
             return;
         }
         if (form.puzzle_type === 'word-wheel' && !form.answer.trim()) {
@@ -370,6 +384,17 @@ export default function PuzzleForm({ puzzle }: Props) {
                         <span className="gt">&gt;</span> Word Ladder Builder
                     </label>
                     <WordLadderBuilder
+                        question={form.question}
+                        answer={form.answer}
+                        onChange={handleWordLadderChange}
+                    />
+                </div>
+            ) : form.puzzle_type === 'word-ladder-v2' ? (
+                <div style={fieldStyle}>
+                    <label style={labelStyle}>
+                        <span className="gt">&gt;</span> Word Ladder V2 Builder
+                    </label>
+                    <WordLadderV2Builder
                         question={form.question}
                         answer={form.answer}
                         onChange={handleWordLadderChange}

@@ -14,14 +14,13 @@ def _sample_rate(default: float) -> float:
 
 def init_sentry() -> None:
     dsn = os.environ.get("SENTRY_DSN")
-    if not dsn:
+    app_environment = os.environ.get("PUZZLE_ENV", "dev").lower()
+    if not dsn or app_environment in {"dev", "development"}:
         return
 
     import sentry_sdk
 
-    environment = os.environ.get("SENTRY_ENVIRONMENT") or os.environ.get(
-        "PUZZLE_ENV", "dev"
-    )
+    environment = os.environ.get("SENTRY_ENVIRONMENT") or app_environment
     default_traces_sample_rate = 0.1 if environment in {"prod", "production"} else 1.0
 
     sentry_sdk.init(

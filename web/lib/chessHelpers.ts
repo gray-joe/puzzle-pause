@@ -60,7 +60,7 @@ export const PIECE_PALETTE: PalettePiece[] = [
 ];
 
 export function setSquarePiece(fen: string, square: Square, piece: PalettePiece | null): string {
-    const chess = new Chess(fen);
+    const chess = new Chess(fen, { skipValidation: true });
     chess.remove(square);
     if (piece) {
         chess.put({ type: piece.type, color: piece.color }, square);

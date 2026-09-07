@@ -178,6 +178,48 @@ class TestTodayPuzzle:
         resp = client.get("/api/puzzle/today")
         assert resp.status_code == 404
 
+    def test_returns_completion_percentage_and_average_time(self, client, db):
+        puzzle = _make_puzzle(db)
+        solved_user, _ = _make_user(db, "solved@example.com")
+        unsolved_user, _ = _make_user(db, "unsolved@example.com")
+        opened_at = datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc)
+        db.add_all(
+            [
+                Attempt(
+                    user_id=solved_user.id,
+                    puzzle_id=puzzle.id,
+                    solved=1,
+                    opened_at=opened_at,
+                    completed_at=opened_at + timedelta(seconds=120),
+                    score=80,
+                ),
+                Attempt(
+                    user_id=unsolved_user.id,
+                    puzzle_id=puzzle.id,
+                    solved=0,
+                    opened_at=opened_at,
+                ),
+                PuzzleCompletionEvent(
+                    puzzle_id=puzzle.id,
+                    guest_session_id="guest-1",
+                    completed_at=opened_at + timedelta(seconds=60),
+                    source="daily",
+                    time_to_complete_seconds=60,
+                ),
+            ]
+        )
+        db.commit()
+
+        resp = client.get("/api/puzzle/today")
+
+        assert resp.status_code == 200
+        assert resp.json()["completion_stats"] == {
+            "completed_users": 2,
+            "completion_percentage": 67,
+            "average_seconds": 90,
+            "average_score": 80,
+        }
+
     def test_score_backfill_skips_give_ups(self, db, monkeypatch):
         from app import main
 
@@ -329,6 +371,34 @@ class TestAttempt:
 
         assert resp.status_code == 200
         assert resp.json()["correct"] is False
+
+    def test_word_ladder_v2_accepts_valid_path_and_returns_letter_feedback(
+        self, client, db
+    ):
+        puzzle = Puzzle(
+            puzzle_date=date.today().isoformat(),
+            puzzle_type="word-ladder-v2",
+            puzzle_name="Cold to Warm",
+            question="cold, warm",
+            answer="cord, card, ward",
+        )
+        db.add(puzzle)
+        db.commit()
+
+        wrong = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "core"},
+        )
+        assert wrong.status_code == 200
+        assert wrong.json()["correct"] is False
+        assert wrong.json()["letter_feedback"] == [[True, True, True, False]]
+
+        correct = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "cord, card, ward"},
+        )
+        assert correct.status_code == 200
+        assert correct.json()["correct"] is True
 
     def test_guest_can_attempt(self, client, db):
         _make_puzzle(db, answer="hello", explanation="The clue asks for a greeting.")

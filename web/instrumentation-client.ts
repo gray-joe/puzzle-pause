@@ -1,9 +1,14 @@
 import * as Sentry from '@sentry/nextjs';
-import { getSentryEnvironment, getSentryRelease, getSentryTracesSampleRate } from './sentry.shared';
+import {
+    getSentryEnvironment,
+    getSentryRelease,
+    getSentryTracesSampleRate,
+    shouldInitializeSentry,
+} from './sentry.shared';
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
-if (dsn) {
+if (shouldInitializeSentry(dsn)) {
     Sentry.init({
         dsn,
         environment: getSentryEnvironment(),

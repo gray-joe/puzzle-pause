@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Puzzle, AttemptDetail } from '@/lib/api';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { api, Puzzle, AttemptDetail } from '@/lib/api';
 
 interface Props {
     puzzle: Puzzle;
@@ -110,6 +112,9 @@ export default function ResultPanel({
     isArchive,
     isLoggedIn,
 }: Props) {
+    const router = useRouter();
+    const [anotherLoading, setAnotherLoading] = useState(false);
+    const [anotherError, setAnotherError] = useState('');
     const solvedAt = attempt.completed_at ? new Date(attempt.completed_at) : null;
     const completedStr = solvedAt
         ? `${solvedAt.getUTCFullYear()}-${String(solvedAt.getUTCMonth() + 1).padStart(2, '0')}-${String(solvedAt.getUTCDate()).padStart(2, '0')} ${String(solvedAt.getUTCHours()).padStart(2, '0')}:${String(solvedAt.getUTCMinutes()).padStart(2, '0')}:${String(solvedAt.getUTCSeconds()).padStart(2, '0')}`
@@ -144,6 +149,24 @@ export default function ResultPanel({
 
     function share() {
         navigator.clipboard.writeText(shareText).catch(() => {});
+    }
+
+    async function openAnotherPuzzle() {
+        if (anotherLoading) return;
+        setAnotherLoading(true);
+        setAnotherError('');
+        try {
+            const { puzzle_id } = await api.archive.randomUncompleted();
+            if (puzzle_id == null) {
+                setAnotherError('You have completed every available puzzle.');
+                return;
+            }
+            router.push(`/archive/${puzzle_id}`);
+        } catch {
+            setAnotherError('Could not find another puzzle. Please try again.');
+        } finally {
+            setAnotherLoading(false);
+        }
     }
 
     const isOrderPuzzle = puzzle.puzzle_type === 'order';
@@ -275,6 +298,29 @@ export default function ResultPanel({
             <button className="action-btn" onClick={share} data-testid="share-btn">
                 <span className="gt">&gt;</span>Share result
             </button>
+
+            <button
+                className="action-btn"
+                onClick={openAnotherPuzzle}
+                disabled={anotherLoading}
+                data-testid="another-puzzle-btn"
+                style={{ display: 'flex', alignItems: 'center' }}
+            >
+                <span className="gt">&gt;</span>
+                <span>
+                    <span style={{ display: 'block', fontSize: '1.5em', fontWeight: 700 }}>
+                        {anotherLoading ? 'Finding one...' : 'Another?'}
+                    </span>
+                    <span className="muted" style={{ display: 'block', fontSize: '0.8em' }}>
+                        Jump to a random, uncompleted puzzle
+                    </span>
+                </span>
+            </button>
+            {anotherError && (
+                <div className="muted" role="status" data-testid="another-puzzle-error">
+                    {anotherError}
+                </div>
+            )}
 
             {isLoggedIn && !isArchive && (
                 <Link

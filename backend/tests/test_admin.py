@@ -140,6 +140,7 @@ class TestAdminCreatePuzzle:
             ("word", "What is a four-letter word for happy?", "glad"),
             ("math", "What is 2 + 2?", "4"),
             ("ladder", "C_T, C_P, C_R", "a, u, a"),
+            ("word-ladder-v2", "cold, warm", "cord, card, ward"),
             ("choice", "What is 1+1?|One|Two|Three", "B"),
             ("wordsearch", "A B C\nD E F\nG H I\nFind: ABC", "ABC"),
             ("order", '{"prompt":"Sort:","items":["B","A"]}', "1,0"),

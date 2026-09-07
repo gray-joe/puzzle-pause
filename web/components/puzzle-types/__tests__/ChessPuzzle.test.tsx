@@ -5,7 +5,19 @@ import ChessPuzzle from '../ChessPuzzle';
 import { Puzzle } from '@/lib/api';
 
 vi.mock('../ChessBoardView', () => ({
-    default: ({ fen }: { fen: string }) => <div data-testid="chess-board">{fen}</div>,
+    default: ({
+        fen,
+        onSquareClick,
+    }: {
+        fen: string;
+        onSquareClick?: (args: { piece: unknown; square: string }) => void;
+    }) => (
+        <div data-testid="chess-board">
+            <span data-testid="board-fen">{fen}</span>
+            <button onClick={() => onSquareClick?.({ piece: {}, square: 'h5' })}>h5</button>
+            <button onClick={() => onSquareClick?.({ piece: {}, square: 'f7' })}>f7</button>
+        </div>
+    ),
     ChessTurnBanner: ({ fen }: { fen: string }) => (
         <div data-testid="chess-turn-banner">
             {fen.startsWith('r1bq') ? 'White' : 'Black'} to move, mate in 1
@@ -49,7 +61,7 @@ describe('ChessPuzzle', () => {
         expect(screen.getByTestId('chess-board')).toBeInTheDocument();
     });
 
-    it('submits entered move', async () => {
+    it('selects a move on the board and waits for submit', async () => {
         const onSubmit = vi.fn();
         render(
             <ChessPuzzle
@@ -60,13 +72,40 @@ describe('ChessPuzzle', () => {
             />
         );
 
-        await userEvent.type(screen.getByTestId('answer-input'), 'Qxf7#');
+        await userEvent.click(screen.getByRole('button', { name: 'h5' }));
+        await userEvent.click(screen.getByRole('button', { name: 'f7' }));
+
+        expect(screen.getByTestId('selected-move')).toHaveTextContent('Selected move: h5f7');
+        expect(onSubmit).not.toHaveBeenCalled();
+
         await userEvent.click(screen.getByTestId('submit-btn'));
 
-        expect(onSubmit).toHaveBeenCalledWith('Qxf7#');
+        expect(onSubmit).toHaveBeenCalledWith('h5f7');
+        expect(screen.getByTestId('selected-move')).toHaveTextContent(
+            'Select a piece, then choose its destination.'
+        );
     });
 
-    it('hides input when solved', () => {
+    it('can reset a selected move before submitting', async () => {
+        const onSubmit = vi.fn();
+        render(
+            <ChessPuzzle
+                puzzle={makePuzzle(scholarQuestion)}
+                solved={false}
+                onSubmit={onSubmit}
+                loading={false}
+            />
+        );
+
+        await userEvent.click(screen.getByRole('button', { name: 'h5' }));
+        await userEvent.click(screen.getByRole('button', { name: 'f7' }));
+        await userEvent.click(screen.getByTestId('reset-move-btn'));
+
+        expect(screen.getByTestId('submit-btn')).toBeDisabled();
+        expect(onSubmit).not.toHaveBeenCalled();
+    });
+
+    it('hides move controls when solved', () => {
         render(
             <ChessPuzzle
                 puzzle={makePuzzle(scholarQuestion)}
@@ -76,6 +115,7 @@ describe('ChessPuzzle', () => {
             />
         );
 
-        expect(screen.queryByTestId('answer-input')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('selected-move')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('submit-btn')).not.toBeInTheDocument();
     });
 });

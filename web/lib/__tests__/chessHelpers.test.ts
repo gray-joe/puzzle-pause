@@ -3,6 +3,7 @@ import {
     buildChessQuestion,
     getMateInOneMoves,
     parseChessQuestion,
+    setSquarePiece,
     sideToMoveLabel,
 } from '../chessHelpers';
 
@@ -21,5 +22,14 @@ describe('chessHelpers', () => {
 
     it('finds mate-in-1 moves', () => {
         expect(getMateInOneMoves(SCHOLAR_FEN)).toContain('Qxf7#');
+    });
+
+    it('builds a position one piece at a time from an empty board', () => {
+        let fen = '8/8/8/8/8/8/8/8 w - - 0 1';
+        fen = setSquarePiece(fen, 'f6', { type: 'k', color: 'w', label: '♔' });
+        fen = setSquarePiece(fen, 'g6', { type: 'q', color: 'w', label: '♕' });
+        fen = setSquarePiece(fen, 'h8', { type: 'k', color: 'b', label: '♚' });
+
+        expect(getMateInOneMoves(fen)).toEqual(['Qg7#']);
     });
 });

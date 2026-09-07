@@ -253,6 +253,15 @@ SEED_PUZZLES = [
         "hint": "The queen and bishop both target f7",
         "explanation": "Qxf7 is checkmate — the king cannot escape or block.",
     },
+    {
+        "days_ago": 28,
+        "puzzle_type": "word-ladder-v2",
+        "puzzle_name": "Cold to Warm",
+        "question": "cold, warm",
+        "answer": "cord, card, ward",
+        "hint": "Try changing the second letter first.",
+        "explanation": "One route is COLD → CORD → CARD → WARD → WARM.",
+    },
 ]
 
 SEED_USERS = [

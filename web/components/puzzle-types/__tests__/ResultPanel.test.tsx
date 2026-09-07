@@ -1,9 +1,20 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import ResultPanel from '../ResultPanel';
-import { Puzzle, AttemptDetail } from '@/lib/api';
+import { api, Puzzle, AttemptDetail } from '@/lib/api';
 
-afterEach(cleanup);
+const push = vi.fn();
+
+vi.mock('next/navigation', () => ({
+    useRouter: () => ({ push }),
+}));
+
+afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+    push.mockReset();
+});
 
 function makePuzzle(overrides: Partial<Puzzle> = {}): Puzzle {
     return {
@@ -171,5 +182,47 @@ describe('explanation display', () => {
         );
 
         expect(screen.queryByTestId('result-explanation')).not.toBeInTheDocument();
+    });
+});
+
+describe('another puzzle button', () => {
+    it('opens a random uncompleted archive puzzle', async () => {
+        vi.spyOn(api.archive, 'randomUncompleted').mockResolvedValue({ puzzle_id: 42 });
+        render(
+            <ResultPanel
+                puzzle={makePuzzle()}
+                attempt={makeAttempt()}
+                answer="hello"
+                isLoggedIn={true}
+            />
+        );
+
+        const button = screen.getByTestId('another-puzzle-btn');
+        expect(button).toHaveTextContent('Another?');
+        expect(button).toHaveTextContent('Jump to a random, uncompleted puzzle');
+
+        await userEvent.click(button);
+
+        expect(api.archive.randomUncompleted).toHaveBeenCalledOnce();
+        expect(push).toHaveBeenCalledWith('/archive/42');
+    });
+
+    it('explains when every puzzle has been completed', async () => {
+        vi.spyOn(api.archive, 'randomUncompleted').mockResolvedValue({ puzzle_id: null });
+        render(
+            <ResultPanel
+                puzzle={makePuzzle()}
+                attempt={makeAttempt()}
+                answer="hello"
+                isLoggedIn={true}
+            />
+        );
+
+        await userEvent.click(screen.getByTestId('another-puzzle-btn'));
+
+        expect(screen.getByTestId('another-puzzle-error')).toHaveTextContent(
+            'You have completed every available puzzle.'
+        );
+        expect(push).not.toHaveBeenCalled();
     });
 });

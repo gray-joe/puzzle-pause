@@ -45,7 +45,7 @@ export default function ChessBuilder({ question, answer, onChange }: Props) {
     }, [answer, initialised, onChange, question]);
 
     function emit(nextFen: string, nextAnswer: string) {
-        const validMoves = getMateInOneMoves(nextFen);
+        const validMoves = isValidChessFen(nextFen) ? getMateInOneMoves(nextFen) : [];
         const preservedAnswer = validMoves.includes(nextAnswer) ? nextAnswer : '';
         setFen(nextFen);
         setSelectedAnswer(preservedAnswer);

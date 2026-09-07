@@ -22,6 +22,8 @@ from ..routers.puzzle import (
     _give_up_attempt,
     _guest_give_up_event,
     _hint_items,
+    _letter_feedback,
+    _puzzle_completion_stats,
     _puzzle_to_response,
 )
 from ..schemas import AttemptRequest, AttemptResponse, HintResponse
@@ -140,6 +142,46 @@ def list_archive(
     ]
 
 
+@router.get("/random-uncompleted")
+@limiter.limit("30/minute")
+def random_uncompleted_archive_puzzle(
+    request: Request,
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    puzzle_date = get_puzzle_date()
+
+    if user:
+        puzzle_id = db.execute(
+            text(
+                "SELECT p.id FROM puzzles p "
+                "LEFT JOIN attempts a ON a.puzzle_id = p.id AND a.user_id = :uid "
+                "WHERE p.puzzle_date < :today "
+                "AND COALESCE(a.solved, 0) != 1 "
+                "AND COALESCE(a.gave_up, 0) != 1 "
+                "ORDER BY RANDOM() LIMIT 1"
+            ),
+            {"uid": user.id, "today": puzzle_date},
+        ).scalar()
+    else:
+        guest_session_id = request.cookies.get(GUEST_SESSION_COOKIE)
+        puzzle_id = db.execute(
+            text(
+                "SELECT p.id FROM puzzles p "
+                "WHERE p.puzzle_date < :today "
+                "AND NOT EXISTS ("
+                "  SELECT 1 FROM puzzle_completion_events e "
+                "  WHERE e.puzzle_id = p.id "
+                "  AND e.guest_session_id = :guest_session_id"
+                ") "
+                "ORDER BY RANDOM() LIMIT 1"
+            ),
+            {"guest_session_id": guest_session_id, "today": puzzle_date},
+        ).scalar()
+
+    return {"puzzle_id": puzzle_id}
+
+
 @router.get("/{puzzle_id}")
 @limiter.limit("60/minute")
 def get_archive_puzzle(
@@ -162,6 +204,7 @@ def get_archive_puzzle(
 
     data = _puzzle_to_response(puzzle)
     data["puzzle_number"] = _get_puzzle_number(puzzle, db)
+    data["completion_stats"] = _puzzle_completion_stats(puzzle.id, db)
 
     if user:
         attempt = (
@@ -274,7 +317,11 @@ def archive_attempt(
                 explanation=puzzle.explanation,
             )
         return AttemptResponse(
-            correct=False, score=None, incorrect_guesses=0, solved=False
+            correct=False,
+            score=None,
+            incorrect_guesses=0,
+            solved=False,
+            letter_feedback=_letter_feedback(puzzle, body.guess),
         )
 
     attempt = _ensure_attempt(user.id, puzzle.id, db)
@@ -355,6 +402,7 @@ def archive_attempt(
             score=None,
             incorrect_guesses=attempt.incorrect_guesses,
             solved=False,
+            letter_feedback=_letter_feedback(puzzle, body.guess),
         )
 
 

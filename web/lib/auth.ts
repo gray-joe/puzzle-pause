@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { api, User, ApiError } from './api';
+import { api, User } from './api';
 
 // Server-side: read session cookie and return current user, or null.
 export async function getUser(): Promise<User | null> {
@@ -19,6 +19,18 @@ export async function getUser(): Promise<User | null> {
 export async function requireUser(): Promise<User> {
     const user = await getUser();
     if (!user) redirect('/login');
+    return user;
+}
+
+// Server-side: require an authenticated user whose email is configured for admin access.
+export async function requireAdmin(): Promise<User> {
+    const user = await requireUser();
+    const adminEmails = (process.env.ADMIN_EMAILS ?? '')
+        .split(',')
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean);
+
+    if (!adminEmails.includes(user.email.toLowerCase())) redirect('/');
     return user;
 }
 

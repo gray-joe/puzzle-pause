@@ -19,6 +19,7 @@ import WordWheelPuzzle from './WordWheelPuzzle';
 import CountdownPuzzle from './CountdownPuzzle';
 import ClueRevealPuzzle from './ClueRevealPuzzle';
 import ChessPuzzle from './ChessPuzzle';
+import WordLadderV2Puzzle from './WordLadderV2Puzzle';
 import ResultPanel from './ResultPanel';
 
 interface Props {
@@ -33,6 +34,22 @@ interface Props {
     ) => Promise<AttemptResult>;
     onHint: () => Promise<{ hint: string; total_hints: number }>;
     onGiveUp: () => Promise<AttemptResult>;
+}
+
+function completionStatsLines(puzzle: Puzzle): string[] | null {
+    const stats = puzzle.completion_stats;
+    if (!stats || stats.completed_users === 0 || stats.average_seconds == null) return null;
+
+    const minutes = Math.floor(stats.average_seconds / 60);
+    const seconds = stats.average_seconds % 60;
+    const timeTaken = `${minutes} minute${minutes === 1 ? '' : 's'} ${seconds} second${seconds === 1 ? '' : 's'}`;
+    const averageScore = stats.average_score == null ? 'N/A' : stats.average_score;
+
+    return [
+        `Solved by: ${stats.completion_percentage}%`,
+        `Average score: ${averageScore}`,
+        `Average time taken: ${timeTaken}`,
+    ];
 }
 
 export default function PuzzleShell({
@@ -67,6 +84,7 @@ export default function PuzzleShell({
     const solved = attempt?.solved ?? false;
     const gaveUp = attempt?.gave_up ?? false;
     const completed = solved || gaveUp;
+    const statsLines = completionStatsLines(puzzle);
 
     async function submitGuess(guess: string) {
         if (completed || loading) return;
@@ -111,6 +129,7 @@ export default function PuzzleShell({
                 setIncorrectGuesses(newCount);
                 setFeedback(`Wrong. ${newCount} incorrect guess${newCount !== 1 ? 'es' : ''}.`);
             }
+            return result;
         } catch (err: any) {
             setFeedback(err.message ?? 'Error submitting guess');
         } finally {
@@ -204,6 +223,16 @@ export default function PuzzleShell({
                         Archived puzzles score like the daily puzzle with a -10 archive deduction.
                     </div>
                 )}
+                {statsLines && (
+                    <div className="content-meta muted" data-testid="completion-stats">
+                        {statsLines.map((line, index) => (
+                            <span key={index}>
+                                {line}
+                                {index < statsLines.length - 1 && <br />}
+                            </span>
+                        ))}
+                    </div>
+                )}
                 <ResultPanel
                     puzzle={{ ...puzzle, question: puzzleQuestion, explanation }}
                     attempt={attempt}
@@ -229,11 +258,16 @@ export default function PuzzleShell({
                     </span>
                 )}
             </div>
-            <div className="content-meta muted-dark" data-testid="puzzle-instructions">
-                {isArchive
-                    ? 'Archived puzzles score like the daily puzzle with a -10 archive deduction.'
-                    : 'Solve within 10 mins for 100 pts, 15 mins for 90, 30 mins for 75, 60 mins for 50. -5 per wrong guess, -10 for a hint.'}
-            </div>
+            {statsLines && (
+                <div className="content-meta muted" data-testid="completion-stats">
+                    {statsLines.map((line, index) => (
+                        <span key={index}>
+                            {line}
+                            {index < statsLines.length - 1 && <br />}
+                        </span>
+                    ))}
+                </div>
+            )}
 
             <PuzzleTypeRenderer type={puzzle.puzzle_type} {...puzzleProps} />
 
@@ -272,6 +306,16 @@ export default function PuzzleShell({
                     {feedback}
                 </div>
             )}
+
+            <div
+                className="content-meta muted-dark"
+                style={{ marginTop: 12 }}
+                data-testid="puzzle-instructions"
+            >
+                {isArchive
+                    ? 'Archived puzzles score like the daily puzzle with a -10 archive deduction.'
+                    : 'Solve within 10 mins for 100 pts, 15 mins for 90, 30 mins for 75, 60 mins for 50. -5 per wrong guess, -10 for a hint.'}
+            </div>
         </div>
     );
 }
@@ -280,7 +324,7 @@ function PuzzleTypeRenderer(props: {
     type: string;
     puzzle: Puzzle;
     solved: boolean;
-    onSubmit: (guess: string) => void;
+    onSubmit: (guess: string) => Promise<AttemptResult | undefined>;
     onHint: () => void;
     loading: boolean;
     hint: string | null;
@@ -291,6 +335,8 @@ function PuzzleTypeRenderer(props: {
             return <MathPuzzle {...props} />;
         case 'ladder':
             return <LadderPuzzle {...props} />;
+        case 'word-ladder-v2':
+            return <WordLadderV2Puzzle {...props} />;
         case 'choice':
             return <ChoicePuzzle {...props} />;
         case 'wordsearch':

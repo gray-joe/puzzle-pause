@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { requireUser, getCookieHeader } from '@/lib/auth';
+import { requireAdmin, getCookieHeader } from '@/lib/auth';
 import PageShell from '@/components/ui/PageShell';
 import AttemptForm from './AttemptForm';
 
@@ -9,7 +9,7 @@ export default async function AdminAttemptEditPage({
 }: {
     params: Promise<{ id: string }>;
 }) {
-    await requireUser();
+    await requireAdmin();
     const { id } = await params;
     const cookieHeader = await getCookieHeader();
     const attempt = await api.admin.getAttempt(Number(id), cookieHeader);

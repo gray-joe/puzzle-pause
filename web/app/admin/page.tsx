@@ -1,20 +1,15 @@
 import { api } from '@/lib/api';
-import { requireUser, getCookieHeader } from '@/lib/auth';
+import { requireAdmin, getCookieHeader } from '@/lib/auth';
 import PageShell from '@/components/ui/PageShell';
 
 export default async function AdminDashboardPage() {
-    const user = await requireUser();
+    await requireAdmin();
     const cookieHeader = await getCookieHeader();
-
-    const isAdmin = (process.env.ADMIN_EMAILS ?? '')
-        .split(',')
-        .map((e) => e.trim().toLowerCase())
-        .includes(user.email.toLowerCase());
 
     const stats = await api.admin.stats(cookieHeader);
 
     return (
-        <PageShell title="Admin" isAdmin={isAdmin} isLoggedIn>
+        <PageShell title="Admin" isAdmin isLoggedIn>
             <h2>
                 <span className="gt">&gt;</span>Admin — Dashboard
             </h2>

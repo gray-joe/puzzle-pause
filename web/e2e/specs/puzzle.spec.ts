@@ -3,6 +3,29 @@ import { loginAs } from '../helpers/db';
 import { PuzzlePage } from '../pages/PuzzlePage';
 import { ResultPage } from '../pages/ResultPage';
 
+test("Daily puzzle shows today's completion percentage, average score, and average time", async ({
+    page,
+}) => {
+    const response = await page.request.get('/api/puzzle/today');
+    expect(response.ok()).toBeTruthy();
+    const puzzle = await response.json();
+    const stats = puzzle.completion_stats;
+    expect(stats.completed_users).toBeGreaterThan(0);
+    expect(stats.average_seconds).not.toBeNull();
+
+    const minutes = Math.floor(stats.average_seconds / 60);
+    const seconds = stats.average_seconds % 60;
+    const averageScore = stats.average_score == null ? 'N/A' : stats.average_score;
+    const expected =
+        `Solved by: ${stats.completion_percentage}%` +
+        `Average score: ${averageScore}` +
+        `Average time taken: ${minutes} minute${minutes === 1 ? '' : 's'} ${seconds} second${seconds === 1 ? '' : 's'}`;
+
+    await page.goto('/puzzle');
+
+    await expect(page.getByTestId('completion-stats')).toHaveText(expected);
+});
+
 test.describe('Authenticated puzzle solving', () => {
     test('Authenticated user can solve daily puzzle', async ({ page }) => {
         const puzzle = new PuzzlePage(page);

@@ -65,18 +65,18 @@ test.describe('Admin dashboard', () => {
     test('Non-admin user is redirected away from /admin', async ({ page }) => {
         await loginAs(page, 'nonadmin@example.com');
         await page.goto('/admin');
-        await expect(page.locator('text=Admin — Dashboard')).not.toBeVisible();
+        await expect(page).toHaveURL('/');
     });
 
     test('Non-admin user is redirected away from /admin/puzzles', async ({ page }) => {
         await loginAs(page, 'bob@example.com');
         await page.goto('/admin/puzzles');
-        await expect(page.locator('text=Admin — Puzzles')).not.toBeVisible();
+        await expect(page).toHaveURL('/');
     });
 
     test('Unauthenticated user is redirected away from /admin', async ({ page }) => {
         await page.goto('/admin');
-        await expect(page.locator('text=Admin — Dashboard')).not.toBeVisible();
+        await expect(page).toHaveURL('/login');
     });
 
     test('Admin user can see the dashboard with stats', async ({ page }) => {
@@ -384,6 +384,41 @@ test.describe('Admin puzzle CRUD', () => {
             await page.getByTestId('ladder-step-value-1').fill('Darn');
             await page.getByTestId('ladder-step-value-3').fill('Dark');
             await saveAndExpectPuzzle(page, 'E2E Builder Ladder', '2099-11-03');
+        });
+
+        await test.step('word ladder v2 builder', async () => {
+            await startNewAdminPuzzle(
+                page,
+                '2099-11-12',
+                'word-ladder-v2',
+                'E2E Builder Ladder V2'
+            );
+            await expect(page.getByTestId('word-ladder-v2-builder')).toBeVisible();
+            await page.getByTestId('ladder-v2-start').fill('cold');
+            await page.getByTestId('ladder-v2-end').fill('warm');
+            await page.getByTestId('ladder-v2-reference-word').fill('cord');
+            await page.getByRole('button', { name: 'Add after' }).click();
+            await page.getByTestId('ladder-v2-reference-word').nth(1).fill('card');
+            await page.getByRole('button', { name: 'Add after' }).nth(1).click();
+            await page.getByTestId('ladder-v2-reference-word').nth(2).fill('ward');
+            await saveAndExpectPuzzle(page, 'E2E Builder Ladder V2', '2099-11-12');
+        });
+
+        await test.step('chess builder', async () => {
+            await startNewAdminPuzzle(page, '2099-11-13', 'chess', 'E2E Builder Chess');
+            await expect(page.getByTestId('chess-builder')).toBeVisible();
+            await page.getByRole('button', { name: 'Clear board' }).click();
+            await page.getByTestId('piece-wk').click();
+            await expect(page.getByTestId('piece-wk')).toHaveAttribute('aria-pressed', 'true');
+            await page.locator('[data-square="f6"]').dispatchEvent('click');
+            await page.getByTestId('piece-wq').click();
+            await expect(page.getByTestId('piece-wq')).toHaveAttribute('aria-pressed', 'true');
+            await page.locator('[data-square="g6"]').dispatchEvent('click');
+            await page.getByTestId('piece-bk').click();
+            await expect(page.getByTestId('piece-bk')).toHaveAttribute('aria-pressed', 'true');
+            await page.locator('[data-square="h8"]').dispatchEvent('click');
+            await page.getByTestId('chess-answer-select').selectOption('Qg7#');
+            await saveAndExpectPuzzle(page, 'E2E Builder Chess', '2099-11-13');
         });
 
         await test.step('choice builder', async () => {

@@ -214,12 +214,99 @@ class TestArchiveList:
         assert [row["id"] for row in unsolved.json()] == [puzzle.id]
 
 
+class TestRandomUncompletedArchivePuzzle:
+    def test_returns_only_uncompleted_puzzle_for_auth_user(self, client, db):
+        solved = _make_puzzle(db, days_ago=1)
+        gave_up = _make_puzzle(db, days_ago=2)
+        uncompleted = _make_puzzle(db, days_ago=3)
+        user, jwt = _make_user(db)
+        db.add_all(
+            [
+                Attempt(user_id=user.id, puzzle_id=solved.id, solved=1, score=80),
+                Attempt(user_id=user.id, puzzle_id=gave_up.id, gave_up=1, score=0),
+            ]
+        )
+        db.commit()
+
+        resp = client.get("/api/archive/random-uncompleted", cookies={"session": jwt})
+
+        assert resp.status_code == 200
+        assert resp.json() == {"puzzle_id": uncompleted.id}
+
+    def test_returns_only_uncompleted_puzzle_for_guest(self, client, db):
+        completed = _make_puzzle(db, days_ago=1)
+        uncompleted = _make_puzzle(db, days_ago=2)
+        db.add(
+            PuzzleCompletionEvent(
+                puzzle_id=completed.id,
+                guest_session_id="guest-123",
+                completed_at=datetime.now(timezone.utc),
+                source="archive",
+            )
+        )
+        db.commit()
+
+        resp = client.get(
+            "/api/archive/random-uncompleted",
+            cookies={"guest_session": "guest-123"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json() == {"puzzle_id": uncompleted.id}
+
+    def test_returns_null_when_every_puzzle_is_completed(self, client, db):
+        puzzle = _make_puzzle(db)
+        user, jwt = _make_user(db)
+        db.add(Attempt(user_id=user.id, puzzle_id=puzzle.id, solved=1, score=80))
+        db.commit()
+
+        resp = client.get("/api/archive/random-uncompleted", cookies={"session": jwt})
+
+        assert resp.status_code == 200
+        assert resp.json() == {"puzzle_id": None}
+
+
 class TestArchiveGet:
     def test_returns_puzzle(self, client, db):
         puzzle = _make_puzzle(db, days_ago=1)
         resp = client.get(f"/api/archive/{puzzle.id}")
         assert resp.status_code == 200
         assert resp.json()["id"] == puzzle.id
+
+    def test_returns_completion_stats(self, client, db):
+        puzzle = _make_puzzle(db, days_ago=1)
+        solved_user, _ = _make_user(db, "solved@example.com")
+        unsolved_user, _ = _make_user(db, "unsolved@example.com")
+        opened_at = datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc)
+        db.add_all(
+            [
+                Attempt(
+                    user_id=solved_user.id,
+                    puzzle_id=puzzle.id,
+                    solved=1,
+                    opened_at=opened_at,
+                    completed_at=opened_at + timedelta(seconds=90),
+                    score=75,
+                ),
+                Attempt(
+                    user_id=unsolved_user.id,
+                    puzzle_id=puzzle.id,
+                    solved=0,
+                    opened_at=opened_at,
+                ),
+            ]
+        )
+        db.commit()
+
+        resp = client.get(f"/api/archive/{puzzle.id}")
+
+        assert resp.status_code == 200
+        assert resp.json()["completion_stats"] == {
+            "completed_users": 1,
+            "completion_percentage": 50,
+            "average_seconds": 90,
+            "average_score": 75,
+        }
 
     def test_404_for_today(self, client, db):
         today = date.today().isoformat()

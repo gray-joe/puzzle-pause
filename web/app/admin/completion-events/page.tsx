@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import { requireUser, getCookieHeader } from '@/lib/auth';
+import { requireAdmin, getCookieHeader } from '@/lib/auth';
 import { pageFromSearchParams, PageSearchParams, single } from '@/lib/pagination';
 import PageShell from '@/components/ui/PageShell';
 import PaginationControls from '@/components/ui/PaginationControls';
@@ -21,7 +21,7 @@ export default async function AdminCompletionEventsPage({
 }: {
     searchParams?: Promise<PageSearchParams>;
 }) {
-    await requireUser();
+    await requireAdmin();
     const cookieHeader = await getCookieHeader();
     const params = (await searchParams) ?? {};
     const page = pageFromSearchParams(params);

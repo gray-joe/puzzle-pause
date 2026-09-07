@@ -11,6 +11,7 @@ import json
 import re
 
 from .chess_utils import validate_chess_puzzle
+from .word_ladder_v2 import validate_word_ladder_v2_puzzle
 
 
 def validate_puzzle(puzzle_type: str, question: str, answer: str) -> None:
@@ -33,6 +34,7 @@ def validate_puzzle(puzzle_type: str, question: str, answer: str) -> None:
         "wordsearch": _validate_wordsearch,
         "clue-reveal": _validate_clue_reveal,
         "chess": _validate_chess,
+        "word-ladder-v2": _validate_word_ladder_v2,
     }
     validator = validators.get(puzzle_type)
     if validator:
@@ -284,6 +286,11 @@ def _validate_wordsearch(question: str, answer: str) -> None:
 def _validate_chess(question: str, answer: str) -> None:
     """chess — JSON with FEN; answer is the mating move in SAN or UCI."""
     validate_chess_puzzle(question, answer)
+
+
+def _validate_word_ladder_v2(question: str, answer: str) -> None:
+    """word-ladder-v2 — two endpoints and a dictionary-valid reference path."""
+    validate_word_ladder_v2_puzzle(question, answer)
 
 
 def _validate_clue_reveal(question: str, answer: str) -> None:

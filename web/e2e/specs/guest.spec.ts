@@ -117,3 +117,21 @@ test('Guest can reveal a hint on daily puzzle', async ({ page }) => {
     await expect(puzzle.hint).toContainText('Count on your fingers');
     await expect(puzzle.hintBtn).not.toBeVisible();
 });
+
+test('Completed puzzle can jump to another uncompleted puzzle', async ({ page }) => {
+    const puzzle = new PuzzlePage(page);
+    const result = new ResultPage(page);
+
+    await page.goto('/archive/1');
+    await puzzle.submitAnswer('45');
+    await result.expectVisible();
+
+    await expect(result.anotherPuzzleBtn).toContainText('Another?');
+    await expect(result.anotherPuzzleBtn).toContainText('Jump to a random, uncompleted puzzle');
+    await result.anotherPuzzleBtn.click();
+
+    await page.waitForURL(/\/archive\/\d+$/);
+    await expect(page).not.toHaveURL(/\/archive\/1$/);
+    await expect(puzzle.shell).toBeVisible();
+    await expect(result.panel).not.toBeVisible();
+});

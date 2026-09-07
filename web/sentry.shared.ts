@@ -8,6 +8,10 @@ export function getSentryTracesSampleRate(raw: string | undefined) {
     return Math.min(Math.max(parsed, 0), 1);
 }
 
+export function shouldInitializeSentry(dsn: string | undefined) {
+    return process.env.NODE_ENV === 'production' && Boolean(dsn);
+}
+
 export function getSentryEnvironment() {
     return (
         process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ??

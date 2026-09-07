@@ -58,6 +58,7 @@ class AttemptResponse(BaseModel):
     answer: str | None = None
     question: str | None = None
     explanation: str | None = None
+    letter_feedback: list[list[bool]] | None = None
     streak: int | None = None
     opened_at: datetime | None = None
 

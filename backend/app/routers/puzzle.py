@@ -22,6 +22,10 @@ from ..database import get_db
 from ..models import Attempt, Puzzle, PuzzleCompletionEvent
 from ..puzzle import calculate_score, check_answer, get_puzzle_date
 from ..schemas import AttemptRequest, AttemptResponse, HintRequest, HintResponse
+from ..word_ladder_v2 import (
+    check_word_ladder_v2_answer,
+    word_ladder_v2_letter_feedback,
+)
 
 router = APIRouter(prefix="/puzzle", tags=["puzzle"])
 limiter = Limiter(key_func=get_remote_address)
@@ -79,7 +83,15 @@ def _check_puzzle_answer(puzzle: Puzzle, guess: str) -> bool:
             return check_chess_answer(puzzle.question, puzzle.answer, guess)
         except ValueError:
             return False
+    if puzzle.puzzle_type == "word-ladder-v2":
+        return check_word_ladder_v2_answer(puzzle.question, guess)
     return check_answer(guess, puzzle.answer)
+
+
+def _letter_feedback(puzzle: Puzzle, guess: str) -> list[list[bool]] | None:
+    if puzzle.puzzle_type != "word-ladder-v2":
+        return None
+    return word_ladder_v2_letter_feedback(puzzle.answer, guess)
 
 
 def _hint_items(puzzle_type: str, question: str, hint: str | None) -> list[str]:
@@ -162,6 +174,65 @@ def _seconds_between(start: datetime | None, end: datetime | None) -> int | None
         end = end.replace(tzinfo=timezone.utc)
     delta = int((end - start).total_seconds())
     return max(0, delta)
+
+
+def _puzzle_completion_stats(puzzle_id: int, db: Session) -> dict:
+    auth_attempts = db.query(Attempt).filter(Attempt.puzzle_id == puzzle_id).all()
+    guest_events = (
+        db.query(PuzzleCompletionEvent)
+        .filter(
+            PuzzleCompletionEvent.puzzle_id == puzzle_id,
+            PuzzleCompletionEvent.guest_session_id.is_not(None),
+        )
+        .all()
+    )
+
+    guest_ids = {
+        event.guest_session_id for event in guest_events if event.guest_session_id
+    }
+    completed_guest_ids = {
+        event.guest_session_id
+        for event in guest_events
+        if event.guest_session_id and not event.gave_up
+    }
+    completed_auth_attempts = [attempt for attempt in auth_attempts if attempt.solved]
+    participant_count = len(auth_attempts) + len(guest_ids)
+    completed_count = len(completed_auth_attempts) + len(completed_guest_ids)
+
+    durations = [
+        duration
+        for attempt in completed_auth_attempts
+        if (duration := _seconds_between(attempt.opened_at, attempt.completed_at))
+        is not None
+    ]
+    guest_durations: dict[str, int] = {}
+    for event in guest_events:
+        if (
+            event.guest_session_id
+            and not event.gave_up
+            and event.time_to_complete_seconds is not None
+        ):
+            current = guest_durations.get(event.guest_session_id)
+            if current is None or event.time_to_complete_seconds < current:
+                guest_durations[event.guest_session_id] = event.time_to_complete_seconds
+    durations.extend(guest_durations.values())
+
+    scores = [
+        attempt.score
+        for attempt in completed_auth_attempts
+        if attempt.score is not None
+    ]
+
+    return {
+        "completed_users": completed_count,
+        "completion_percentage": (
+            round(completed_count * 100 / participant_count) if participant_count else 0
+        ),
+        "average_seconds": round(sum(durations) / len(durations))
+        if durations
+        else None,
+        "average_score": round(sum(scores) / len(scores)) if scores else None,
+    }
 
 
 def _parse_date_param(value: str) -> str:
@@ -369,6 +440,7 @@ def today(
             data["question"] = puzzle.question
             data["answer"] = puzzle.answer
             data["explanation"] = puzzle.explanation
+    data["completion_stats"] = _puzzle_completion_stats(puzzle.id, db)
     return data
 
 
@@ -433,7 +505,11 @@ def submit_attempt(
                 explanation=puzzle.explanation,
             )
         return AttemptResponse(
-            correct=False, score=None, incorrect_guesses=0, solved=False
+            correct=False,
+            score=None,
+            incorrect_guesses=0,
+            solved=False,
+            letter_feedback=_letter_feedback(puzzle, body.guess),
         )
 
     attempt = _ensure_attempt(user.id, puzzle.id, db)
@@ -517,6 +593,7 @@ def submit_attempt(
             score=None,
             incorrect_guesses=attempt.incorrect_guesses,
             solved=False,
+            letter_feedback=_letter_feedback(puzzle, body.guess),
         )
 
 

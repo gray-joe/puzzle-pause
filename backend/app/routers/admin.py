@@ -34,6 +34,7 @@ VALID_TYPES = {
     "countdown",
     "clue-reveal",
     "chess",
+    "word-ladder-v2",
 }
 
 

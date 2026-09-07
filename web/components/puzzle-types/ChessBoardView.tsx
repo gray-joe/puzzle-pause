@@ -13,6 +13,7 @@ interface Props {
     allowDragging?: boolean;
     onPieceDrop?: ChessboardOptions['onPieceDrop'];
     onSquareClick?: ChessboardOptions['onSquareClick'];
+    squareStyles?: ChessboardOptions['squareStyles'];
     boardWidth?: number;
 }
 
@@ -21,6 +22,7 @@ export default function ChessBoardView({
     allowDragging = false,
     onPieceDrop,
     onSquareClick,
+    squareStyles,
     boardWidth = 360,
 }: Props) {
     return (
@@ -31,6 +33,7 @@ export default function ChessBoardView({
                     allowDragging,
                     onPieceDrop,
                     onSquareClick,
+                    squareStyles,
                     boardStyle: {
                         borderRadius: '4px',
                         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.25)',
