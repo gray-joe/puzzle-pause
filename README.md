@@ -2,7 +2,7 @@
 
 A daily puzzle web app where users solve word, math, image, and logic puzzles and compete in mini leagues.
 
-[Architecture diagram](https://puzzlepause.app/architecture.html)
+[Architecture diagram](https://puzzlepause.app/architecture.html) · [User journey diagram](https://puzzlepause.app/user-journey.html)
 
 ## Tech Stack
 
