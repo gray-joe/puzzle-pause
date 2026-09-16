@@ -2,6 +2,8 @@
 
 A daily puzzle web app where users solve word, math, image, and logic puzzles and compete in mini leagues.
 
+[Architecture diagram](https://puzzlepause.app/architecture.html)
+
 ## Tech Stack
 
 - **Backend**: Python (FastAPI, SQLAlchemy, SQLite)
@@ -55,6 +57,8 @@ Useful local environment variables:
 - `DATABASE_URL`: SQLite database path. The Makefile uses `sqlite:///$(pwd)/data/puzzle.db`.
 - `JWT_SECRET`: required by backend auth token signing.
 - `ADMIN_EMAILS`: comma-separated emails that can access admin pages.
+- `RATELIMIT_ENABLED`: set to `0` to disable rate limiting locally (the Makefile does this for `backend-run`).
+- `PUZZLE_ENV`: environment name (`dev` locally, `prod` on fly.io).
 - `API_URL`: backend URL used by the Next.js app for server-side API calls and rewrites.
 - `BASE_URL`: public app URL used in login emails.
 - `CORS_ORIGINS`: comma-separated browser origins accepted by the backend.
@@ -113,19 +117,21 @@ See [docs/e2e-coverage.md](docs/e2e-coverage.md) for a coverage matrix of puzzle
 
 ## Linting
 
-### Frontend (ESLint with Next.js config)
+### Frontend (ESLint, Prettier, TypeScript)
 
 ```bash
-cd web && npm run lint
+cd web && npm run lint          # ESLint
+cd web && npm run format:check  # Prettier
+cd web && npx tsc --noEmit      # Type checking
 ```
 
-### Backend (Pyright type checking)
+### Backend (Ruff, Pyright)
 
 ```bash
-cd backend && pyright
+cd backend && ruff format --check .  # formatting
+cd backend && ruff check .           # linting
+cd backend && pyright                # type checking
 ```
-
-`pyrightconfig.json` points Pyright at the `.venv` virtualenv.
 
 ## Project Structure
 
@@ -149,7 +155,7 @@ daily_puzzle_app/
 └── Makefile
 ```
 
-The backend currently creates database tables and indexes at startup with SQLAlchemy. There is no Alembic migration directory in this repo.
+The backend creates database tables and indexes at startup with SQLAlchemy.
 
 ## Deployment
 
