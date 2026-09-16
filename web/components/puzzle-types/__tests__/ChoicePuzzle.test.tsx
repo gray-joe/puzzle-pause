@@ -30,6 +30,16 @@ describe('parseChoice (via render)', () => {
         expect(screen.getByText(/Green/)).toBeInTheDocument();
     });
 
+    it('preserves line breaks in a multi-line prompt', () => {
+        const puzzle = makePuzzle('Line one\nLine two|Red|Blue');
+        render(<ChoicePuzzle puzzle={puzzle} solved={false} onSubmit={() => {}} loading={false} />);
+
+        const question = screen.getByTestId('puzzle-question');
+        expect(question).toHaveTextContent('Line one');
+        expect(question).toHaveTextContent('Line two');
+        expect(question.querySelector('div')).toHaveStyle({ whiteSpace: 'pre-wrap' });
+    });
+
     it('renders correct letter labels (A, B, C...)', () => {
         const puzzle = makePuzzle('Pick one|Alpha|Beta');
         render(<ChoicePuzzle puzzle={puzzle} solved={false} onSubmit={() => {}} loading={false} />);

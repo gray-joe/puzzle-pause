@@ -38,12 +38,15 @@ interface Props {
 
 function completionStatsLines(puzzle: Puzzle): string[] | null {
     const stats = puzzle.completion_stats;
-    if (!stats || stats.completed_users === 0 || stats.average_seconds == null) return null;
+    if (!stats) return null;
 
-    const minutes = Math.floor(stats.average_seconds / 60);
-    const seconds = stats.average_seconds % 60;
-    const timeTaken = `${minutes} minute${minutes === 1 ? '' : 's'} ${seconds} second${seconds === 1 ? '' : 's'}`;
     const averageScore = stats.average_score == null ? 'N/A' : stats.average_score;
+    let timeTaken = 'N/A';
+    if (stats.average_seconds != null) {
+        const minutes = Math.floor(stats.average_seconds / 60);
+        const seconds = stats.average_seconds % 60;
+        timeTaken = `${minutes} minute${minutes === 1 ? '' : 's'} ${seconds} second${seconds === 1 ? '' : 's'}`;
+    }
 
     return [
         `Solved by: ${stats.completion_percentage}%`,
@@ -76,6 +79,7 @@ export default function PuzzleShell({
     const [puzzleQuestion, setPuzzleQuestion] = useState(puzzle.question);
     const [explanation, setExplanation] = useState<string | null>(puzzle.explanation ?? null);
     const [streak, setStreak] = useState<number | null>(null);
+    const [lengthPenaltyApplied, setLengthPenaltyApplied] = useState(false);
     const [incorrectGuesses, setIncorrectGuesses] = useState(
         initialAttempt?.incorrect_guesses ?? 0
     );
@@ -123,6 +127,7 @@ export default function PuzzleShell({
                 if (result.question) setPuzzleQuestion(result.question);
                 setExplanation(result.explanation ?? null);
                 setStreak(result.streak ?? null);
+                setLengthPenaltyApplied(!!result.length_penalty_applied);
                 setFeedback('');
             } else {
                 const newCount = incorrectGuesses + 1;
@@ -221,6 +226,12 @@ export default function PuzzleShell({
                 {isArchive && (
                     <div className="content-meta muted-dark">
                         Archived puzzles score like the daily puzzle with a -10 archive deduction.
+                    </div>
+                )}
+                {lengthPenaltyApplied && (
+                    <div className="content-meta muted-dark" data-testid="length-penalty-note">
+                        A shorter route existed for this ladder, so a 10 point penalty was
+                        applied.
                     </div>
                 )}
                 {statsLines && (

@@ -61,6 +61,7 @@ class AttemptResponse(BaseModel):
     letter_feedback: list[list[bool]] | None = None
     streak: int | None = None
     opened_at: datetime | None = None
+    length_penalty_applied: bool = False
 
 
 class HintRequest(BaseModel):

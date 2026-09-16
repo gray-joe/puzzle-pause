@@ -161,6 +161,79 @@ a .gt {
     color: var(--teal);
 }
 
+/* Word ladder v2 grid */
+.ladder-grid-row {
+    align-items: center;
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    width: 100%;
+}
+.ladder-grid {
+    position: relative;
+    display: inline-flex;
+}
+.ladder-grid-boxes {
+    display: flex;
+    gap: 6px;
+    pointer-events: none;
+}
+.ladder-grid-box {
+    align-items: center;
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    display: flex;
+    font-size: 1.2em;
+    font-weight: 700;
+    height: 2.4em;
+    justify-content: center;
+    letter-spacing: normal;
+    text-transform: uppercase;
+    width: 2.4em;
+}
+.ladder-grid-box--fixed {
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--muted);
+}
+.ladder-grid-input {
+    background: transparent;
+    border: none;
+    bottom: 0;
+    color: transparent;
+    caret-color: transparent;
+    left: 0;
+    letter-spacing: normal;
+    opacity: 0;
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 100%;
+}
+.ladder-grid:focus-within .ladder-grid-box {
+    border-color: var(--teal);
+}
+.ladder-grid-boxes .ladder-grid-box--green {
+    border-color: var(--teal);
+    color: var(--teal);
+}
+.ladder-grid-boxes .ladder-grid-box--amber {
+    border-color: var(--orange);
+    color: var(--orange);
+}
+.ladder-grid-row-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 100%;
+}
+.ladder-grid-hint {
+    font-size: 0.75em;
+    text-align: center;
+}
+.ladder-grid-hint--error {
+    color: var(--error);
+}
+
 /* Status */
 .success {
     color: var(--teal);

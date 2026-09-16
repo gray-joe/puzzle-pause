@@ -24,6 +24,7 @@ from ..puzzle import calculate_score, check_answer, get_puzzle_date
 from ..schemas import AttemptRequest, AttemptResponse, HintRequest, HintResponse
 from ..word_ladder_v2 import (
     check_word_ladder_v2_answer,
+    word_ladder_v2_length_penalty,
     word_ladder_v2_letter_feedback,
 )
 
@@ -92,6 +93,12 @@ def _letter_feedback(puzzle: Puzzle, guess: str) -> list[list[bool]] | None:
     if puzzle.puzzle_type != "word-ladder-v2":
         return None
     return word_ladder_v2_letter_feedback(puzzle.answer, guess)
+
+
+def _length_penalty(puzzle: Puzzle, guess: str) -> int:
+    if puzzle.puzzle_type != "word-ladder-v2":
+        return 0
+    return word_ladder_v2_length_penalty(puzzle.question, guess)
 
 
 def _hint_items(puzzle_type: str, question: str, hint: str | None) -> list[str]:
@@ -480,8 +487,13 @@ def submit_attempt(
         correct = _check_puzzle_answer(puzzle, body.guess)
         if correct:
             now = datetime.now(timezone.utc)
+            penalty = _length_penalty(puzzle, body.guess)
             score = calculate_score(
-                body.opened_at, now, body.incorrect_guesses, body.hints_used
+                body.opened_at,
+                now,
+                body.incorrect_guesses,
+                body.hints_used,
+                penalty,
             )
             guest_session_id = get_or_create_guest_session_id(request, response)
             db.add(
@@ -503,6 +515,7 @@ def submit_attempt(
                 answer=puzzle.answer,
                 question=puzzle.question,
                 explanation=puzzle.explanation,
+                length_penalty_applied=penalty > 0,
             )
         return AttemptResponse(
             correct=False,
@@ -556,8 +569,13 @@ def submit_attempt(
 
     if correct:
         now = datetime.now(timezone.utc)
+        penalty = _length_penalty(puzzle, body.guess)
         score = calculate_score(
-            attempt.opened_at, now, attempt.incorrect_guesses, attempt.hint_used
+            attempt.opened_at,
+            now,
+            attempt.incorrect_guesses,
+            attempt.hint_used,
+            penalty,
         )
         attempt.solved = 1
         attempt.score = score
@@ -584,6 +602,7 @@ def submit_attempt(
             question=puzzle.question,
             explanation=puzzle.explanation,
             streak=streak,
+            length_penalty_applied=penalty > 0,
         )
     else:
         attempt.incorrect_guesses += 1

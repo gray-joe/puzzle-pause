@@ -2,8 +2,44 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import ConnectionsBuilder from '../ConnectionsBuilder';
 import CountdownBuilder from '../CountdownBuilder';
+import ChoiceBuilder from '../ChoiceBuilder';
 
 afterEach(cleanup);
+
+describe('ChoiceBuilder', () => {
+    it('renders the prompt as a multi-line textarea', () => {
+        render(<ChoiceBuilder question="" answer="" onChange={vi.fn()} />);
+
+        const prompt = screen.getByTestId('choice-prompt');
+        expect(prompt.tagName).toBe('TEXTAREA');
+    });
+
+    it('preserves newlines typed into the prompt', async () => {
+        const onChange = vi.fn();
+        render(<ChoiceBuilder question="" answer="" onChange={onChange} />);
+
+        const prompt = screen.getByTestId('choice-prompt');
+        fireEvent.change(prompt, { target: { value: 'Line one\nLine two' } });
+
+        await waitFor(() => {
+            const [nextQuestion] = onChange.mock.calls.at(-1)!;
+            expect(nextQuestion.startsWith('Line one\nLine two|')).toBe(true);
+        });
+    });
+
+    it('loads an existing multi-line prompt from a saved question', () => {
+        render(
+            <ChoiceBuilder
+                question={'Line one\nLine two|Red|Blue'}
+                answer="A"
+                onChange={vi.fn()}
+            />
+        );
+
+        const prompt = screen.getByTestId('choice-prompt') as HTMLTextAreaElement;
+        expect(prompt.value).toBe('Line one\nLine two');
+    });
+});
 
 describe('ConnectionsBuilder', () => {
     it('preserves shuffled item order when loading an existing puzzle', async () => {

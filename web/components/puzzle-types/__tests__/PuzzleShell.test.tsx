@@ -58,6 +58,28 @@ describe('PuzzleShell', () => {
         expect(onAttempt).not.toHaveBeenCalled();
     });
 
+    it('shows 0% and N/A stats when there have been no attempts', () => {
+        render(
+            <PuzzleShell
+                puzzle={makePuzzle({
+                    completion_stats: {
+                        completed_users: 0,
+                        completion_percentage: 0,
+                        average_seconds: null,
+                        average_score: null,
+                    },
+                })}
+                onAttempt={vi.fn()}
+                onHint={() => Promise.resolve({ hint: '', total_hints: 0 })}
+                onGiveUp={vi.fn()}
+            />
+        );
+
+        expect(screen.getByTestId('completion-stats')).toHaveTextContent(
+            'Solved by: 0%Average score: N/AAverage time taken: N/A'
+        );
+    });
+
     it('shows solved-by percentage, average score, and average time taken', () => {
         render(
             <PuzzleShell

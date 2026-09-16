@@ -103,14 +103,14 @@ export default function ChoiceBuilder({ question, answer, onChange }: Props) {
         >
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <label style={{ color: 'var(--muted)', fontSize: '0.9em' }}>Prompt</label>
-                <input
-                    type="text"
+                <textarea
                     value={prompt}
                     onChange={(e) => handlePromptChange(e.target.value)}
                     required
                     data-testid="choice-prompt"
                     placeholder="Which planet is largest?"
-                    style={{ width: '100%', maxWidth: 680 }}
+                    rows={3}
+                    style={{ width: '100%', maxWidth: 680, resize: 'vertical', fontFamily: 'inherit' }}
                 />
             </div>
 

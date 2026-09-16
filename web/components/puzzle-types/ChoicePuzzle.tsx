@@ -30,7 +30,7 @@ export default function ChoicePuzzle({ puzzle, solved, onSubmit, loading }: Prop
     return (
         <>
             <div className="puzzle-box" data-testid="puzzle-question">
-                <div style={{ fontSize: '1.1em' }}>{prompt}</div>
+                <div style={{ fontSize: '1.1em', whiteSpace: 'pre-wrap' }}>{prompt}</div>
             </div>
             <div>
                 {options.map((opt, i) => (

@@ -24,8 +24,9 @@ describe('WordLadderV2Puzzle', () => {
             <WordLadderV2Puzzle puzzle={puzzle} solved={false} onSubmit={vi.fn()} loading={false} />
         );
 
-        expect(screen.getByText('COLD')).toBeInTheDocument();
-        expect(screen.getByText('WARM')).toBeInTheDocument();
+        expect(screen.getByText('C')).toBeInTheDocument();
+        expect(screen.getByText('O')).toBeInTheDocument();
+        expect(screen.getByText('W')).toBeInTheDocument();
         expect(screen.getAllByTestId('ladder-v2-input')).toHaveLength(1);
     });
 
@@ -41,14 +42,34 @@ describe('WordLadderV2Puzzle', () => {
         expect(screen.getAllByTestId('ladder-v2-input')).toHaveLength(1);
     });
 
-    it('submits all intermediate words and highlights correct letters', async () => {
+    it('flags a step in realtime when it is not a single-letter change', async () => {
+        render(
+            <WordLadderV2Puzzle puzzle={puzzle} solved={false} onSubmit={vi.fn()} loading={false} />
+        );
+
+        const input = screen.getByTestId('ladder-v2-input');
+
+        await userEvent.type(input, 'cord');
+        expect(screen.getByTestId('ladder-v2-letters-0')).toHaveClass(
+            'ladder-grid-boxes--valid'
+        );
+        expect(screen.queryByTestId('ladder-v2-hint-0')).not.toBeInTheDocument();
+
+        await userEvent.clear(input);
+        await userEvent.type(input, 'warp');
+        expect(screen.getByTestId('ladder-v2-letters-0')).toHaveClass(
+            'ladder-grid-boxes--invalid'
+        );
+        expect(screen.getByTestId('ladder-v2-hint-0')).toBeInTheDocument();
+    });
+
+    it('submits all intermediate words', async () => {
         const onSubmit = vi.fn().mockResolvedValue({
             correct: false,
             score: null,
             incorrect_guesses: 1,
             solved: false,
             answer: null,
-            letter_feedback: [[true, true, true, false]],
         });
         render(
             <WordLadderV2Puzzle
@@ -63,8 +84,23 @@ describe('WordLadderV2Puzzle', () => {
         await userEvent.click(screen.getByTestId('submit-btn'));
 
         expect(onSubmit).toHaveBeenCalledWith('core');
-        expect(
-            screen.getByTestId('ladder-v2-letters-0').querySelectorAll('[data-correct="true"]')
-        ).toHaveLength(3);
+    });
+
+    it('shows realtime letter hints against the final word as you type', async () => {
+        render(
+            <WordLadderV2Puzzle puzzle={puzzle} solved={false} onSubmit={vi.fn()} loading={false} />
+        );
+
+        // end word is "warm"; typing "wram" -> w,m match position (green), r and a are in
+        // "warm" but transposed (amber)
+        await userEvent.type(screen.getByTestId('ladder-v2-input'), 'wram');
+
+        const boxes = screen
+            .getByTestId('ladder-v2-letters-0')
+            .querySelectorAll('.ladder-grid-box');
+        expect(boxes[0]).toHaveAttribute('data-hint', 'green');
+        expect(boxes[1]).toHaveAttribute('data-hint', 'amber');
+        expect(boxes[2]).toHaveAttribute('data-hint', 'amber');
+        expect(boxes[3]).toHaveAttribute('data-hint', 'green');
     });
 });

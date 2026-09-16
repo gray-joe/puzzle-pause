@@ -57,6 +57,7 @@ def calculate_score(
     solved_at: datetime,
     incorrect_guesses: int,
     hints_used: int,
+    length_penalty: int = 0,
 ) -> int:
 
     if opened_at is None:
@@ -85,7 +86,7 @@ def calculate_score(
     else:
         base = 30
 
-    score = base - (incorrect_guesses * 5) - (hints_used * 10)
+    score = base - (incorrect_guesses * 5) - (hints_used * 10) - length_penalty
     return max(score, 10)
 
 
@@ -94,9 +95,12 @@ def calculate_archive_score(
     solved_at: datetime,
     incorrect_guesses: int,
     hints_used: int,
+    length_penalty: int = 0,
 ) -> int:
     return max(
-        calculate_score(opened_at, solved_at, incorrect_guesses, hints_used) - 10, 10
+        calculate_score(opened_at, solved_at, incorrect_guesses, hints_used, length_penalty)
+        - 10,
+        10,
     )
 
 

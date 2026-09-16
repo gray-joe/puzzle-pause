@@ -46,6 +46,7 @@ export type AttemptResult = {
     explanation?: string | null;
     streak?: number | null;
     letter_feedback?: boolean[][] | null;
+    length_penalty_applied?: boolean;
 };
 
 export type League = {

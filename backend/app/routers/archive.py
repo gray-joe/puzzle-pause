@@ -22,6 +22,7 @@ from ..routers.puzzle import (
     _give_up_attempt,
     _guest_give_up_event,
     _hint_items,
+    _length_penalty,
     _letter_feedback,
     _puzzle_completion_stats,
     _puzzle_to_response,
@@ -292,8 +293,13 @@ def archive_attempt(
         correct = _check_puzzle_answer(puzzle, body.guess)
         if correct:
             now = datetime.now(timezone.utc)
+            penalty = _length_penalty(puzzle, body.guess)
             score = calculate_archive_score(
-                body.opened_at, now, body.incorrect_guesses, body.hints_used
+                body.opened_at,
+                now,
+                body.incorrect_guesses,
+                body.hints_used,
+                penalty,
             )
             guest_session_id = get_or_create_guest_session_id(request, response)
             db.add(
@@ -315,6 +321,7 @@ def archive_attempt(
                 answer=puzzle.answer,
                 question=puzzle.question,
                 explanation=puzzle.explanation,
+                length_penalty_applied=penalty > 0,
             )
         return AttemptResponse(
             correct=False,
@@ -367,8 +374,13 @@ def archive_attempt(
 
     if correct:
         now = datetime.now(timezone.utc)
+        penalty = _length_penalty(puzzle, body.guess)
         score = calculate_archive_score(
-            attempt.opened_at, now, attempt.incorrect_guesses, attempt.hint_used
+            attempt.opened_at,
+            now,
+            attempt.incorrect_guesses,
+            attempt.hint_used,
+            penalty,
         )
         attempt.solved = 1
         attempt.score = score
@@ -393,6 +405,7 @@ def archive_attempt(
             answer=puzzle.answer,
             question=puzzle.question,
             explanation=puzzle.explanation,
+            length_penalty_applied=penalty > 0,
         )
     else:
         attempt.incorrect_guesses += 1

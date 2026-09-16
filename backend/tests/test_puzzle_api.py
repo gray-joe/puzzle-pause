@@ -399,6 +399,47 @@ class TestAttempt:
         )
         assert correct.status_code == 200
         assert correct.json()["correct"] is True
+        assert correct.json()["length_penalty_applied"] is False
+
+    def test_word_ladder_v2_applies_length_penalty_for_longer_valid_path(
+        self, client, db
+    ):
+        puzzle = Puzzle(
+            puzzle_date=date.today().isoformat(),
+            puzzle_type="word-ladder-v2",
+            puzzle_name="Cold to Warm",
+            question="cold, warm",
+            answer="cord, card, ward",
+        )
+        db.add(puzzle)
+        db.commit()
+
+        shortest = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "cord, card, ward"},
+        )
+        assert shortest.json()["length_penalty_applied"] is False
+
+        db.delete(puzzle)
+        db.commit()
+        puzzle = Puzzle(
+            puzzle_date=date.today().isoformat(),
+            puzzle_type="word-ladder-v2",
+            puzzle_name="Cold to Warm",
+            question="cold, warm",
+            answer="cord, card, ward",
+        )
+        db.add(puzzle)
+        db.commit()
+
+        longer = client.post(
+            "/api/puzzle/attempt",
+            json={"puzzle_id": puzzle.id, "guess": "cord, curd, card, ward"},
+        )
+        assert longer.status_code == 200
+        assert longer.json()["correct"] is True
+        assert longer.json()["length_penalty_applied"] is True
+        assert longer.json()["score"] < shortest.json()["score"]
 
     def test_guest_can_attempt(self, client, db):
         _make_puzzle(db, answer="hello", explanation="The clue asks for a greeting.")
