@@ -172,6 +172,7 @@ export default function ResultPanel({
     const isOrderPuzzle = puzzle.puzzle_type === 'order';
     const isConnectionsPuzzle = puzzle.puzzle_type === 'connections';
     const isMatchPuzzle = puzzle.puzzle_type === 'match';
+    const isWordLadderV2Puzzle = puzzle.puzzle_type === 'word-ladder-v2';
     const connectionsGroups =
         isConnectionsPuzzle && answer ? formatConnectionsAnswer(answer, puzzle.question) : null;
     const matchPairs = isMatchPuzzle && answer ? formatMatchAnswer(answer, puzzle.question) : null;
@@ -213,8 +214,10 @@ export default function ResultPanel({
             ) : (
                 displayAnswers.length > 0 && (
                     <div style={{ marginBottom: 16 }} data-testid="result-answer">
-                        {gaveUp ? '' : 'Congratulations! '}The correct{' '}
-                        {isOrderPuzzle ? 'order' : 'answer'} was{' '}
+                        {gaveUp ? '' : 'Congratulations! '}
+                        {isWordLadderV2Puzzle
+                            ? 'The shortest route was'
+                            : `The correct ${isOrderPuzzle ? 'order' : 'answer'} was`}{' '}
                         <span style={{ color: 'var(--teal)' }}>
                             {isOrderPuzzle
                                 ? displayAnswers.map((item, i) => (

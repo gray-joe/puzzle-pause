@@ -51,6 +51,7 @@ test('dictionary-valid path solves the puzzle', async ({ page }) => {
 
     await result.expectVisible();
     await expect(result.score).not.toHaveText('0');
+    await expect(result.panel).toContainText('Congratulations! The shortest route was');
 });
 
 let scoreWithoutFinalWord: string | null = null;
