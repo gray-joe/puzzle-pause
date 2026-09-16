@@ -18,7 +18,19 @@ interface ConnectionsData {
     categories?: string[];
 }
 
-const CATEGORY_COLORS = ['var(--teal)', 'var(--orange)', '#a29bfe', '#fd79a8'];
+const CATEGORY_COLORS = [
+    'var(--teal)',
+    'var(--orange)',
+    '#a29bfe',
+    '#fd79a8',
+    '#55efc4',
+    '#fdcb6e',
+    '#74b9ff',
+    '#e17055',
+];
+function categoryColor(i: number): string {
+    return CATEGORY_COLORS[i % CATEGORY_COLORS.length];
+}
 
 export default function ConnectionsPuzzle({
     puzzle,
@@ -30,7 +42,9 @@ export default function ConnectionsPuzzle({
 }: Props) {
     const data = parseQuestion<ConnectionsData>(puzzle.question);
     const allCategories = hint ? hint.split('|') : (data?.categories ?? []);
-    const numGroups = allCategories.length || 3;
+    // The question's `categories` are stripped from the API response until solved, so
+    // `total_hints` (sent unstripped) is the only reliable category count up front.
+    const numGroups = puzzle.total_hints || allCategories.length || 3;
     // groups[categoryIdx] = Set of item indices
     const [groups, setGroups] = useState<Set<number>[]>(() =>
         Array.from({ length: numGroups }, () => new Set<number>())
@@ -95,8 +109,8 @@ export default function ConnectionsPuzzle({
                             onClick={() => setSelectedCategory(i)}
                             style={{
                                 background: 'transparent',
-                                border: `2px solid ${selectedCategory === i ? CATEGORY_COLORS[i] : 'var(--border)'}`,
-                                color: CATEGORY_COLORS[i],
+                                border: `2px solid ${selectedCategory === i ? categoryColor(i) : 'var(--border)'}`,
+                                color: categoryColor(i),
                                 padding: '6px 12px',
                                 cursor: 'pointer',
                                 fontFamily: 'inherit',
@@ -121,7 +135,7 @@ export default function ConnectionsPuzzle({
             >
                 {data.items.map((item, i) => {
                     const cat = getItemCategory(i);
-                    const color = cat !== null ? CATEGORY_COLORS[cat] : 'var(--border)';
+                    const color = cat !== null ? categoryColor(cat) : 'var(--border)';
                     return (
                         <button
                             key={i}

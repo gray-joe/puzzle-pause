@@ -40,6 +40,22 @@ def _make_puzzle(db, days_ago=1, answer="hello"):
     return puzzle
 
 
+def _make_connections_puzzle(db, days_ago=1):
+    puzzle_date = (date.today() - timedelta(days=days_ago)).isoformat()
+    question = '{"prompt":"Group these:","items":["Cobra","Mamba","Java","Ruby"],"categories":["Snakes","Languages"]}'
+    puzzle = Puzzle(
+        puzzle_date=puzzle_date,
+        puzzle_type="connections",
+        puzzle_name="Archive Connections",
+        question=question,
+        answer="0,1|2,3",
+    )
+    db.add(puzzle)
+    db.commit()
+    db.refresh(puzzle)
+    return puzzle
+
+
 class TestArchiveList:
     def test_lists_past_puzzles(self, client, db):
         _make_puzzle(db, days_ago=1)
@@ -631,6 +647,47 @@ class TestArchiveHint:
         _, jwt = _make_user(db)
         resp = client.post(f"/api/archive/{puzzle.id}/hint", cookies={"session": jwt})
         assert resp.status_code == 404
+
+    def test_guest_hint_progresses_through_categories(self, client, db):
+        puzzle = _make_connections_puzzle(db)
+        first = client.post(
+            f"/api/archive/{puzzle.id}/hint", json={"puzzle_id": puzzle.id, "hints_revealed": 0}
+        )
+        second = client.post(
+            f"/api/archive/{puzzle.id}/hint", json={"puzzle_id": puzzle.id, "hints_revealed": 1}
+        )
+        assert first.json()["hint"] == "Snakes"
+        assert second.json()["hint"] == "Languages"
+
+    def test_guest_hint_exhausted_returns_404(self, client, db):
+        puzzle = _make_connections_puzzle(db)
+        resp = client.post(
+            f"/api/archive/{puzzle.id}/hint", json={"puzzle_id": puzzle.id, "hints_revealed": 2}
+        )
+        assert resp.status_code == 404
+
+    def test_guest_hint_without_body_defaults_to_first_category(self, client, db):
+        puzzle = _make_connections_puzzle(db)
+        resp = client.post(f"/api/archive/{puzzle.id}/hint")
+        assert resp.status_code == 200
+        assert resp.json()["hint"] == "Snakes"
+
+    def test_archive_response_hint_used_is_a_count_not_a_bool(self, client, db):
+        puzzle = _make_connections_puzzle(db)
+        _, jwt = _make_user(db)
+        cookies = {"session": jwt}
+        client.post(f"/api/archive/{puzzle.id}/hint", cookies=cookies)
+        client.post(f"/api/archive/{puzzle.id}/hint", cookies=cookies)
+        resp = client.get(f"/api/archive/{puzzle.id}", cookies=cookies)
+        assert resp.json()["attempt"]["hint_used"] == 2
+
+    def test_archive_response_includes_revealed_hint(self, client, db):
+        puzzle = _make_connections_puzzle(db)
+        _, jwt = _make_user(db)
+        cookies = {"session": jwt}
+        client.post(f"/api/archive/{puzzle.id}/hint", cookies=cookies)
+        resp = client.get(f"/api/archive/{puzzle.id}", cookies=cookies)
+        assert resp.json()["revealed_hint"] == "Snakes"
 
 
 class TestArchiveResult:

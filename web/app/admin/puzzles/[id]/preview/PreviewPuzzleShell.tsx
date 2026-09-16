@@ -12,7 +12,10 @@ export default function PreviewPuzzleShell({ puzzle }: { puzzle: AdminPuzzle }) 
         answer: null,
     });
 
-    const onHint = async () => ({ hint: puzzle.hint ?? 'No hint available', total_hints: 1 });
+    const onHint = async (_hintsRevealed: number) => ({
+        hint: puzzle.hint ?? 'No hint available',
+        total_hints: 1,
+    });
 
     const onGiveUp = async (): Promise<AttemptResult> => ({
         correct: false,

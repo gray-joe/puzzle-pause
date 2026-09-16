@@ -32,7 +32,7 @@ interface Props {
         openedAt: string,
         penalties: { incorrect_guesses: number; hints_used: number }
     ) => Promise<AttemptResult>;
-    onHint: () => Promise<{ hint: string; total_hints: number }>;
+    onHint: (hintsRevealed: number) => Promise<{ hint: string; total_hints: number }>;
     onGiveUp: () => Promise<AttemptResult>;
 }
 
@@ -150,7 +150,7 @@ export default function PuzzleShell({
         if (!isMultiHint && hintUsed) return;
         setLoading(true);
         try {
-            const { hint: h, total_hints } = await onHint();
+            const { hint: h, total_hints } = await onHint(hintsRevealed);
             setHint((prev) => (prev ? `${prev}|${h}` : h));
             setHintUsed(true);
             setTotalHints(total_hints);

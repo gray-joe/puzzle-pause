@@ -417,7 +417,7 @@ def today(
             "gave_up": bool(attempt.gave_up),
             "score": attempt.score,
             "incorrect_guesses": attempt.incorrect_guesses,
-            "hint_used": bool(attempt.hint_used),
+            "hint_used": attempt.hint_used,
             "completed_at": (
                 attempt.completed_at.isoformat() if attempt.completed_at else None
             ),
@@ -682,7 +682,10 @@ def reveal_hint(
         db.commit()
         hint_text = items[idx]
     else:
-        hint_text = items[0]
+        idx = max(body.hints_revealed, 0)
+        if idx >= total_hints:
+            raise HTTPException(status_code=404, detail="No more hints available")
+        hint_text = items[idx]
 
     return HintResponse(hint=hint_text, total_hints=total_hints)
 
@@ -716,7 +719,7 @@ def result(user=Depends(require_user), db: Session = Depends(get_db)):
             "solved": True,
             "score": attempt.score,
             "incorrect_guesses": attempt.incorrect_guesses,
-            "hint_used": bool(attempt.hint_used),
+            "hint_used": attempt.hint_used,
             "completed_at": (
                 attempt.completed_at.isoformat() if attempt.completed_at else None
             ),

@@ -27,7 +27,7 @@ from ..routers.puzzle import (
     _puzzle_completion_stats,
     _puzzle_to_response,
 )
-from ..schemas import AttemptRequest, AttemptResponse, HintResponse
+from ..schemas import AttemptRequest, AttemptResponse, HintRequest, HintResponse
 
 router = APIRouter(prefix="/archive", tags=["archive"])
 limiter = Limiter(key_func=get_remote_address)
@@ -223,7 +223,7 @@ def get_archive_puzzle(
                 "gave_up": bool(attempt.gave_up),
                 "score": attempt.score,
                 "incorrect_guesses": attempt.incorrect_guesses,
-                "hint_used": bool(attempt.hint_used),
+                "hint_used": attempt.hint_used,
                 "completed_at": (
                     attempt.completed_at.isoformat() if attempt.completed_at else None
                 ),
@@ -235,6 +235,11 @@ def get_archive_puzzle(
                 data["question"] = puzzle.question
                 data["answer"] = puzzle.answer
                 data["explanation"] = puzzle.explanation
+            elif attempt.hint_used > 0:
+                items = _hint_items(puzzle.puzzle_type, puzzle.question, puzzle.hint)
+                revealed = items[: attempt.hint_used]
+                if revealed:
+                    data["revealed_hint"] = "|".join(revealed)
     else:
         give_up_event = _guest_give_up_event(request, puzzle.id, db)
         if give_up_event:
@@ -455,6 +460,7 @@ def archive_give_up(
 def archive_hint(
     request: Request,
     puzzle_id: int,
+    body: HintRequest | None = None,
     user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -485,7 +491,10 @@ def archive_hint(
         db.commit()
         hint_text = items[idx]
     else:
-        hint_text = items[0]
+        idx = max(body.hints_revealed if body else 0, 0)
+        if idx >= total_hints:
+            raise HTTPException(status_code=404, detail="No more hints available")
+        hint_text = items[idx]
 
     return HintResponse(hint=hint_text, total_hints=total_hints)
 
@@ -528,7 +537,7 @@ def archive_result(
             "solved": True,
             "score": attempt.score,
             "incorrect_guesses": attempt.incorrect_guesses,
-            "hint_used": bool(attempt.hint_used),
+            "hint_used": attempt.hint_used,
             "completed_at": (
                 attempt.completed_at.isoformat() if attempt.completed_at else None
             ),

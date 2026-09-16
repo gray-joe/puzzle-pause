@@ -262,6 +262,22 @@ SEED_PUZZLES = [
         "hint": "Try changing the second letter first.",
         "explanation": "One route is COLD → CORD → CARD → WARD → WARM.",
     },
+    {
+        "days_ago": 17,
+        "puzzle_type": "connections",
+        "puzzle_name": "Two by Three",
+        "question": '{"prompt":"Group these 6 words into 2 categories of 3:","items":["Salmon","Trout","Cod","Oak","Pine","Elm"],"categories":["Fish","Trees"]}',
+        "answer": "0,1,2|3,4,5",
+        "hint": "One category swims",
+    },
+    {
+        "days_ago": 18,
+        "puzzle_type": "connections",
+        "puzzle_name": "Five by Two",
+        "question": '{"prompt":"Group these 10 words into 5 categories of 2:","items":["Red","Blue","Circle","Square","Cat","Dog","One","Two","North","South"],"categories":["Colors","Shapes","Animals","Numbers","Directions"]}',
+        "answer": "0,1|2,3|4,5|6,7|8,9",
+        "hint": "One category you can paint with",
+    },
 ]
 
 SEED_USERS = [

@@ -19,7 +19,7 @@ export default function ArchivePuzzleActions({
             onAttempt={(guess, openedAt, penalties) =>
                 api.archive.attempt(puzzle.id, guess, openedAt, penalties)
             }
-            onHint={() => api.archive.hint(puzzle.id)}
+            onHint={(hintsRevealed) => api.archive.hint(puzzle.id, hintsRevealed)}
             onGiveUp={() => api.archive.giveUp(puzzle.id)}
         />
     );

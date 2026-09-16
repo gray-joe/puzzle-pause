@@ -18,7 +18,7 @@ export default function PuzzleActions({
             onAttempt={(guess, openedAt, penalties) =>
                 api.puzzle.attempt(puzzle.id, guess, openedAt, penalties)
             }
-            onHint={() => api.puzzle.hint(puzzle.id)}
+            onHint={(hintsRevealed) => api.puzzle.hint(puzzle.id, hintsRevealed)}
             onGiveUp={() => api.puzzle.giveUp(puzzle.id)}
         />
     );

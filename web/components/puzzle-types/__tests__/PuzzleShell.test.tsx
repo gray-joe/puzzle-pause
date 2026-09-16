@@ -155,4 +155,34 @@ describe('PuzzleShell', () => {
             'Solved by: 60%Average score: 85Average time taken: 1 minute 30 seconds'
         );
     });
+
+    it('passes the current hintsRevealed count to onHint on each reveal for connections puzzles', async () => {
+        const onHint = vi
+            .fn()
+            .mockResolvedValueOnce({ hint: 'Snakes', total_hints: 2 })
+            .mockResolvedValueOnce({ hint: 'Languages', total_hints: 2 });
+
+        render(
+            <PuzzleShell
+                puzzle={makePuzzle({
+                    puzzle_type: 'connections',
+                    question: JSON.stringify({
+                        prompt: 'Group these:',
+                        items: ['Cobra', 'Mamba', 'Java', 'Ruby'],
+                    }),
+                    has_hint: true,
+                    total_hints: 2,
+                })}
+                onAttempt={vi.fn()}
+                onHint={onHint}
+                onGiveUp={vi.fn()}
+            />
+        );
+
+        await userEvent.click(screen.getByTestId('hint-btn'));
+        await waitFor(() => expect(onHint).toHaveBeenNthCalledWith(1, 0));
+
+        await userEvent.click(screen.getByTestId('hint-btn'));
+        await waitFor(() => expect(onHint).toHaveBeenNthCalledWith(2, 1));
+    });
 });

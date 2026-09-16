@@ -136,6 +136,27 @@ class TestConnections:
         assert resp.json()["correct"] is True
         assert resp.json()["score"] <= 80  # base 100 − 20 hints
 
+    def test_guest_hint_progresses_through_categories(self, client, db):
+        _make_connections_puzzle(db)
+        first = client.post("/api/puzzle/hint", json={"puzzle_id": 1, "hints_revealed": 0})
+        second = client.post("/api/puzzle/hint", json={"puzzle_id": 1, "hints_revealed": 1})
+        assert first.json()["hint"] == "Snakes"
+        assert second.json()["hint"] == "Languages"
+
+    def test_guest_hint_exhausted_returns_404(self, client, db):
+        _make_connections_puzzle(db)
+        resp = client.post("/api/puzzle/hint", json={"puzzle_id": 1, "hints_revealed": 2})
+        assert resp.status_code == 404
+
+    def test_today_response_hint_used_is_a_count_not_a_bool(self, client, db):
+        _make_connections_puzzle(db)
+        user, jwt = _make_user(db)
+        cookies = {"session": jwt}
+        client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        client.post("/api/puzzle/hint", json={"puzzle_id": 1}, cookies=cookies)
+        resp = client.get("/api/puzzle/today", cookies=cookies)
+        assert resp.json()["attempt"]["hint_used"] == 2
+
     def test_solve_returns_full_question_with_categories(self, client, db):
         _make_connections_puzzle(db)
         resp = client.post(

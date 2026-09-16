@@ -272,10 +272,10 @@ export const api = {
                 body: JSON.stringify({ puzzle_id, guess, opened_at, ...penalties }),
             }),
 
-        hint: (puzzle_id: number) =>
+        hint: (puzzle_id: number, hints_revealed = 0) =>
             apiFetch<{ hint: string; total_hints: number }>('/api/puzzle/hint', {
                 method: 'POST',
-                body: JSON.stringify({ puzzle_id }),
+                body: JSON.stringify({ puzzle_id, hints_revealed }),
             }),
 
         giveUp: (puzzle_id: number) =>
@@ -319,9 +319,10 @@ export const api = {
                 body: JSON.stringify({ puzzle_id, guess, opened_at, ...penalties }),
             }),
 
-        hint: (puzzle_id: number) =>
+        hint: (puzzle_id: number, hints_revealed = 0) =>
             apiFetch<{ hint: string; total_hints: number }>(`/api/archive/${puzzle_id}/hint`, {
                 method: 'POST',
+                body: JSON.stringify({ puzzle_id, hints_revealed }),
             }),
 
         giveUp: (puzzle_id: number) =>

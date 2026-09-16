@@ -66,6 +66,10 @@ class AttemptResponse(BaseModel):
 
 class HintRequest(BaseModel):
     puzzle_id: int
+    # Guests have no server-side attempt row, so the client reports how many
+    # hints it has already revealed this session (mirrors the trust already
+    # placed in guest-submitted `hints_used` when scoring an attempt).
+    hints_revealed: int = 0
 
 
 class HintResponse(BaseModel):
