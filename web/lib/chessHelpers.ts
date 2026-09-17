@@ -73,9 +73,15 @@ export function movePieceOnBoard(
     sourceSquare: Square,
     targetSquare: Square
 ): string | null {
-    const chess = new Chess(fen);
-    const move = chess.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
-    return move ? chess.fen() : null;
+    // chess.js throws (rather than returning null) for both an invalid `fen`
+    // and an illegal move, e.g. a drag dropped back on its own square.
+    try {
+        const chess = new Chess(fen);
+        const move = chess.move({ from: sourceSquare, to: targetSquare, promotion: 'q' });
+        return move ? chess.fen() : null;
+    } catch {
+        return null;
+    }
 }
 
 export function setSideToMove(fen: string, color: Color): string {

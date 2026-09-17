@@ -35,6 +35,15 @@ export default async function PuzzlePage() {
                     : undefined
             }
         >
+            <div className="content-meta">
+                <Link href="/how-to-play">
+                    <span className="gt" data-testid="how-to-play-link">
+                        &gt;
+                    </span>
+                    How to play
+                </Link>
+            </div>
+
             {error ? (
                 <div className="puzzle-box">
                     <div className="muted" data-testid="puzzle-box">
