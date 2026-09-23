@@ -9,6 +9,7 @@ backend-run:
 	  RATELIMIT_ENABLED=0 \
 	  PUZZLE_ENV=dev \
 	  ADMIN_EMAILS=admin@example.com \
+	  BENCHMARK_BYPASS_SECRET=dev-benchmark-secret \
 	  uvicorn app.main:app --reload --port 8000
 
 backend-run-prod:
@@ -40,6 +41,20 @@ web-build:
 
 web-test:
 	cd web && npm run test:e2e -- $(ARGS)
+
+benchmark-run:
+	cd web && npm run benchmark
+
+# Add the bot accounts to a league so real players can compare against them.
+# CODE=<invite code>, and BASE_URL=https://puzzlepause.app to target production.
+benchmark-join-league:
+	@test -n "$(CODE)" || (echo "CODE is required, e.g. make benchmark-join-league CODE=ABC123" && exit 1)
+	cd web && node benchmark/join-league.mjs $(CODE) $(if $(BASE_URL),$(BASE_URL),http://localhost:3000)
+
+# Preview / delete the bot accounts and their data. Scoped to the reserved benchmark email
+# domain, so real users are never matched. ARGS="--dry-run" to preview.
+benchmark-clean:
+	cd backend && DATABASE_URL=sqlite:///$(CURDIR)/data/puzzle.db python delete_benchmark_users.py $(ARGS)
 
 FLY ?= flyctl
 
@@ -75,4 +90,5 @@ v2-test: backend-test
 
 .PHONY: all clean run run-prod seed deps test test-db test-auth test-puzzle test-league test-admin \
 	backend-install backend-run backend-run-prod backend-test backend-unit-test backend-api-test verify-db seed-dev \
-	web-install web-run web-build web-test fly-deploy fly-pull-db v2-install v2-test
+	web-install web-run web-build web-test benchmark-run benchmark-join-league benchmark-clean \
+	fly-deploy fly-pull-db v2-install v2-test

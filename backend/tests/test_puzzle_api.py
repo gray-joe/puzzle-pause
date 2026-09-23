@@ -268,6 +268,45 @@ class TestTodayPuzzle:
         assert attempt.source == "daily"
 
 
+class TestEnsureAttemptRace:
+    def test_recovers_when_a_concurrent_request_wins_the_insert(self, db, monkeypatch):
+        """Regression test for a Sentry IntegrityError: two concurrent requests
+        (e.g. duplicate requests from the client) can both find no existing
+        attempt and then both try to insert one, tripping the
+        (user_id, puzzle_id) unique constraint."""
+        from sqlalchemy.exc import IntegrityError
+
+        from app.routers.puzzle import _ensure_attempt
+        from tests.conftest import TestingSessionLocal
+
+        user, _ = _make_user(db)
+        puzzle = _make_puzzle(db)
+        real_commit = db.commit
+
+        def commit_after_concurrent_insert():
+            other_db = TestingSessionLocal()
+            other_db.add(
+                Attempt(
+                    user_id=user.id,
+                    puzzle_id=puzzle.id,
+                    opened_at=datetime.now(timezone.utc),
+                )
+            )
+            other_db.commit()
+            other_db.close()
+            monkeypatch.setattr(db, "commit", real_commit)
+            raise IntegrityError("INSERT INTO attempts ...", {}, Exception("UNIQUE constraint failed"))
+
+        monkeypatch.setattr(db, "commit", commit_after_concurrent_insert)
+
+        attempt = _ensure_attempt(user.id, puzzle.id, db)
+
+        assert attempt is not None
+        assert attempt.user_id == user.id
+        assert attempt.puzzle_id == puzzle.id
+        assert db.query(Attempt).filter(Attempt.puzzle_id == puzzle.id).count() == 1
+
+
 class TestCalendarPuzzles:
     def test_returns_puzzles_in_date_range(self, client, db):
         yesterday = (date.today() - timedelta(days=1)).isoformat()

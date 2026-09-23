@@ -1,13 +1,15 @@
+import hmac
 import os
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from ..auth import (
     AUTH_MAX_CODE_ATTEMPTS,
+    BENCHMARK_EMAIL_DOMAIN,
     create_jwt,
     generate_otac,
     generate_token,
@@ -18,7 +20,13 @@ from ..database import get_db
 from ..email import send_otac_email
 from ..models import AuthToken, User
 from ..models import Session as SessionModel
-from ..schemas import AuthResponse, LoginRequest, UserResponse, VerifyRequest
+from ..schemas import (
+    AuthResponse,
+    BenchmarkLoginRequest,
+    LoginRequest,
+    UserResponse,
+    VerifyRequest,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
@@ -26,6 +34,44 @@ limiter = Limiter(key_func=get_remote_address)
 AUTH_TOKEN_EXPIRY_MINS = 15
 AUTH_LOCKOUT_MINS = 5
 SESSION_EXPIRY_DAYS = 30
+
+
+def _start_session(
+    db: Session, response: Response, email: str, display_name: str | None = None
+) -> AuthResponse:
+    user = db.query(User).filter(User.email == email).first()
+    if not user:
+        user = User(email=email)
+        db.add(user)
+        db.flush()
+
+    # Only benchmark-login passes this; the real login flow leaves the name untouched.
+    if display_name and user.display_name != display_name:
+        user.display_name = display_name
+
+    session_token = generate_token(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)
+    session = SessionModel(user_id=user.id, token=session_token, expires_at=expires_at)
+    db.add(session)
+    db.commit()
+    db.refresh(user)
+
+    jwt_token = create_jwt(session_token)
+
+    is_prod = os.environ.get("PUZZLE_ENV", "dev") == "prod"
+    response.set_cookie(
+        key="session",
+        value=jwt_token,
+        httponly=True,
+        secure=is_prod,
+        samesite="lax",
+        max_age=SESSION_EXPIRY_DAYS * 86400,
+    )
+
+    return AuthResponse(
+        token=jwt_token,
+        user=UserResponse(id=user.id, email=user.email, display_name=user.display_name),
+    )
 
 
 def _is_blocked_email(email: str) -> bool:
@@ -124,35 +170,38 @@ async def verify(
 
     auth_token.used = 1
 
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        user = User(email=email)
-        db.add(user)
-        db.flush()
+    return _start_session(db, response, email)
 
-    session_token = generate_token(32)
-    expires_at = datetime.now(timezone.utc) + timedelta(days=SESSION_EXPIRY_DAYS)
-    session = SessionModel(user_id=user.id, token=session_token, expires_at=expires_at)
-    db.add(session)
-    db.commit()
-    db.refresh(user)
 
-    jwt_token = create_jwt(session_token)
+@router.post("/benchmark-login", status_code=status.HTTP_200_OK)
+@limiter.limit("30/minute")
+async def benchmark_login(
+    request: Request,
+    body: BenchmarkLoginRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    x_benchmark_secret: str | None = Header(default=None),
+):
+    """Passwordless login for automated model-benchmark accounts — skips the emailed code.
 
-    is_prod = os.environ.get("PUZZLE_ENV", "dev") == "prod"
-    response.set_cookie(
-        key="session",
-        value=jwt_token,
-        httponly=True,
-        secure=is_prod,
-        samesite="lax",
-        max_age=SESSION_EXPIRY_DAYS * 86400,
-    )
+    Locked down two ways: requires a server-side secret the public API never otherwise checks,
+    and only ever creates/logs into accounts on a reserved, non-deliverable email domain, so a
+    leaked secret can't be used to take over a real user's account.
+    """
+    configured_secret = os.environ.get("BENCHMARK_BYPASS_SECRET")
+    if not configured_secret or not x_benchmark_secret:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    if not hmac.compare_digest(x_benchmark_secret, configured_secret):
+        raise HTTPException(status_code=403, detail="Not authorized")
 
-    return AuthResponse(
-        token=jwt_token,
-        user=UserResponse(id=user.id, email=user.email, display_name=user.display_name),
-    )
+    email = body.email.lower()
+    if not email.endswith(BENCHMARK_EMAIL_DOMAIN):
+        raise HTTPException(
+            status_code=400, detail=f"email must end with {BENCHMARK_EMAIL_DOMAIN}"
+        )
+
+    display_name = body.display_name.strip() if body.display_name else None
+    return _start_session(db, response, email, display_name)
 
 
 @router.post("/logout")

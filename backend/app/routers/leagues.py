@@ -110,7 +110,7 @@ early_riser AS (
 ),
 hint_lover AS (
   SELECT user_id, name FROM league_attempts
-  WHERE hint_used = 1
+  WHERE hint_used > 0
   GROUP BY user_id ORDER BY SUM(hint_used) DESC LIMIT 1
 )
 SELECT 'guesser' AS tag, user_id, name FROM guesser

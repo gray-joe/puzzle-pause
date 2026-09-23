@@ -246,6 +246,121 @@ class TestLoginLockout:
         assert resp.status_code == 429
 
 
+class TestBenchmarkLogin:
+    BENCH_EMAIL = "bench-claude-word@benchmark.puzzlepause.invalid"
+
+    def test_missing_secret_env_var_rejected(self, client, db, monkeypatch):
+        monkeypatch.delenv("BENCHMARK_BYPASS_SECRET", raising=False)
+        resp = client.post(
+            "/api/auth/benchmark-login",
+            json={"email": self.BENCH_EMAIL},
+            headers={"X-Benchmark-Secret": "anything"},
+        )
+        assert resp.status_code == 403
+        assert db.query(User).filter(User.email == self.BENCH_EMAIL).first() is None
+
+    def test_wrong_secret_rejected(self, client, db, monkeypatch):
+        monkeypatch.setenv("BENCHMARK_BYPASS_SECRET", "correct-secret")
+        resp = client.post(
+            "/api/auth/benchmark-login",
+            json={"email": self.BENCH_EMAIL},
+            headers={"X-Benchmark-Secret": "wrong-secret"},
+        )
+        assert resp.status_code == 403
+        assert db.query(User).filter(User.email == self.BENCH_EMAIL).first() is None
+
+    def test_no_secret_header_rejected(self, client, monkeypatch):
+        monkeypatch.setenv("BENCHMARK_BYPASS_SECRET", "correct-secret")
+        resp = client.post(
+            "/api/auth/benchmark-login", json={"email": self.BENCH_EMAIL}
+        )
+        assert resp.status_code == 403
+
+    def test_non_reserved_domain_rejected(self, client, db, monkeypatch):
+        monkeypatch.setenv("BENCHMARK_BYPASS_SECRET", "correct-secret")
+        resp = client.post(
+            "/api/auth/benchmark-login",
+            json={"email": "real-user@example.com"},
+            headers={"X-Benchmark-Secret": "correct-secret"},
+        )
+        assert resp.status_code == 400
+        assert (
+            db.query(User).filter(User.email == "real-user@example.com").first() is None
+        )
+
+    def test_valid_secret_creates_user_and_session(self, client, db, monkeypatch):
+        monkeypatch.setenv("BENCHMARK_BYPASS_SECRET", "correct-secret")
+        resp = client.post(
+            "/api/auth/benchmark-login",
+            json={"email": self.BENCH_EMAIL},
+            headers={"X-Benchmark-Secret": "correct-secret"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["user"]["email"] == self.BENCH_EMAIL
+        assert "session" in resp.cookies
+        assert db.query(User).filter(User.email == self.BENCH_EMAIL).first() is not None
+
+    def test_existing_user_logs_in_without_duplicate(self, client, db, monkeypatch):
+        monkeypatch.setenv("BENCHMARK_BYPASS_SECRET", "correct-secret")
+        for _ in range(2):
+            client.post(
+                "/api/auth/benchmark-login",
+                json={"email": self.BENCH_EMAIL},
+                headers={"X-Benchmark-Secret": "correct-secret"},
+            )
+        assert db.query(User).filter(User.email == self.BENCH_EMAIL).count() == 1
+
+    def test_sets_display_name_so_leagues_dont_show_the_email(
+        self, client, db, monkeypatch
+    ):
+        monkeypatch.setenv("BENCHMARK_BYPASS_SECRET", "correct-secret")
+
+        resp = client.post(
+            "/api/auth/benchmark-login",
+            json={"email": self.BENCH_EMAIL, "display_name": "Claude"},
+            headers={"X-Benchmark-Secret": "correct-secret"},
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["user"]["display_name"] == "Claude"
+        user = db.query(User).filter(User.email == self.BENCH_EMAIL).first()
+        assert user.display_name == "Claude"
+
+    def test_display_name_updates_on_later_login(self, client, db, monkeypatch):
+        monkeypatch.setenv("BENCHMARK_BYPASS_SECRET", "correct-secret")
+        for name in ("Claude", "Claude Opus"):
+            resp = client.post(
+                "/api/auth/benchmark-login",
+                json={"email": self.BENCH_EMAIL, "display_name": name},
+                headers={"X-Benchmark-Secret": "correct-secret"},
+            )
+            assert resp.json()["user"]["display_name"] == name
+
+        user = db.query(User).filter(User.email == self.BENCH_EMAIL).first()
+        assert user.display_name == "Claude Opus"
+
+    def test_real_login_does_not_clear_display_name(self, client, db, monkeypatch):
+        """_start_session takes display_name optionally — the emailed-code flow must not wipe it."""
+        monkeypatch.setenv("BENCHMARK_BYPASS_SECRET", "correct-secret")
+        user = User(email="real@example.com", display_name="Real Player")
+        db.add(user)
+        db.commit()
+
+        with patch("app.routers.auth.send_otac_email", new_callable=AsyncMock):
+            client.post("/api/auth/login", json={"email": "real@example.com"})
+        token = (
+            db.query(AuthToken).filter(AuthToken.email == "real@example.com").first()
+        )
+        client.post(
+            "/api/auth/verify",
+            json={"email": "real@example.com", "code": token.short_code},
+        )
+
+        db.refresh(user)
+        assert user.display_name == "Real Player"
+
+
 class TestSessionExpiry:
     def test_expired_session_rejected(self, client, db):
         from app.auth import create_jwt, generate_token

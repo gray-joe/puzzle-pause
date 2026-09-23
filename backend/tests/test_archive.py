@@ -324,6 +324,45 @@ class TestArchiveGet:
             "average_score": 75,
         }
 
+    def test_completion_stats_exclude_benchmark_accounts(self, client, db):
+        puzzle = _make_puzzle(db, days_ago=1)
+        real_user, _ = _make_user(db, "real@example.com")
+        bot_user, _ = _make_user(db, "bench-1-claude@benchmark.puzzlepause.invalid")
+        opened_at = datetime(2026, 1, 1, 10, 0, tzinfo=timezone.utc)
+        db.add_all(
+            [
+                Attempt(
+                    user_id=real_user.id,
+                    puzzle_id=puzzle.id,
+                    solved=1,
+                    opened_at=opened_at,
+                    completed_at=opened_at + timedelta(seconds=90),
+                    score=75,
+                ),
+                # Wildly different score/time, so any leak into the aggregate is visible.
+                Attempt(
+                    user_id=bot_user.id,
+                    puzzle_id=puzzle.id,
+                    solved=1,
+                    opened_at=opened_at,
+                    completed_at=opened_at + timedelta(seconds=3),
+                    score=100,
+                ),
+            ]
+        )
+        db.commit()
+
+        resp = client.get(f"/api/archive/{puzzle.id}")
+
+        assert resp.status_code == 200
+        # Identical to the stats without the bot attempt: 100% of 1 real player, its own numbers.
+        assert resp.json()["completion_stats"] == {
+            "completed_users": 1,
+            "completion_percentage": 100,
+            "average_seconds": 90,
+            "average_score": 75,
+        }
+
     def test_404_for_today(self, client, db):
         today = date.today().isoformat()
         puzzle = Puzzle(

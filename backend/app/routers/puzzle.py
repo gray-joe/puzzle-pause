@@ -12,6 +12,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..auth import (
+    BENCHMARK_EMAIL_DOMAIN,
     GUEST_SESSION_COOKIE,
     get_current_user,
     get_or_create_guest_session_id,
@@ -19,7 +20,7 @@ from ..auth import (
 )
 from ..chess_utils import check_chess_answer
 from ..database import get_db
-from ..models import Attempt, Puzzle, PuzzleCompletionEvent
+from ..models import Attempt, Puzzle, PuzzleCompletionEvent, User
 from ..puzzle import calculate_score, check_answer, get_puzzle_date
 from ..schemas import AttemptRequest, AttemptResponse, HintRequest, HintResponse
 from ..word_ladder_v2 import (
@@ -167,8 +168,22 @@ def _ensure_attempt(user_id: int, puzzle_id: int, db: Session) -> Attempt:
             user_id=user_id, puzzle_id=puzzle_id, opened_at=datetime.now(timezone.utc)
         )
         db.add(attempt)
-        db.commit()
-        db.refresh(attempt)
+        try:
+            db.commit()
+        except IntegrityError:
+            # Lost a race with a concurrent request creating the same attempt
+            # (e.g. duplicate requests from the client) — use theirs.
+            db.rollback()
+            attempt = (
+                db.query(Attempt)
+                .filter(
+                    Attempt.user_id == user_id,
+                    Attempt.puzzle_id == puzzle_id,
+                )
+                .first()
+            )
+        else:
+            db.refresh(attempt)
     return attempt
 
 
@@ -184,7 +199,17 @@ def _seconds_between(start: datetime | None, end: datetime | None) -> int | None
 
 
 def _puzzle_completion_stats(puzzle_id: int, db: Session) -> dict:
-    auth_attempts = db.query(Attempt).filter(Attempt.puzzle_id == puzzle_id).all()
+    # Benchmark bots are real users with real attempts, so they'd otherwise skew the
+    # solve rate / average score / average time every real player sees on the puzzle.
+    auth_attempts = (
+        db.query(Attempt)
+        .join(User, User.id == Attempt.user_id)
+        .filter(
+            Attempt.puzzle_id == puzzle_id,
+            ~User.email.endswith(BENCHMARK_EMAIL_DOMAIN),
+        )
+        .all()
+    )
     guest_events = (
         db.query(PuzzleCompletionEvent)
         .filter(

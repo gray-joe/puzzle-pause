@@ -16,3 +16,6 @@ blob-report/
 
 # Local environment — contains secrets, never commit
 .env.local
+
+# Benchmark results
+benchmark/results/*.jsonl

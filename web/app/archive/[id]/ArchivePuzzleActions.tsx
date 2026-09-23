@@ -12,6 +12,7 @@ export default function ArchivePuzzleActions({
 }) {
     return (
         <PuzzleShell
+            key={puzzle.id}
             puzzle={puzzle}
             initialAttempt={puzzle.attempt}
             isArchive

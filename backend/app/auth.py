@@ -17,6 +17,12 @@ AUTH_MAX_CODE_ATTEMPTS = 5
 GUEST_SESSION_EXPIRY_DAYS = 365
 GUEST_SESSION_COOKIE = "guest_session"
 
+# Automated model-benchmark accounts (see web/benchmark/). Reserved per RFC 2606, so it can
+# never collide with a real address. Accounts on this domain are real users — they keep their
+# own /account stats — but are excluded from player-facing aggregates so bot runs don't skew
+# the numbers real players see on a puzzle.
+BENCHMARK_EMAIL_DOMAIN = "@benchmark.puzzlepause.invalid"
+
 
 def _jwt_secret() -> str:
     secret = os.environ.get("JWT_SECRET")

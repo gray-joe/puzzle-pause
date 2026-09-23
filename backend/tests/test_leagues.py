@@ -346,6 +346,26 @@ class TestLeagueTags:
         tags = resp.json()["tags"]
         assert tags["hint_lover"]["user_id"] == user2.id
 
+    def test_hint_lover_counts_multi_hint_attempts(self, client, db):
+        """Connections/clue-reveal puzzles can reveal several hints on one
+        attempt, so `hint_used` can be > 1 — those attempts must still count
+        toward the hint_lover tag, not just attempts with exactly one hint."""
+        user1, jwt1 = _make_user(db, "a@example.com")
+        user2, _ = _make_user(db, "b@example.com")
+        league = _make_league(db, user1)
+        db.add(LeagueMember(league_id=league.id, user_id=user2.id))
+        db.commit()
+
+        p1 = _make_puzzle(db, days_ago=1)
+        # user1 used 2 hints on a single multi-hint puzzle (total 2).
+        # user2 used 1 hint on a single-hint puzzle (total 1).
+        _make_attempt(db, user1.id, p1.id, hint_used=2)
+        _make_attempt(db, user2.id, p1.id, hint_used=1)
+
+        resp = client.get(f"/api/leagues/{league.id}", cookies={"session": jwt1})
+        tags = resp.json()["tags"]
+        assert tags["hint_lover"]["user_id"] == user1.id
+
     def test_tags_empty_no_data(self, client, db):
         user, jwt = _make_user(db)
         league = _make_league(db, user)

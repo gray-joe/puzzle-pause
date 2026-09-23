@@ -1,0 +1,25 @@
+{
+    "models": [
+        {
+            "account": "claude",
+            "label": "Claude",
+            "id": "claude-sonnet-5",
+            "endpoint": "https://opencode.ai/zen/v1/messages",
+            "format": "anthropic-messages"
+        },
+        {
+            "account": "gpt",
+            "label": "GPT",
+            "id": "gpt-5.6-terra",
+            "endpoint": "https://opencode.ai/zen/v1/responses",
+            "format": "openai-responses"
+        },
+        {
+            "account": "grok",
+            "label": "Grok",
+            "id": "grok-4.6",
+            "endpoint": "https://opencode.ai/zen/v1/responses",
+            "format": "openai-responses"
+        }
+    ]
+}

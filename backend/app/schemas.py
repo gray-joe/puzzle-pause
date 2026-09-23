@@ -8,6 +8,14 @@ class LoginRequest(BaseModel):
     email: EmailStr
 
 
+class BenchmarkLoginRequest(BaseModel):
+    # Plain str, not EmailStr: email-validator rejects the reserved .invalid TLD this
+    # endpoint requires (see BENCHMARK_EMAIL_DOMAIN in app/auth.py) as "special-use".
+    email: str = Field(max_length=254)
+    # Bots share leagues with real players, who'd otherwise see a raw bot email as the name.
+    display_name: str | None = Field(default=None, max_length=40)
+
+
 class VerifyRequest(BaseModel):
     email: EmailStr
     code: str = Field(max_length=10)

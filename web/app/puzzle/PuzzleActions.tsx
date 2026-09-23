@@ -12,6 +12,7 @@ export default function PuzzleActions({
 }) {
     return (
         <PuzzleShell
+            key={puzzle.id}
             puzzle={puzzle}
             initialAttempt={puzzle.attempt}
             isLoggedIn={isLoggedIn}
