@@ -9,7 +9,7 @@ backend-run:
 	  RATELIMIT_ENABLED=0 \
 	  PUZZLE_ENV=dev \
 	  ADMIN_EMAILS=admin@example.com \
-	  BENCHMARK_BYPASS_SECRET=dev-benchmark-secret \
+	  BENCHMARK_BYPASS_SECRET="$$(sed -n 's/^BENCHMARK_BYPASS_SECRET=//p' ../web/.env.local 2>/dev/null | tail -1 | sed -e 's/^"//' -e 's/"$$//' | grep . || echo dev-benchmark-secret)" \
 	  uvicorn app.main:app --reload --port 8000
 
 backend-run-prod:
@@ -42,14 +42,30 @@ web-build:
 web-test:
 	cd web && npm run test:e2e -- $(ARGS)
 
+# The benchmark bypass secret is never passed on a command line — it lives in web/.env.local and
+# is read straight from that file by Playwright (via dotenv) and by backend-run below. Secrets
+# routinely contain shell metacharacters like & or $, which a VAR=value prefix would split on.
+# BASE_URL=https://puzzlepause.app targets production; default is the local stack.
+BENCHMARK_BASE_URL = $(if $(BASE_URL),$(BASE_URL),http://localhost:3000)
+
 benchmark-run:
 	cd web && npm run benchmark
 
+# Run one specific puzzle against every model. URL=<full puzzle URL>
+benchmark-puzzle:
+	@test -n "$(URL)" || (echo "URL is required, e.g. make benchmark-puzzle URL=https://puzzlepause.app/archive/19" && exit 1)
+	cd web && BENCHMARK_URL=$(URL) npx playwright test --project=benchmark-single
+
+# Have the bots play today's daily puzzle (what the today/weekly league boards score).
+benchmark-daily:
+	cd web && BENCHMARK_BASE_URL=$(BENCHMARK_BASE_URL) \
+	  npx playwright test --project=benchmark-daily
+
 # Add the bot accounts to a league so real players can compare against them.
-# CODE=<invite code>, and BASE_URL=https://puzzlepause.app to target production.
+# CODE=<invite code>
 benchmark-join-league:
 	@test -n "$(CODE)" || (echo "CODE is required, e.g. make benchmark-join-league CODE=ABC123" && exit 1)
-	cd web && node benchmark/join-league.mjs $(CODE) $(if $(BASE_URL),$(BASE_URL),http://localhost:3000)
+	cd web && node benchmark/join-league.mjs $(CODE) $(BENCHMARK_BASE_URL)
 
 # Preview / delete the bot accounts and their data. Scoped to the reserved benchmark email
 # domain, so real users are never matched. ARGS="--dry-run" to preview.
@@ -90,5 +106,5 @@ v2-test: backend-test
 
 .PHONY: all clean run run-prod seed deps test test-db test-auth test-puzzle test-league test-admin \
 	backend-install backend-run backend-run-prod backend-test backend-unit-test backend-api-test verify-db seed-dev \
-	web-install web-run web-build web-test benchmark-run benchmark-join-league benchmark-clean \
-	fly-deploy fly-pull-db v2-install v2-test
+	web-install web-run web-build web-test benchmark-run benchmark-puzzle benchmark-daily benchmark-join-league \
+	benchmark-clean fly-deploy fly-pull-db v2-install v2-test

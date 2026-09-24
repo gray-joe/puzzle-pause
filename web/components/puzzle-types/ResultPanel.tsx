@@ -137,15 +137,15 @@ export default function ResultPanel({
     const timeStr = duration ? ` in ${duration}` : '';
     const shareText = gaveUp
         ? isArchive
-            ? `I tried ${puzzleName} on Puzzle Pause! puzzlepause.app/archive/${puzzle.id}`
-            : `I tried today's Puzzle Pause! puzzlepause.app`
+            ? `I tried ${puzzleName} on Puzzle Pause! https://puzzlepause.app/archive/${puzzle.id}`
+            : `I tried today's Puzzle Pause! https://puzzlepause.app`
         : isLoggedIn
           ? isArchive
-              ? `I scored ${attempt.score} on Puzzle Pause #${puzzle.puzzle_number ?? puzzle.id}${timeStr}! puzzlepause.app/archive/${puzzle.id}`
-              : `I scored ${attempt.score} on today's Puzzle Pause${timeStr}! puzzlepause.app`
+              ? `I scored ${attempt.score} on Puzzle Pause #${puzzle.puzzle_number ?? puzzle.id}${timeStr}! https://puzzlepause.app/archive/${puzzle.id}`
+              : `I scored ${attempt.score} on today's Puzzle Pause${timeStr}! https://puzzlepause.app`
           : isArchive
-            ? `I solved ${puzzleName} on Puzzle Pause! puzzlepause.app/archive/${puzzle.id}`
-            : `I solved ${puzzleName} on Puzzle Pause${timeStr}! puzzlepause.app`;
+            ? `I solved ${puzzleName} on Puzzle Pause! https://puzzlepause.app/archive/${puzzle.id}`
+            : `I solved ${puzzleName} on Puzzle Pause${timeStr}! https://puzzlepause.app`;
 
     function share() {
         navigator.clipboard.writeText(shareText).catch(() => {});

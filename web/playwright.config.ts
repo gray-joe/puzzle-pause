@@ -29,7 +29,10 @@ export default defineConfig({
             name: 'benchmark',
             testDir: './benchmark',
             testMatch: /text-puzzles\.spec\.ts/,
-            timeout: 400_000, // up to two model calls per test, each allowed up to 150s
+            // Up to MAX_GUESSES (3) model calls per test, each allowed up to 150s, plus retries
+            // and page work — must exceed that, or a slow run is killed mid-play and the bot is
+            // left with a half-finished attempt.
+            timeout: 600_000,
             use: { ...devices['Desktop Chrome'] },
             dependencies: ['setup_db'],
         },
@@ -39,7 +42,15 @@ export default defineConfig({
             name: 'benchmark-single',
             testDir: './benchmark',
             testMatch: /single-puzzle\.spec\.ts/,
-            timeout: 400_000,
+            timeout: 600_000,
+            use: { ...devices['Desktop Chrome'] },
+        },
+        {
+            // Today's daily puzzle, so the bots show on a league's today/weekly boards.
+            name: 'benchmark-daily',
+            testDir: './benchmark',
+            testMatch: /daily\.spec\.ts/,
+            timeout: 600_000,
             use: { ...devices['Desktop Chrome'] },
         },
     ],

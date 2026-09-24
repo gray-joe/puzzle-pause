@@ -14,10 +14,13 @@ if (!inviteCode) {
     process.exit(1);
 }
 
-// Playwright loads .env.local via playwright.config.ts; this script runs on its own.
+// Playwright loads .env.local via playwright.config.ts; this script runs on its own. Values are
+// taken verbatim (bar optional surrounding quotes) so secrets containing & or $ survive intact.
 for (const line of fs.readFileSync(path.join(dir, '../.env.local'), 'utf-8').split('\n')) {
     const match = line.match(/^([A-Z_]+)=(.*)$/);
-    if (match && !process.env[match[1]]) process.env[match[1]] = match[2].trim();
+    if (match && !process.env[match[1]]) {
+        process.env[match[1]] = match[2].trim().replace(/^(['"])(.*)\1$/, '$2');
+    }
 }
 
 const secret = process.env.BENCHMARK_BYPASS_SECRET;

@@ -3,7 +3,7 @@ import './globals.css';
 
 const appName = 'Puzzle Pause';
 const appDescription = 'Daily word and logic puzzles';
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://puzzlepause.app';
 
 export const metadata: Metadata = {
     metadataBase: new URL(siteUrl),
@@ -57,21 +57,12 @@ export const metadata: Metadata = {
         description: appDescription,
         url: '/',
         siteName: appName,
-        images: [
-            {
-                url: '/app_splash_dark.png',
-                width: 896,
-                height: 1755,
-                alt: appName,
-            },
-        ],
         type: 'website',
     },
     twitter: {
         card: 'summary_large_image',
         title: appName,
         description: appDescription,
-        images: ['/app_splash_dark.png'],
     },
 };
 

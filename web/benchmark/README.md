@@ -5,8 +5,16 @@ for an answer, and submits it through the UI like a real player would. Logs in a
 `/auth/benchmark-login`, see below) so scores show up in the app's own stats — same scoring as a human
 player, since it comes straight from the result panel.
 
-The model is given the text of the whole puzzle area (grid, rack, clues, etc. — not just the prompt),
-gets up to two attempts, and is shown one revealed hint after a wrong first attempt.
+The model is given the text of the whole puzzle area (grid, rack, clues, etc. — not just the prompt)
+and plays it the way a person would, up to three guesses:
+
+1. Guess. If it's right, done.
+2. Wrong once → guess again, told which answers it already got wrong so it doesn't repeat them.
+3. Wrong twice → reveal the hint if the puzzle has one, then take a final guess.
+4. Wrong three times → give up.
+
+Wrong guesses cost 5 points each and a hint 10 (archive puzzles then take a further -10), so the
+recorded score reflects how much help the model needed rather than just pass/fail.
 
 Covers the 6 text-readable puzzle types with a single answer box: word, math, wordsearch, numgrid,
 scrabble, clue-reveal. Not covered:
@@ -35,9 +43,10 @@ model `id`: swapping `claude-sonnet-5` for a newer Claude keeps the same player 
 `label` is pushed to the account's `display_name` on every login, so leagues show "Claude" rather
 than the raw email, and renaming in config renames the league entry.
 
-Because the accounts persist and a puzzle allows one attempt per user, replaying a puzzle a bot has
-already done is a no-op: the run reports `alreadyPlayed`, skips the test, and makes no model call.
-The standing score is left as-is.
+A puzzle keeps one attempt row per user, holding the cumulative guess/hint state, and it's closed
+once the puzzle is solved or given up. Since the accounts persist, re-running a puzzle a bot has
+finished is a no-op: the run reports `alreadyPlayed`, skips the test, makes no model call, and
+leaves the standing score alone. A half-finished attempt is still playable and just resumes.
 
 ### Login, no real email
 
@@ -69,22 +78,58 @@ Each bot logs in and joins via the app's own `/leagues/join`, so no direct DB wr
 safe to re-run.
 
 Note the today/weekly leaderboards join on the current puzzle date, so **archive** attempts only show
-on the all-time board. For the bots to appear on the daily boards they need to play that day's puzzle.
+on the all-time board. Use the daily run below to get the bots onto the daily boards.
+
+## Today's puzzle
+
+```bash
+make benchmark-daily                                    # local
+make benchmark-daily BASE_URL=https://puzzlepause.app
+```
+
+This is what feeds a league's today/weekly boards, and daily puzzles have no archive deduction, so
+a clean solve is worth the full 100.
+
+Today's puzzle can be any of the 16 types, so the run checks before playing and skips when it can't
+drive it — no puzzle published yet (before 09:00 UTC), a type with no text answer box, or a
+multi-box type. Opening the page does create an empty attempt row on a skipped day, the same as a
+person opening a puzzle and not finishing; it stays resumable and scores nothing.
+
+Unlike the other runs, this one **does not fail when a model gets the puzzle wrong** — it's a
+participation job meant to run unattended, where a bot losing is normal gameplay rather than a
+broken run. Genuine faults (login rejected, model API down) still fail loudly.
+
+To run it every day, point a scheduler at `make benchmark-daily` after 09:00 UTC. Re-running the
+same day is harmless: finished puzzles report `alreadyPlayed` and make no model calls.
 
 ## Setup
 
 1. Add to `web/.env.local`:
+
     ```
     OPENCODE_API_KEY=sk-...
     BENCHMARK_BYPASS_SECRET=dev-benchmark-secret
     ```
-    `make backend-run` already passes `BENCHMARK_BYPASS_SECRET=dev-benchmark-secret` to the local
-    backend, so the value above works out of the box against `localhost`. To benchmark against
-    **production**, set a real secret there first:
+
+    `make backend-run` reads this value from `.env.local` and passes it to the local
+    backend, so the value above works out of the box against `localhost`.
+
+    To benchmark against **production**, set a secret there once:
+
     ```bash
     flyctl secrets set BENCHMARK_BYPASS_SECRET=<a long random value>
     ```
-    and use that same value in `web/.env.local` instead of the dev default.
+
+    Then put that same value in `web/.env.local` as `BENCHMARK_BYPASS_SECRET`, replacing the dev
+    default. It is never passed on a command line — secrets routinely contain `&`, `$` or other
+    shell metacharacters, and a `VAR=value` prefix would split the command on them. Instead:
+    - Playwright reads it from `.env.local` via `dotenv` (`playwright.config.ts`).
+    - `make backend-run` reads it from the same file, so the local backend and the harness can't
+      disagree. If the variable is absent it falls back to `dev-benchmark-secret`.
+
+    So one value in one file serves both local and production runs, and the commands below need
+    no secret argument at all.
+
 2. Edit `models.config.json` to list the models to benchmark. Each entry needs:
     - `account`: stable bot-account key — the email local part and the identity in a league. Keep it
       stable across model upgrades so the player's history carries over.
@@ -101,11 +146,17 @@ on the all-time board. For the bots to appear on the daily boards they need to p
 Run one puzzle URL against every configured model, each as its persistent bot account:
 
 ```bash
-BENCHMARK_URL=https://puzzlepause.app/archive/232 npx playwright test --project=benchmark-single
+make benchmark-puzzle URL=http://localhost:3000/archive/2
+make benchmark-puzzle URL=https://puzzlepause.app/archive/232
 ```
 
-Only works for the plain-text-answer puzzle types (see above) — check the page has a
-`data-testid="answer-input"` first for anything outside the local seed set.
+Only works for the plain-text-answer puzzle types (see above). Unlike the daily run, this one
+doesn't pre-check the type, so for anything outside the local seed set confirm the page has exactly
+one `data-testid="answer-input"` first:
+
+```bash
+curl -s https://puzzlepause.app/archive/232 | grep -c 'data-testid="answer-input"'
+```
 
 ## Run (local matrix — all models × all 6 puzzle types)
 

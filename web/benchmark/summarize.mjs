@@ -28,9 +28,16 @@ const cell = (model, puzzleType) => {
     const r = results.find((x) => x.model === model && x.puzzleType === puzzleType);
     if (!r) return '-';
     // Standing score from an earlier run — the bot accounts persist, so it wasn't replayed.
-    if (r.alreadyPlayed) return r.solved ? `✅ (score ${r.score}, prior)` : '❌ (prior)';
-    if (!r.solved) return '❌';
-    return r.hintUsed ? `✅ (hint, score ${r.score})` : `✅ (score ${r.score})`;
+    if (r.alreadyPlayed) return r.solved ? `✅ ${r.score} (prior)` : '❌ (prior)';
+    const detail = [
+        r.guesses > 1 ? `${r.guesses} guesses` : null,
+        r.rejected ? `${r.rejected} rejected` : null,
+        r.hintUsed ? 'hint' : null,
+    ].filter(Boolean);
+
+    if (!r.solved) return `❌${detail.length ? ` (${detail.join(' + ')})` : ''}`;
+    const cost = detail.join(' + ');
+    return cost ? `✅ ${r.score} (${cost})` : `✅ ${r.score}`;
 };
 
 const header = `| Model | ${puzzleTypes.join(' | ')} | Solved |`;

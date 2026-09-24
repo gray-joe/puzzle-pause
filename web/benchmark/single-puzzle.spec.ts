@@ -25,7 +25,7 @@ for (const model of models) {
 
         const outcome = await playPuzzle(page, model);
         console.log(
-            `[${model.label}] alreadyPlayed=${outcome.alreadyPlayed} solved=${outcome.solved} attempts=${outcome.attempts} hintUsed=${outcome.hintUsed} answer="${outcome.modelAnswer}" score=${outcome.score}`
+            `[${model.label}] alreadyPlayed=${outcome.alreadyPlayed} solved=${outcome.solved} guesses=${outcome.guesses} rejected=${outcome.rejected} hintUsed=${outcome.hintUsed} gaveUp=${outcome.gaveUp} answer="${outcome.modelAnswer}" score=${outcome.score}`
         );
 
         test.skip(
