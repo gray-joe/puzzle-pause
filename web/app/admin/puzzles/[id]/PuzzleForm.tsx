@@ -219,10 +219,6 @@ export default function PuzzleForm({ puzzle }: Props) {
             setError('A start and end word are required');
             return;
         }
-        if (form.puzzle_type === 'word-ladder-v2' && !form.answer.trim()) {
-            setError('At least one reference word is required');
-            return;
-        }
         if (form.puzzle_type === 'word-wheel' && !form.answer.trim()) {
             setError('At least one answer word is required');
             return;

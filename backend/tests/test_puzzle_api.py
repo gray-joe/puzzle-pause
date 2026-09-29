@@ -432,7 +432,7 @@ class TestAttempt:
         assert resp.status_code == 200
         assert resp.json()["correct"] is False
 
-    def test_word_ladder_v2_accepts_valid_path_and_returns_letter_feedback(
+    def test_word_ladder_v2_accepts_valid_path(
         self, client, db
     ):
         puzzle = Puzzle(
@@ -451,7 +451,6 @@ class TestAttempt:
         )
         assert wrong.status_code == 200
         assert wrong.json()["correct"] is False
-        assert wrong.json()["letter_feedback"] == [[True, True, True, False]]
 
         correct = client.post(
             "/api/puzzle/attempt",
@@ -494,7 +493,7 @@ class TestAttempt:
 
         longer = client.post(
             "/api/puzzle/attempt",
-            json={"puzzle_id": puzzle.id, "guess": "cord, curd, card, ward"},
+            json={"puzzle_id": puzzle.id, "guess": "cord, curd, card, ward, wart"},
         )
         assert longer.status_code == 200
         assert longer.json()["correct"] is True

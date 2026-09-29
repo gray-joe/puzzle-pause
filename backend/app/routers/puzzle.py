@@ -26,7 +26,6 @@ from ..schemas import AttemptRequest, AttemptResponse, HintRequest, HintResponse
 from ..word_ladder_v2 import (
     check_word_ladder_v2_answer,
     word_ladder_v2_length_penalty,
-    word_ladder_v2_letter_feedback,
 )
 
 router = APIRouter(prefix="/puzzle", tags=["puzzle"])
@@ -88,12 +87,6 @@ def _check_puzzle_answer(puzzle: Puzzle, guess: str) -> bool:
     if puzzle.puzzle_type == "word-ladder-v2":
         return check_word_ladder_v2_answer(puzzle.question, guess)
     return check_answer(guess, puzzle.answer)
-
-
-def _letter_feedback(puzzle: Puzzle, guess: str) -> list[list[bool]] | None:
-    if puzzle.puzzle_type != "word-ladder-v2":
-        return None
-    return word_ladder_v2_letter_feedback(puzzle.answer, guess)
 
 
 def _length_penalty(puzzle: Puzzle, guess: str) -> int:
@@ -547,7 +540,6 @@ def submit_attempt(
             score=None,
             incorrect_guesses=0,
             solved=False,
-            letter_feedback=_letter_feedback(puzzle, body.guess),
         )
 
     attempt = _ensure_attempt(user.id, puzzle.id, db)
@@ -637,7 +629,6 @@ def submit_attempt(
             score=None,
             incorrect_guesses=attempt.incorrect_guesses,
             solved=False,
-            letter_feedback=_letter_feedback(puzzle, body.guess),
         )
 
 

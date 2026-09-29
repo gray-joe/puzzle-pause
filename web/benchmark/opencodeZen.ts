@@ -19,20 +19,28 @@ export interface ModelConfig {
 // near-zero keepAliveTimeout makes undici treat every connection as stale and open a fresh one.
 const freshConnectionDispatcher = new Agent({ keepAliveTimeout: 1, keepAliveMaxTimeout: 1 });
 
+// Output cap per call, reasoning included — the answer itself is one line, so nearly all of this
+// is thinking. Generous because a budget spent entirely on thinking leaves no text (an empty
+// answer, counted as a rejected guess): 4096 ran out on retries, where a model hunts at length for
+// an alternative to a rejected answer. Still bounds cost and latency on a model that won't stop.
+const MAX_OUTPUT_TOKENS = 16_000;
+
 function buildBody(model: ModelConfig, prompt: string) {
     switch (model.format) {
         case 'anthropic-messages':
-            // Generous: thinking tokens count against max_tokens, and a budget spent entirely on
-            // thinking leaves no text block (an empty answer).
             return {
                 model: model.id,
-                max_tokens: 4096,
+                max_tokens: MAX_OUTPUT_TOKENS,
                 messages: [{ role: 'user', content: prompt }],
             };
         case 'openai-responses':
-            return { model: model.id, input: prompt };
+            return { model: model.id, input: prompt, max_output_tokens: MAX_OUTPUT_TOKENS };
         case 'openai-chat':
-            return { model: model.id, messages: [{ role: 'user', content: prompt }] };
+            return {
+                model: model.id,
+                max_tokens: MAX_OUTPUT_TOKENS,
+                messages: [{ role: 'user', content: prompt }],
+            };
     }
 }
 

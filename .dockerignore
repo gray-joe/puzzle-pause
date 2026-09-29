@@ -26,17 +26,24 @@ test_admin
 *.sqlite
 data/
 
-# Python artifacts
-backend/__pycache__/
-backend/.pytest_cache/
-backend/htmlcov/
-backend/.coverage
+# Python artifacts (venv is rebuilt inside Docker)
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/htmlcov/
+**/.coverage
 backend/pytest.ini
+backend/tests/
+backend/test-results/
 
 # Node / Next.js artifacts (rebuilt inside Docker)
-web/node_modules/
+**/node_modules/
 web/.next/
 web/out/
+web/coverage/
+web/playwright-report/
+web/test-results/
 
 # Secrets / local config
 .env

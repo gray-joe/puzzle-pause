@@ -105,6 +105,35 @@ class TestAdminCreatePuzzle:
         assert resp.json()["answer"] == "answer"
         assert resp.json()["explanation"] == "This is why the answer works."
 
+    def test_word_ladder_v2_answer_is_computed_shortest_route(self, client, db):
+        resp = client.post(
+            "/api/admin/puzzles",
+            json={
+                "puzzle_date": "2025-06-02",
+                "puzzle_type": "word-ladder-v2",
+                "puzzle_name": "Cold to Warm",
+                "question": "cold, warm",
+                "answer": "anything the client sends is replaced",
+            },
+            cookies=_admin_cookies(db),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["answer"] == "cord, word, ward"
+
+    def test_rejects_word_ladder_v2_without_route(self, client, db):
+        resp = client.post(
+            "/api/admin/puzzles",
+            json={
+                "puzzle_date": "2025-06-03",
+                "puzzle_type": "word-ladder-v2",
+                "puzzle_name": "Impossible",
+                "question": "cold, warmer",
+                "answer": "",
+            },
+            cookies=_admin_cookies(db),
+        )
+        assert resp.status_code == 400
+
     def test_rejects_duplicate_date(self, client, db):
         _make_puzzle(db, "2024-01-01")
         resp = client.post(

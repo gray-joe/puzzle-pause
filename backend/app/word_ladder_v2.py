@@ -9,6 +9,10 @@ from string import ascii_lowercase
 from wordfreq import zipf_frequency
 
 LENGTH_PENALTY = 10
+# Shortest routes are searched through words at least this common first, falling back
+# to rarer words only when no route exists. Higher cut-offs mean fewer obscure words but
+# needlessly long routes (4.0 turned pear -> bite into 8 steps instead of 4).
+ROUTE_ZIPF_CUTOFFS = (3.5, 3.0, 0)
 
 
 def parse_words(value: str) -> list[str]:
@@ -77,32 +81,55 @@ def check_word_ladder_v2_answer(question: str, guess: str) -> bool:
     return validate_ladder([start, *guessed_words, end])
 
 
+def shortest_ladder(start: str, end: str) -> tuple[str, ...] | None:
+    """Shortest ladder through the most common words that can make one."""
+    for min_zipf in ROUTE_ZIPF_CUTOFFS:
+        if ladder := _search(start, end, min_zipf):
+            return ladder
+    return None
+
+
 @lru_cache(maxsize=512)
-def _shortest_ladder_word_count(start: str, end: str) -> int | None:
-    """BFS over dictionary words to find the fewest words needed (including both endpoints)."""
+def _search(start: str, end: str, min_zipf: float) -> tuple[str, ...] | None:
+    """BFS over dictionary words for the shortest ladder (including both endpoints)."""
     if len(start) != len(end):
         return None
     if start == end:
-        return 1
+        return (start,)
 
-    visited = {start}
-    queue: deque[tuple[str, int]] = deque([(start, 1)])
+    parents: dict[str, str | None] = {start: None}
+    queue: deque[str] = deque([start])
     while queue:
-        word, dist = queue.popleft()
+        word = queue.popleft()
         for index in range(len(word)):
             for letter in ascii_lowercase:
                 if letter == word[index]:
                     continue
                 candidate = word[:index] + letter + word[index + 1 :]
-                if candidate in visited:
+                if candidate in parents:
                     continue
-                if candidate != end and not is_dictionary_word(candidate):
+                if candidate != end and not (
+                    is_dictionary_word(candidate)
+                    and zipf_frequency(candidate, "en") >= min_zipf
+                ):
                     continue
+                parents[candidate] = word
                 if candidate == end:
-                    return dist + 1
-                visited.add(candidate)
-                queue.append((candidate, dist + 1))
+                    path = [candidate]
+                    while parents[path[-1]] is not None:
+                        path.append(parents[path[-1]])
+                    return tuple(reversed(path))
+                queue.append(candidate)
     return None
+
+
+def shortest_route_answer(question: str) -> str:
+    """The intermediate words of the shortest ladder, stored as the puzzle answer."""
+    start, end = parse_endpoints(question)
+    ladder = shortest_ladder(start, end)
+    if ladder is None:
+        raise ValueError(f"no word ladder exists from '{start}' to '{end}'")
+    return ", ".join(ladder[1:-1])
 
 
 def word_ladder_v2_length_penalty(question: str, guess: str) -> int:
@@ -112,26 +139,10 @@ def word_ladder_v2_length_penalty(question: str, guess: str) -> int:
     except ValueError:
         return 0
 
-    shortest = _shortest_ladder_word_count(start, end)
+    shortest = shortest_ladder(start, end)
     if shortest is None:
         return 0
 
     guessed_words = _drop_trailing_final_word(parse_words(guess), end)
     guess_word_count = len(guessed_words) + 2
-    return LENGTH_PENALTY if guess_word_count > shortest else 0
-
-
-def word_ladder_v2_letter_feedback(answer: str, guess: str) -> list[list[bool]]:
-    """Compare guessed intermediate words with the authored reference path."""
-    expected_words = parse_words(answer)
-    guessed_words = parse_words(guess)
-    feedback = []
-    for row, guessed in enumerate(guessed_words):
-        expected = expected_words[row] if row < len(expected_words) else ""
-        feedback.append(
-            [
-                index < len(expected) and letter == expected[index]
-                for index, letter in enumerate(guessed)
-            ]
-        )
-    return feedback
+    return LENGTH_PENALTY if guess_word_count > len(shortest) else 0

@@ -45,7 +45,6 @@ export type AttemptResult = {
     question?: string | null;
     explanation?: string | null;
     streak?: number | null;
-    letter_feedback?: boolean[][] | null;
     length_penalty_applied?: boolean;
 };
 

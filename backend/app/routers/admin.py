@@ -13,6 +13,7 @@ from ..schemas import (
     UpdateAttemptRequest,
     UpdatePuzzleRequest,
 )
+from ..word_ladder_v2 import shortest_route_answer
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -317,8 +318,11 @@ def create_puzzle(
             status_code=400, detail=f"Invalid puzzle_type: {body.puzzle_type}"
         )
 
+    answer = body.answer
     try:
-        validate_puzzle(body.puzzle_type, body.question, body.answer)
+        if body.puzzle_type == "word-ladder-v2":
+            answer = shortest_route_answer(body.question)
+        validate_puzzle(body.puzzle_type, body.question, answer)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -333,7 +337,7 @@ def create_puzzle(
         puzzle_type=body.puzzle_type,
         puzzle_name=body.puzzle_name,
         question=body.question,
-        answer=body.answer,
+        answer=answer,
         hint=body.hint or None,
         explanation=body.explanation or None,
     )
@@ -375,6 +379,8 @@ def update_puzzle(
     effective_question = body.question if body.question is not None else puzzle.question
     effective_answer = body.answer if body.answer is not None else puzzle.answer
     try:
+        if effective_type == "word-ladder-v2":
+            effective_answer = shortest_route_answer(effective_question)
         validate_puzzle(effective_type, effective_question, effective_answer)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -387,8 +393,7 @@ def update_puzzle(
         puzzle.puzzle_name = body.puzzle_name
     if body.question is not None:
         puzzle.question = body.question
-    if body.answer is not None:
-        puzzle.answer = body.answer
+    puzzle.answer = effective_answer
     if body.hint is not None:
         puzzle.hint = body.hint or None
     if "explanation" in body.model_fields_set:

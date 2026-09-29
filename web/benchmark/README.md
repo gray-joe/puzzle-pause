@@ -17,13 +17,19 @@ Wrong guesses cost 5 points each and a hint 10 (archive puzzles then take a furt
 recorded score reflects how much help the model needed rather than just pass/fail.
 
 Covers the 6 text-readable puzzle types with a single answer box: word, math, wordsearch, numgrid,
-scrabble, clue-reveal. Not covered:
+scrabble, clue-reveal. Plus `countdown`, which has no answer box: the model is asked for an
+arithmetic expression, and the harness clicks the matching number/operator/bracket tiles to build it
+(never "Show total", which costs 10 points). An expression using a number or operator the puzzle
+doesn't offer counts as a rejected guess. And `word-wheel`, which has one box per wheel: the
+harness reads each wheel's letters clockwise (with `?` for the missing one), asks for one word per
+wheel, and fills them in; a reply with the wrong number of words counts as a rejected guess. Not
+covered:
 
 - `ladder` — has the same `answer-input` testid but renders one input per blank, which the
   single-field flow can't drive.
 - `image-word` — the puzzle is an image; needs a vision input, not text.
-- Types with other custom interactions (choice, connections, order, match, countdown, word-wheel,
-  image-tap, image-order, chess, word-ladder-v2).
+- Types with other custom interactions (choice, connections, order, match, image-tap, image-order,
+  chess, word-ladder-v2).
 
 Layout is lossy in the text form (e.g. a numgrid arrives as a flat list of cells, scrabble's board and
 rack as consecutive lines), so scores for those types partly measure that, not just the model.
@@ -91,8 +97,8 @@ This is what feeds a league's today/weekly boards, and daily puzzles have no arc
 a clean solve is worth the full 100.
 
 Today's puzzle can be any of the 16 types, so the run checks before playing and skips when it can't
-drive it — no puzzle published yet (before 09:00 UTC), a type with no text answer box, or a
-multi-box type. Opening the page does create an empty attempt row on a skipped day, the same as a
+drive it — no puzzle published yet (before 09:00 UTC), a type with no text answer box (other than
+countdown and word-wheel), or a multi-box type. Opening the page does create an empty attempt row on a skipped day, the same as a
 person opening a puzzle and not finishing; it stays resumable and scores nothing.
 
 Unlike the other runs, this one **does not fail when a model gets the puzzle wrong** — it's a
@@ -150,7 +156,7 @@ make benchmark-puzzle URL=http://localhost:3000/archive/2
 make benchmark-puzzle URL=https://puzzlepause.app/archive/232
 ```
 
-Only works for the plain-text-answer puzzle types (see above). Unlike the daily run, this one
+Only works for the plain-text-answer puzzle types, countdown and word-wheel (see above). Unlike the daily run, this one
 doesn't pre-check the type, so for anything outside the local seed set confirm the page has exactly
 one `data-testid="answer-input"` first:
 
@@ -158,7 +164,7 @@ one `data-testid="answer-input"` first:
 curl -s https://puzzlepause.app/archive/232 | grep -c 'data-testid="answer-input"'
 ```
 
-## Run (local matrix — all models × all 6 puzzle types)
+## Run (local matrix — all models × all 8 puzzle types)
 
 ```bash
 make backend-run   # terminal 1

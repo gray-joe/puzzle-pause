@@ -258,9 +258,9 @@ SEED_PUZZLES = [
         "puzzle_type": "word-ladder-v2",
         "puzzle_name": "Cold to Warm",
         "question": "cold, warm",
-        "answer": "cord, card, ward",
-        "hint": "Try changing the second letter first.",
-        "explanation": "One route is COLD → CORD → CARD → WARD → WARM.",
+        "answer": "cord, word, ward",
+        "hint": "Try changing the third letter first.",
+        "explanation": "The shortest route is COLD → CORD → WORD → WARD → WARM.",
     },
     {
         "days_ago": 17,

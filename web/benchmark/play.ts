@@ -23,10 +23,35 @@ async function readPuzzleText(puzzle: PuzzlePage): Promise<string> {
         .join('\n');
 }
 
-function buildPrompt(puzzleText: string, triedAnswers: string[]): string {
+// Countdown has no answer box: the player clicks number/operator tiles to build an expression and
+// the page submits its value. So the model is asked for the expression, which is then clicked in.
+const COUNTDOWN_INSTRUCTIONS = [
+    'This is a numbers game: reach the target by combining the given numbers with the given operators.',
+    'Each number may be used at most once; you do not have to use them all. Brackets are allowed.',
+    'Reply with ONLY the arithmetic expression (e.g. (75 + 3) × 2), not its result.',
+];
+
+// Word wheel's letters live in SVG segments with one text box per wheel, so the letters are read
+// out in order and the model's words are split across the boxes.
+const WORD_WHEEL_INSTRUCTIONS = [
+    'Each wheel below lists its letters clockwise from the top; ? marks a missing letter you must fill in.',
+    'Reply with ONLY one word per wheel, in wheel order, separated by spaces.',
+];
+
+// Types that need their own driver instead of the single answer box.
+type PuzzleKind = 'text' | 'countdown' | 'word-wheel';
+
+const KIND_INSTRUCTIONS: Record<PuzzleKind, string[]> = {
+    text: [],
+    countdown: COUNTDOWN_INSTRUCTIONS,
+    'word-wheel': WORD_WHEEL_INSTRUCTIONS,
+};
+
+function buildPrompt(puzzleText: string, triedAnswers: string[], kind: PuzzleKind): string {
     return [
         'You are playing a daily puzzle game. Below is the text content of the puzzle.',
         'Reply with ONLY the final answer to submit — plain text, no markdown formatting, no explanation.',
+        ...KIND_INSTRUCTIONS[kind],
         // Without this a model just repeats its last rejected answer, making retries pointless.
         // "not accepted" covers both a wrong answer and one the input field refused.
         ...(triedAnswers.length
@@ -63,7 +88,7 @@ export interface PuzzleInspection {
 
 // A puzzle can be any of the 16 types, so check before playing. Judged on the rendered page
 // rather than a type allowlist: any type using a single text answer box works, and a multi-box
-// one (ladder) is correctly refused.
+// one (ladder) is correctly refused. Countdown and word wheel have their own drivers.
 export async function inspectPuzzle(page: Page): Promise<PuzzleInspection> {
     const marker = page.locator('[data-testid^="puzzle-type-"]');
     // count() returns immediately. getAttribute() auto-waits, so on the daily puzzle — where
@@ -75,7 +100,7 @@ export async function inspectPuzzle(page: Page): Promise<PuzzleInspection> {
             : null;
 
     const boxes = await page.getByTestId('answer-input').count();
-    if (boxes === 1) return { type, playable: true };
+    if (boxes === 1 || (await puzzleKind(page)) !== 'text') return { type, playable: true };
 
     return {
         type,
@@ -87,16 +112,113 @@ export async function inspectPuzzle(page: Page): Promise<PuzzleInspection> {
     };
 }
 
+// Keyed off each type's own elements rather than the type marker, which the daily page doesn't
+// render.
+async function puzzleKind(page: Page): Promise<PuzzleKind> {
+    if ((await page.getByTestId('target-number').count()) > 0) return 'countdown';
+    if ((await page.getByTestId('word-input-0').count()) > 0) return 'word-wheel';
+    return 'text';
+}
+
+const wordInputs = (page: Page) => page.locator('[data-testid^="word-input-"]');
+
+// Each wheel's SVG sits next to its input, so read the letters from the input's parent.
+async function wordWheelLetters(page: Page): Promise<string> {
+    const inputs = await wordInputs(page).all();
+    const wheels = await Promise.all(
+        inputs.map((input) => input.locator('..').locator('svg text').allTextContents())
+    );
+    return wheels.map((letters, i) => `Wheel ${i + 1}: ${letters.join(' ')}`).join('\n');
+}
+
+/** Fills one word per wheel. Returns false if the reply has the wrong number of words. */
+async function enterWordWheel(page: Page, answer: string): Promise<boolean> {
+    const words = answer.split(/[\s,]+/).filter(Boolean);
+    const inputs = await wordInputs(page).all();
+    if (words.length !== inputs.length) return false;
+    for (const [i, input] of inputs.entries()) await input.fill(words[i]);
+    return true;
+}
+
+// The tile values, spelled out so the model doesn't have to untangle them from the flat page text.
+async function countdownTiles(page: Page): Promise<string> {
+    const numbers = await page.locator('[data-testid^="number-tile-"]').allInnerTexts();
+    const operators = await page.locator('[data-testid^="operator-tile-"]').allInnerTexts();
+    return [
+        `Target: ${await page.getByTestId('target-number').innerText()}`,
+        `Numbers: ${numbers.join(', ')}`,
+        `Operators: ${operators.join(' ')} ( )`,
+    ].join('\n');
+}
+
+// Models write * and / (or a unicode minus) as often as the tiles' own symbols.
+const OP_ALIASES: Record<string, string> = {
+    '*': '×',
+    x: '×',
+    X: '×',
+    '/': '÷',
+    '−': '-',
+    '–': '-',
+};
+
+/** Splits "(75 + 3) * 2 = 156" into tiles to click; null if it contains anything else. */
+export function tokenizeExpression(expr: string): string[] | null {
+    const body = expr.replace(/=.*$/, '').trim();
+    const tokens = body.match(/\d+|[-+×÷*/xX−–()]/g) ?? [];
+    if (!tokens.length || tokens.join('') !== body.replace(/\s+/g, '')) return null;
+    return tokens.map((t) => OP_ALIASES[t] ?? t);
+}
+
+/** Clicks the expression in. Returns false if it uses a number/operator the puzzle doesn't offer. */
+async function enterCountdown(page: Page, answer: string): Promise<boolean> {
+    const tokens = tokenizeExpression(answer);
+    if (!tokens) return false;
+
+    // A wrong guess leaves its expression on screen, so start from empty.
+    const clearBtn = page.getByTestId('puzzle-shell').getByRole('button', { name: /^>?Clear$/ });
+    if (await clearBtn.isEnabled()) await clearBtn.click();
+
+    const numbers = await page.locator('[data-testid^="number-tile-"]').allInnerTexts();
+    const operators = await page.locator('[data-testid^="operator-tile-"]').allInnerTexts();
+    const used = new Set<number>();
+    for (const token of tokens) {
+        let testId: string;
+        if (/^\d+$/.test(token)) {
+            // Same value can appear on two tiles, so take the first one not yet used.
+            const i = numbers.findIndex((n, idx) => n.trim() === token && !used.has(idx));
+            if (i === -1) return false;
+            used.add(i);
+            testId = `number-tile-${i}`;
+        } else if (token === '(' || token === ')') {
+            testId = `bracket-tile-${token}`;
+        } else {
+            const i = operators.findIndex((op) => op.trim() === token);
+            if (i === -1) return false;
+            testId = `operator-tile-${i}`;
+        }
+        await page.getByTestId(testId).click();
+    }
+    return true;
+}
+
 /** Submits one guess. Returns false if the input rejected it, so nothing was actually submitted. */
 async function submitGuess(
     puzzle: PuzzlePage,
     result: ResultPage,
-    answer: string
+    answer: string,
+    kind: PuzzleKind
 ): Promise<boolean> {
-    await puzzle.answerInput.fill(answer);
+    if (kind === 'countdown') {
+        if (!(await enterCountdown(puzzle.page, answer))) return false;
+    } else if (kind === 'word-wheel') {
+        if (!(await enterWordWheel(puzzle.page, answer))) return false;
+    } else {
+        await puzzle.answerInput.fill(answer);
+    }
 
     // Submit stays disabled if the input rejected the reply (e.g. a numeric-only field given
-    // prose), which would otherwise hang the click until the test timeout.
+    // prose, or a countdown expression that doesn't evaluate), which would otherwise hang the
+    // click until the test timeout.
     const enabled = await expect(puzzle.submitBtn)
         .toBeEnabled({ timeout: 2_000 })
         .then(
@@ -139,6 +261,7 @@ export async function playPuzzle(page: Page, model: ModelConfig): Promise<PlayOu
         };
     }
 
+    const kind = await puzzleKind(page);
     const triedAnswers: string[] = [];
     let submitted = 0;
     let rejected = 0;
@@ -156,13 +279,18 @@ export async function playPuzzle(page: Page, model: ModelConfig): Promise<PlayOu
             await expect.poll(() => readPuzzleText(puzzle), { timeout: 5_000 }).not.toBe(before);
         }
 
-        const puzzleText = await readPuzzleText(puzzle);
-        modelAnswer = cleanAnswer(await askModel(model, buildPrompt(puzzleText, triedAnswers)));
+        let puzzleText = await readPuzzleText(puzzle);
+        if (kind === 'countdown') puzzleText += '\n\n' + (await countdownTiles(page));
+        if (kind === 'word-wheel') puzzleText += '\n\n' + (await wordWheelLetters(page));
+        modelAnswer = cleanAnswer(
+            await askModel(model, buildPrompt(puzzleText, triedAnswers, kind))
+        );
 
-        // A reply the field won't take (empty, or prose in a numeric-only box) never reaches the
-        // server, so it costs no points — but it still burns a round, otherwise a model that
-        // keeps replying in the wrong format would loop forever.
-        if (!modelAnswer || !(await submitGuess(puzzle, result, modelAnswer))) {
+        // A reply the field won't take (empty, prose in a numeric-only box, a countdown number
+        // that isn't on a tile, the wrong number of word-wheel words) never reaches the server, so it costs no points — but it still
+        // burns a round, otherwise a model that keeps replying in the wrong format would loop
+        // forever.
+        if (!modelAnswer || !(await submitGuess(puzzle, result, modelAnswer, kind))) {
             rejected++;
             triedAnswers.push(modelAnswer || '(no answer)');
             continue;

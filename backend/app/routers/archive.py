@@ -23,7 +23,6 @@ from ..routers.puzzle import (
     _guest_give_up_event,
     _hint_items,
     _length_penalty,
-    _letter_feedback,
     _puzzle_completion_stats,
     _puzzle_to_response,
 )
@@ -333,7 +332,6 @@ def archive_attempt(
             score=None,
             incorrect_guesses=0,
             solved=False,
-            letter_feedback=_letter_feedback(puzzle, body.guess),
         )
 
     attempt = _ensure_attempt(user.id, puzzle.id, db)
@@ -420,7 +418,6 @@ def archive_attempt(
             score=None,
             incorrect_guesses=attempt.incorrect_guesses,
             solved=False,
-            letter_feedback=_letter_feedback(puzzle, body.guess),
         )
 
 

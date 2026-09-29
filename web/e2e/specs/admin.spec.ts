@@ -396,11 +396,6 @@ test.describe('Admin puzzle CRUD', () => {
             await expect(page.getByTestId('word-ladder-v2-builder')).toBeVisible();
             await page.getByTestId('ladder-v2-start').fill('cold');
             await page.getByTestId('ladder-v2-end').fill('warm');
-            await page.getByTestId('ladder-v2-reference-word').fill('cord');
-            await page.getByRole('button', { name: 'Add after' }).click();
-            await page.getByTestId('ladder-v2-reference-word').nth(1).fill('card');
-            await page.getByRole('button', { name: 'Add after' }).nth(1).click();
-            await page.getByTestId('ladder-v2-reference-word').nth(2).fill('ward');
             await saveAndExpectPuzzle(page, 'E2E Builder Ladder V2', '2099-11-12');
         });
 

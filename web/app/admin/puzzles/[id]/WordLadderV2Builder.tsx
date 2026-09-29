@@ -19,20 +19,12 @@ export default function WordLadderV2Builder({ question, answer, onChange }: Prop
     const initialEndpoints = splitWords(question);
     const [start, setStart] = useState(initialEndpoints[0] ?? 'cold');
     const [end, setEnd] = useState(initialEndpoints[1] ?? 'warm');
-    const [words, setWords] = useState(() => {
-        const initialWords = splitWords(answer);
-        return initialWords.length ? initialWords : ['cord'];
-    });
+    const [savedRoute] = useState(answer);
 
     useEffect(() => {
-        onChange(`${start}, ${end}`, words.join(', '));
-    }, [end, onChange, start, words]);
-
-    function setWord(index: number, value: string) {
-        setWords((current) =>
-            current.map((word, wordIndex) => (wordIndex === index ? value.replace(/,/g, '') : word))
-        );
-    }
+        // The server replaces the answer with the computed shortest route on save.
+        onChange(`${start}, ${end}`, '');
+    }, [end, onChange, start]);
 
     return (
         <div
@@ -49,46 +41,6 @@ export default function WordLadderV2Builder({ question, answer, onChange }: Prop
                     style={{ width: '100%' }}
                 />
             </label>
-            {words.map((word, index) => (
-                <div key={index} style={{ display: 'flex', gap: 8 }}>
-                    <input
-                        value={word}
-                        onChange={(event) => setWord(index, event.target.value)}
-                        required
-                        aria-label={`Reference word ${index + 1}`}
-                        data-testid="ladder-v2-reference-word"
-                        style={{ flex: 1 }}
-                    />
-                    <button
-                        type="button"
-                        className="action-btn"
-                        onClick={() =>
-                            setWords((current) => [
-                                ...current.slice(0, index + 1),
-                                '',
-                                ...current.slice(index + 1),
-                            ])
-                        }
-                        style={{ width: 'auto', padding: '4px 10px' }}
-                    >
-                        Add after
-                    </button>
-                    {words.length > 1 && (
-                        <button
-                            type="button"
-                            className="action-btn"
-                            onClick={() =>
-                                setWords((current) =>
-                                    current.filter((_, wordIndex) => wordIndex !== index)
-                                )
-                            }
-                            style={{ width: 'auto', padding: '4px 10px' }}
-                        >
-                            Remove
-                        </button>
-                    )}
-                </div>
-            ))}
             <label>
                 End word
                 <input
@@ -99,8 +51,11 @@ export default function WordLadderV2Builder({ question, answer, onChange }: Prop
                     style={{ width: '100%' }}
                 />
             </label>
+            {savedRoute && (
+                <div data-testid="ladder-v2-saved-route">Saved shortest route: {savedRoute}</div>
+            )}
             <div className="muted" style={{ fontSize: '0.9em' }}>
-                The reference path controls green letter feedback. Players may submit any valid
+                The shortest route is calculated when you save. Players may submit any valid
                 dictionary path.
             </div>
         </div>
