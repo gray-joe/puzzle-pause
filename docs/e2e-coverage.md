@@ -34,6 +34,7 @@ All 16 player-facing puzzle types now have dedicated archive specs. Seed archive
 | numgrid       | `numgrid.spec.ts`      | 6          | render, numeric input, hint, solve |
 | match         | `match.spec.ts`        | 7          | render, pairing, wrong/correct submit, solve |
 | scrabble      | `scrabble.spec.ts`     | 11         | render, modifiers, hint, solve |
+| crossword     | `crossword.spec.ts`    | 31         | render, typing/direction, wrong guess, hint, solve |
 
 Admin puzzle builders for every type (including `clue-reveal` and `image-word`) are covered in `admin.spec.ts`.
 

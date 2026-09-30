@@ -110,7 +110,12 @@ export default function ChoiceBuilder({ question, answer, onChange }: Props) {
                     data-testid="choice-prompt"
                     placeholder="Which planet is largest?"
                     rows={3}
-                    style={{ width: '100%', maxWidth: 680, resize: 'vertical', fontFamily: 'inherit' }}
+                    style={{
+                        width: '100%',
+                        maxWidth: 680,
+                        resize: 'vertical',
+                        fontFamily: 'inherit',
+                    }}
                 />
             </div>
 

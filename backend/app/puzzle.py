@@ -98,7 +98,9 @@ def calculate_archive_score(
     length_penalty: int = 0,
 ) -> int:
     return max(
-        calculate_score(opened_at, solved_at, incorrect_guesses, hints_used, length_penalty)
+        calculate_score(
+            opened_at, solved_at, incorrect_guesses, hints_used, length_penalty
+        )
         - 10,
         10,
     )

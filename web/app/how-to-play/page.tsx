@@ -55,7 +55,8 @@ const PUZZLE_TYPES: { name: string; description: string }[] = [
     },
     {
         name: 'Number Grid',
-        description: 'Work out the pattern in a grid of numbers and fill in the one that is missing.',
+        description:
+            'Work out the pattern in a grid of numbers and fill in the one that is missing.',
     },
     {
         name: 'Scrabble',
@@ -81,6 +82,11 @@ const PUZZLE_TYPES: { name: string; description: string }[] = [
         name: 'Chess',
         description: 'Find the correct move in the given chess position.',
     },
+    {
+        name: 'Crossword',
+        description:
+            'Fill the grid using the across and down clues, then submit the completed grid.',
+    },
 ];
 
 export default async function HowToPlayPage() {
@@ -91,16 +97,15 @@ export default async function HowToPlayPage() {
             <main className="privacy-content">
                 <h1>How to Play</h1>
                 <p>
-                    Every day there&apos;s a new puzzle, drawn from one of the types below. Solve
-                    it as quickly as you can, with as few wrong guesses and hints as possible.
+                    Every day there&apos;s a new puzzle, drawn from one of the types below. Solve it
+                    as quickly as you can, with as few wrong guesses and hints as possible.
                 </p>
 
                 <h2>Scoring</h2>
                 <p>
-                    Solve within 10 minutes for 100 points, 15 minutes for 90, 30 minutes for 75,
-                    or 60 minutes for 50. Each wrong guess costs 5 points, and each hint costs 10
-                    points. Archived puzzles score the same way, with a further 10 point
-                    deduction.
+                    Solve within 10 minutes for 100 points, 15 minutes for 90, 30 minutes for 75, or
+                    60 minutes for 50. Each wrong guess costs 5 points, and each hint costs 10
+                    points. Archived puzzles score the same way, with a further 10 point deduction.
                 </p>
 
                 {PUZZLE_TYPES.map((type) => (

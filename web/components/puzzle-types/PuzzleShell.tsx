@@ -20,6 +20,7 @@ import CountdownPuzzle from './CountdownPuzzle';
 import ClueRevealPuzzle from './ClueRevealPuzzle';
 import ChessPuzzle from './ChessPuzzle';
 import WordLadderV2Puzzle from './WordLadderV2Puzzle';
+import CrosswordPuzzle from './CrosswordPuzzle';
 import ResultPanel from './ResultPanel';
 
 interface Props {
@@ -230,8 +231,7 @@ export default function PuzzleShell({
                 )}
                 {lengthPenaltyApplied && (
                     <div className="content-meta muted-dark" data-testid="length-penalty-note">
-                        A shorter route existed for this ladder, so a 10 point penalty was
-                        applied.
+                        A shorter route existed for this ladder, so a 10 point penalty was applied.
                     </div>
                 )}
                 {statsLines && (
@@ -376,6 +376,8 @@ function PuzzleTypeRenderer(props: {
             return <ClueRevealPuzzle {...props} />;
         case 'chess':
             return <ChessPuzzle {...props} />;
+        case 'crossword':
+            return <CrosswordPuzzle {...props} />;
         default:
             return <WordPuzzle {...props} />;
     }

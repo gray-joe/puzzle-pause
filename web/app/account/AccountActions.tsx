@@ -151,7 +151,11 @@ export default function AccountActions({
                 </button>
             )}
 
-            <Link href="/how-to-play" className="action-btn secondary" data-testid="how-to-play-link">
+            <Link
+                href="/how-to-play"
+                className="action-btn secondary"
+                data-testid="how-to-play-link"
+            >
                 <span className="gt">&gt;</span>How to Play
             </Link>
 

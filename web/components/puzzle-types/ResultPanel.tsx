@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { api, Puzzle, AttemptDetail } from '@/lib/api';
+import { CrosswordSolution } from './CrosswordPuzzle';
 
 interface Props {
     puzzle: Puzzle;
@@ -184,7 +185,12 @@ export default function ResultPanel({
 
     return (
         <div style={{ marginTop: 24 }} data-testid="result-panel">
-            {matchPairs ? (
+            {puzzle.puzzle_type === 'crossword' && answer ? (
+                <div style={{ marginBottom: 16 }} data-testid="result-answer">
+                    {gaveUp ? 'The solution was:' : 'Congratulations! The solution was:'}
+                    <CrosswordSolution question={puzzle.question} answer={answer} />
+                </div>
+            ) : matchPairs ? (
                 <div style={{ marginBottom: 16 }} data-testid="result-answer">
                     <div style={{ marginBottom: 8 }}>
                         {gaveUp

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import ConnectionsBuilder from '../ConnectionsBuilder';
 import CountdownBuilder from '../CountdownBuilder';
 import ChoiceBuilder from '../ChoiceBuilder';
+import CrosswordBuilder from '../CrosswordBuilder';
 
 afterEach(cleanup);
 
@@ -29,11 +30,7 @@ describe('ChoiceBuilder', () => {
 
     it('loads an existing multi-line prompt from a saved question', () => {
         render(
-            <ChoiceBuilder
-                question={'Line one\nLine two|Red|Blue'}
-                answer="A"
-                onChange={vi.fn()}
-            />
+            <ChoiceBuilder question={'Line one\nLine two|Red|Blue'} answer="A" onChange={vi.fn()} />
         );
 
         const prompt = screen.getByTestId('choice-prompt') as HTMLTextAreaElement;
@@ -136,5 +133,40 @@ describe('CountdownBuilder', () => {
             expect(nextAnswer).toBe('100');
         });
         expect(screen.getByTestId('countdown-answer')).toHaveValue('100');
+    });
+});
+
+describe('CrosswordBuilder', () => {
+    const layout = ['...', '.#.', '...'];
+
+    it('keeps clues on their words when the grid renumbers', async () => {
+        const onChange = vi.fn();
+        const question = JSON.stringify({
+            prompt: 'Mini',
+            layout,
+            clues: { across: { 1: 'Feline', 3: 'Ribbon knot' }, down: { 1: 'Taxi', 2: 'Tow' } },
+        });
+        render(<CrosswordBuilder question={question} answer="CATA#OBOW" onChange={onChange} />);
+
+        fireEvent.change(screen.getByTestId('crossword-grid-input'), {
+            target: { value: 'DOG\nCAT\nA#O\nBOW' },
+        });
+
+        await waitFor(() => {
+            const saved = JSON.parse(onChange.mock.calls.at(-1)![0]);
+            expect(saved.clues.across).toEqual({ 1: '', 4: 'Feline', 5: 'Ribbon knot' });
+        });
+    });
+
+    it('loads a saved question with no clues without crashing', () => {
+        render(
+            <CrosswordBuilder
+                question={JSON.stringify({ prompt: 'Mini', layout })}
+                answer="CATA#OBOW"
+                onChange={vi.fn()}
+            />
+        );
+
+        expect((screen.getByTestId('crossword-clue-across-1') as HTMLInputElement).value).toBe('');
     });
 });

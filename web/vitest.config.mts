@@ -15,6 +15,6 @@ export default defineConfig({
     test: {
         environment: 'happy-dom',
         setupFiles: ['./vitest.setup.mts'],
-        exclude: ['e2e/**', 'node_modules/**'],
+        exclude: ['e2e/**', 'benchmark/**', 'node_modules/**'],
     },
 });
