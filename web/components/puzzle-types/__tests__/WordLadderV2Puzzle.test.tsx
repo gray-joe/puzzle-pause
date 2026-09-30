@@ -50,16 +50,12 @@ describe('WordLadderV2Puzzle', () => {
         const input = screen.getByTestId('ladder-v2-input');
 
         await userEvent.type(input, 'cord');
-        expect(screen.getByTestId('ladder-v2-letters-0')).toHaveClass(
-            'ladder-grid-boxes--valid'
-        );
+        expect(screen.getByTestId('ladder-v2-letters-0')).toHaveClass('ladder-grid-boxes--valid');
         expect(screen.queryByTestId('ladder-v2-hint-0')).not.toBeInTheDocument();
 
         await userEvent.clear(input);
         await userEvent.type(input, 'warp');
-        expect(screen.getByTestId('ladder-v2-letters-0')).toHaveClass(
-            'ladder-grid-boxes--invalid'
-        );
+        expect(screen.getByTestId('ladder-v2-letters-0')).toHaveClass('ladder-grid-boxes--invalid');
         expect(screen.getByTestId('ladder-v2-hint-0')).toBeInTheDocument();
     });
 

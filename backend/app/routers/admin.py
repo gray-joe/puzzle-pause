@@ -36,6 +36,7 @@ VALID_TYPES = {
     "clue-reveal",
     "chess",
     "word-ladder-v2",
+    "crossword",
 }
 
 

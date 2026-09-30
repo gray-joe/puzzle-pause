@@ -47,7 +47,10 @@ describe('ArchivePuzzleActions', () => {
     // renders more group buttons than `groups` has entries for.
     it('does not crash when switching to a different connections puzzle with more categories', () => {
         const { rerender } = render(
-            <ArchivePuzzleActions puzzle={connectionsPuzzle({ id: 1, total_hints: 2 })} isLoggedIn={false} />
+            <ArchivePuzzleActions
+                puzzle={connectionsPuzzle({ id: 1, total_hints: 2 })}
+                isLoggedIn={false}
+            />
         );
         expect(screen.getByText('Group 1 (0)')).toBeInTheDocument();
 

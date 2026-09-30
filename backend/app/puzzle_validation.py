@@ -35,6 +35,7 @@ def validate_puzzle(puzzle_type: str, question: str, answer: str) -> None:
         "clue-reveal": _validate_clue_reveal,
         "chess": _validate_chess,
         "word-ladder-v2": _validate_word_ladder_v2,
+        "crossword": _validate_crossword,
     }
     validator = validators.get(puzzle_type)
     if validator:
@@ -291,6 +292,79 @@ def _validate_chess(question: str, answer: str) -> None:
 def _validate_word_ladder_v2(question: str, answer: str) -> None:
     """word-ladder-v2 — two endpoints and a dictionary-valid reference path."""
     validate_word_ladder_v2_puzzle(question, answer)
+
+
+def crossword_numbers(layout: list[str]) -> tuple[list[str], list[str]]:
+    """Return (across, down) clue numbers for a layout of '.' (white) and '#' (black)."""
+    across: list[str] = []
+    down: list[str] = []
+    n = 0
+    rows, cols = len(layout), len(layout[0])
+
+    def white(r: int, c: int) -> bool:
+        return 0 <= r < rows and 0 <= c < cols and layout[r][c] == "."
+
+    for r in range(rows):
+        for c in range(cols):
+            if not white(r, c):
+                continue
+            starts_across = not white(r, c - 1) and white(r, c + 1)
+            starts_down = not white(r - 1, c) and white(r + 1, c)
+            if starts_across or starts_down:
+                n += 1
+                if starts_across:
+                    across.append(str(n))
+                if starts_down:
+                    down.append(str(n))
+    return across, down
+
+
+def _validate_crossword(question: str, answer: str) -> None:
+    """crossword — JSON with layout ('.'/'#' rows) and across/down clues; answer is the
+    grid row-major with '#' for blacks (e.g. 'CAT#...')."""
+    data = _parse_json_question(question, ["prompt", "layout", "clues"])
+    layout = data["layout"]
+    if not isinstance(layout, list) or not all(isinstance(r, str) for r in layout):
+        raise ValueError("crossword question 'layout' must be an array of strings")
+    if not 3 <= len(layout) <= 15:
+        raise ValueError("crossword layout must have 3–15 rows")
+    cols = len(layout[0])
+    if not 3 <= cols <= 15 or any(len(r) != cols for r in layout):
+        raise ValueError("crossword layout rows must all be the same length (3–15)")
+    if any(ch not in ".#" for r in layout for ch in r):
+        raise ValueError("crossword layout may only contain '.' and '#'")
+
+    expected = "".join(layout)
+    if len(answer) != len(expected):
+        raise ValueError(
+            f"crossword answer must be {len(expected)} characters (rows × cols), got {len(answer)}"
+        )
+    for i, (lay, ans) in enumerate(zip(expected, answer)):
+        if (lay == "#") != (ans == "#"):
+            raise ValueError(
+                f"crossword answer black squares must match layout (cell {i})"
+            )
+        if lay == "." and not re.fullmatch(r"[A-Z]", ans):
+            raise ValueError(
+                f"crossword answer letters must be uppercase A–Z (cell {i})"
+            )
+
+    clues = data["clues"]
+    if not isinstance(clues, dict):
+        raise ValueError("crossword question 'clues' must be an object")
+    across, down = crossword_numbers(layout)
+    if not across and not down:
+        raise ValueError("crossword layout has no words")
+    for direction, numbers in (("across", across), ("down", down)):
+        given = clues.get(direction, {})
+        if not isinstance(given, dict):
+            raise ValueError(f"crossword clues.{direction} must be an object")
+        if set(given) != set(numbers):
+            raise ValueError(
+                f"crossword {direction} clues must be numbered {', '.join(numbers) or '(none)'}"
+            )
+        if any(not isinstance(v, str) or not v.strip() for v in given.values()):
+            raise ValueError(f"crossword {direction} clues must be non-empty strings")
 
 
 def _validate_clue_reveal(question: str, answer: str) -> None:

@@ -138,14 +138,20 @@ class TestConnections:
 
     def test_guest_hint_progresses_through_categories(self, client, db):
         _make_connections_puzzle(db)
-        first = client.post("/api/puzzle/hint", json={"puzzle_id": 1, "hints_revealed": 0})
-        second = client.post("/api/puzzle/hint", json={"puzzle_id": 1, "hints_revealed": 1})
+        first = client.post(
+            "/api/puzzle/hint", json={"puzzle_id": 1, "hints_revealed": 0}
+        )
+        second = client.post(
+            "/api/puzzle/hint", json={"puzzle_id": 1, "hints_revealed": 1}
+        )
         assert first.json()["hint"] == "Snakes"
         assert second.json()["hint"] == "Languages"
 
     def test_guest_hint_exhausted_returns_404(self, client, db):
         _make_connections_puzzle(db)
-        resp = client.post("/api/puzzle/hint", json={"puzzle_id": 1, "hints_revealed": 2})
+        resp = client.post(
+            "/api/puzzle/hint", json={"puzzle_id": 1, "hints_revealed": 2}
+        )
         assert resp.status_code == 404
 
     def test_today_response_hint_used_is_a_count_not_a_bool(self, client, db):
@@ -295,7 +301,9 @@ class TestEnsureAttemptRace:
             other_db.commit()
             other_db.close()
             monkeypatch.setattr(db, "commit", real_commit)
-            raise IntegrityError("INSERT INTO attempts ...", {}, Exception("UNIQUE constraint failed"))
+            raise IntegrityError(
+                "INSERT INTO attempts ...", {}, Exception("UNIQUE constraint failed")
+            )
 
         monkeypatch.setattr(db, "commit", commit_after_concurrent_insert)
 
@@ -432,9 +440,7 @@ class TestAttempt:
         assert resp.status_code == 200
         assert resp.json()["correct"] is False
 
-    def test_word_ladder_v2_accepts_valid_path(
-        self, client, db
-    ):
+    def test_word_ladder_v2_accepts_valid_path(self, client, db):
         puzzle = Puzzle(
             puzzle_date=date.today().isoformat(),
             puzzle_type="word-ladder-v2",

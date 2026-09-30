@@ -690,10 +690,12 @@ class TestArchiveHint:
     def test_guest_hint_progresses_through_categories(self, client, db):
         puzzle = _make_connections_puzzle(db)
         first = client.post(
-            f"/api/archive/{puzzle.id}/hint", json={"puzzle_id": puzzle.id, "hints_revealed": 0}
+            f"/api/archive/{puzzle.id}/hint",
+            json={"puzzle_id": puzzle.id, "hints_revealed": 0},
         )
         second = client.post(
-            f"/api/archive/{puzzle.id}/hint", json={"puzzle_id": puzzle.id, "hints_revealed": 1}
+            f"/api/archive/{puzzle.id}/hint",
+            json={"puzzle_id": puzzle.id, "hints_revealed": 1},
         )
         assert first.json()["hint"] == "Snakes"
         assert second.json()["hint"] == "Languages"
@@ -701,7 +703,8 @@ class TestArchiveHint:
     def test_guest_hint_exhausted_returns_404(self, client, db):
         puzzle = _make_connections_puzzle(db)
         resp = client.post(
-            f"/api/archive/{puzzle.id}/hint", json={"puzzle_id": puzzle.id, "hints_revealed": 2}
+            f"/api/archive/{puzzle.id}/hint",
+            json={"puzzle_id": puzzle.id, "hints_revealed": 2},
         )
         assert resp.status_code == 404
 

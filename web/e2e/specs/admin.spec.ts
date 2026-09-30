@@ -416,6 +416,31 @@ test.describe('Admin puzzle CRUD', () => {
             await saveAndExpectPuzzle(page, 'E2E Builder Chess', '2099-11-13');
         });
 
+        await test.step('crossword builder keeps clues on their words', async () => {
+            const clue = (dir: string, n: number) => page.getByTestId(`crossword-clue-${dir}-${n}`);
+            await startNewAdminPuzzle(page, '2099-11-14', 'crossword', 'E2E Builder Crossword');
+            await expect(page.getByTestId('crossword-builder')).toBeVisible();
+            await page.getByTestId('crossword-grid-input').fill('CAT\nA#O\nBOW');
+            await clue('across', 1).fill('Feline');
+            await clue('across', 3).fill('Bend at the waist');
+
+            // A new top row renumbers every word: CAT becomes 4 across, BOW 5 across.
+            await page.getByTestId('crossword-grid-input').fill('DOG\nCAT\nA#O\nBOW');
+            await expect(clue('across', 4)).toHaveValue('Feline');
+            await expect(clue('across', 5)).toHaveValue('Bend at the waist');
+            await expect(clue('across', 1)).toHaveValue('');
+            await clue('across', 1).fill('Hound');
+            for (const n of [1, 2, 3]) await clue('down', n).fill(`Down ${n}`);
+            await saveAndExpectPuzzle(page, 'E2E Builder Crossword', '2099-11-14');
+
+            await page
+                .locator('tbody tr', { hasText: 'E2E Builder Crossword' })
+                .getByRole('link', { name: 'edit' })
+                .click();
+            await expect(clue('across', 4)).toHaveValue('Feline');
+            await expect(clue('down', 2)).toHaveValue('Down 2');
+        });
+
         await test.step('choice builder', async () => {
             await startNewAdminPuzzle(page, '2099-11-04', 'choice', 'E2E Builder Choice');
             await expect(page.getByTestId('choice-builder')).toBeVisible();

@@ -116,8 +116,8 @@ def _search(start: str, end: str, min_zipf: float) -> tuple[str, ...] | None:
                 parents[candidate] = word
                 if candidate == end:
                     path = [candidate]
-                    while parents[path[-1]] is not None:
-                        path.append(parents[path[-1]])
+                    while (parent := parents[path[-1]]) is not None:
+                        path.append(parent)
                     return tuple(reversed(path))
                 queue.append(candidate)
     return None

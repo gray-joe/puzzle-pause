@@ -16,6 +16,7 @@ import WordLadderBuilder from './WordLadderBuilder';
 import WordLadderV2Builder from './WordLadderV2Builder';
 import WordWheelBuilder from './WordWheelBuilder';
 import ChessBuilder from './ChessBuilder';
+import CrosswordBuilder from './CrosswordBuilder';
 
 const PUZZLE_TYPES = [
     'word',
@@ -36,6 +37,7 @@ const PUZZLE_TYPES = [
     'clue-reveal',
     'chess',
     'word-ladder-v2',
+    'crossword',
 ];
 
 const QUESTION_HINTS: Record<string, string> = {
@@ -62,6 +64,8 @@ const QUESTION_HINTS: Record<string, string> = {
         '{"prompt":"Who am I?","clues":["First clue (always visible)","Second clue (-10 pts to reveal)","Third clue (-10 pts to reveal)"]}',
     chess: '{"fen":"r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 4 4"}',
     'word-ladder-v2': 'start, end',
+    crossword:
+        '{"prompt":"Mini crossword","layout":["...",".#.","..."],"clues":{"across":{"1":"...","3":"..."},"down":{"1":"...","2":"..."}}}',
 };
 
 interface Props {
@@ -125,6 +129,10 @@ export default function PuzzleForm({ puzzle }: Props) {
     }, []);
 
     const handleWordWheelChange = useCallback((question: string, answer: string) => {
+        setForm((prev) => ({ ...prev, question, answer }));
+    }, []);
+
+    const handleCrosswordChange = useCallback((question: string, answer: string) => {
         setForm((prev) => ({ ...prev, question, answer }));
     }, []);
 
@@ -221,6 +229,10 @@ export default function PuzzleForm({ puzzle }: Props) {
         }
         if (form.puzzle_type === 'word-wheel' && !form.answer.trim()) {
             setError('At least one answer word is required');
+            return;
+        }
+        if (form.puzzle_type === 'crossword' && !form.answer.trim()) {
+            setError('Crossword grid is required');
             return;
         }
         if (form.puzzle_type === 'chess' && !form.answer.trim()) {
@@ -394,6 +406,17 @@ export default function PuzzleForm({ puzzle }: Props) {
                         question={form.question}
                         answer={form.answer}
                         onChange={handleWordLadderChange}
+                    />
+                </div>
+            ) : form.puzzle_type === 'crossword' ? (
+                <div style={fieldStyle}>
+                    <label style={labelStyle}>
+                        <span className="gt">&gt;</span> Crossword Builder
+                    </label>
+                    <CrosswordBuilder
+                        question={form.question}
+                        answer={form.answer}
+                        onChange={handleCrosswordChange}
                     />
                 </div>
             ) : form.puzzle_type === 'numgrid' ? (

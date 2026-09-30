@@ -278,6 +278,15 @@ SEED_PUZZLES = [
         "answer": "0,1|2,3|4,5|6,7|8,9",
         "hint": "One category you can paint with",
     },
+    {
+        "days_ago": 29,
+        "puzzle_type": "crossword",
+        "puzzle_name": "Mini Crossword",
+        "question": '{"prompt":"Fill in the grid:","layout":["...",".#.","..."],"clues":{"across":{"1":"Feline pet","3":"Take a ___ (curtain call)"},"down":{"1":"Yellow taxi","2":"Pull a broken-down car"}}}',
+        "answer": "CATA#OBOW",
+        "hint": "1 Across purrs",
+        "explanation": "CAT and BOW across; CAB and TOW down.",
+    },
 ]
 
 SEED_USERS = [

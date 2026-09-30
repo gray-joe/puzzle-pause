@@ -173,7 +173,7 @@ def _ensure_attempt(user_id: int, puzzle_id: int, db: Session) -> Attempt:
                     Attempt.user_id == user_id,
                     Attempt.puzzle_id == puzzle_id,
                 )
-                .first()
+                .one()
             )
         else:
             db.refresh(attempt)

@@ -138,21 +138,23 @@ export default function WordLadderV2Puzzle({ puzzle, solved, onSubmit, loading }
                                         data-testid={`ladder-v2-letters-${index}`}
                                         data-step-status={status}
                                     >
-                                        {Array.from({ length: wordLength }).map((_, letterIndex) => {
-                                            const letter = row.word[letterIndex];
-                                            const hint = hints[letterIndex];
-                                            return (
-                                                <div
-                                                    key={letterIndex}
-                                                    className={`ladder-grid-box${
-                                                        hint ? ` ladder-grid-box--${hint}` : ''
-                                                    }`}
-                                                    data-hint={hint}
-                                                >
-                                                    {letter ? letter.toUpperCase() : ''}
-                                                </div>
-                                            );
-                                        })}
+                                        {Array.from({ length: wordLength }).map(
+                                            (_, letterIndex) => {
+                                                const letter = row.word[letterIndex];
+                                                const hint = hints[letterIndex];
+                                                return (
+                                                    <div
+                                                        key={letterIndex}
+                                                        className={`ladder-grid-box${
+                                                            hint ? ` ladder-grid-box--${hint}` : ''
+                                                        }`}
+                                                        data-hint={hint}
+                                                    >
+                                                        {letter ? letter.toUpperCase() : ''}
+                                                    </div>
+                                                );
+                                            }
+                                        )}
                                     </div>
                                     <input
                                         className="ladder-grid-input"

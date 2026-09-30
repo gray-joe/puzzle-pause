@@ -29,7 +29,7 @@ covered:
   single-field flow can't drive.
 - `image-word` — the puzzle is an image; needs a vision input, not text.
 - Types with other custom interactions (choice, connections, order, match, image-tap, image-order,
-  chess, word-ladder-v2).
+  chess, word-ladder-v2, crossword).
 
 Layout is lossy in the text form (e.g. a numgrid arrives as a flat list of cells, scrabble's board and
 rack as consecutive lines), so scores for those types partly measure that, not just the model.
